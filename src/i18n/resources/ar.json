@@ -150,6 +150,9 @@
           "visual-tweaks": {
             "label": "تعديلات المظهر",
             "submenu": {
+              "custom-window-title": {
+                "label": "عنوان نافذة مخصص"
+              },
               "like-buttons": {
                 "default": "الافتراضي",
                 "force-show": "اجبار الظهور",
@@ -845,6 +848,17 @@
     "touchbar": {
       "description": "يضيف أداة TouchBar لمستخدمي macOS",
       "name": "شريط اللمس (TouchBar)"
+    },
+    "transparent-player": {
+      "menu": {
+        "type": {
+          "submenu": {
+            "acrylic": "زجاجي",
+            "mica": "حجري",
+            "none": "لاشيء"
+          }
+        }
+      }
     },
     "tuna-obs": {
       "description": "التكامل مع الإضافة\" Tuna\" الخاصة بـ OBS",
