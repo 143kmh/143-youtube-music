@@ -150,6 +150,13 @@
           "visual-tweaks": {
             "label": "Megjelenési beállítások",
             "submenu": {
+              "custom-window-title": {
+                "label": "Saját ablak cím",
+                "prompt": {
+                  "label": "Kérem az egyéni ablak címét: (hagyd üresen a kikapcsoláshoz)",
+                  "placeholder": "Példa: Youtube Music"
+                }
+              },
               "like-buttons": {
                 "default": "Alapértelmezett",
                 "force-show": "Megjelenítés kényszerítése",
@@ -332,6 +339,13 @@
     "audio-compressor": {
       "description": "Hang tömörítés alkalmazása (csökkenti a jel legzajosabb részeinek hangerősségét, és emeli a legcsendesebb részek hangerősségét)",
       "name": "Hangtömörítő"
+    },
+    "auth-proxy-adapter": {
+      "menu": {
+        "port": {
+          "label": "Port"
+        }
+      }
     },
     "blur-nav-bar": {
       "description": "Átlátszóvá és elmosódottá teszi a navigációs sávot",
