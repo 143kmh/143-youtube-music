@@ -124,7 +124,7 @@
           "language": {
             "dialog": {
               "message": "Bahasa akan ditukar selepas dimulakan semula",
-              "title": "Bahasa Berubah"
+              "title": "Bahasa diubah"
             },
             "label": "Bahasa",
             "submenu": {
@@ -150,11 +150,16 @@
           "visual-tweaks": {
             "label": "Pembaikan Visual",
             "submenu": {
+              "custom-window-title": {
+                "prompt": {
+                  "placeholder": "Contoh: YouTube Music"
+                }
+              },
               "like-buttons": {
                 "default": "Lalai",
                 "force-show": "Paksa pamer",
                 "hide": "Sembunyi",
-                "label": "Suka butang"
+                "label": "Butang suka"
               },
               "remove-upgrade-button": "Buang butang naik taraf",
               "theme": {
@@ -271,7 +276,10 @@
       "name": "Mod Sekitaran"
     },
     "amuse": {
-      "description": "Menambahkan sokongan YouTube Music untuk widget sedang dimain Amuse oleh 6K Labs"
+      "description": "Menambahkan sokongan YouTube Music untuk widget sedang dimain Amuse oleh 6K Labs",
+      "response": {
+        "query": "API server Amuse telah berjalan. GET /query untuk mendapatkan maklumat lagu."
+      }
     },
     "api-server": {
       "description": "Perlukan server API untuk mengawal pemain",
@@ -321,9 +329,20 @@
       "name": "Pemampat Audio"
     },
     "auth-proxy-adapter": {
+      "description": "Sokongan untuk penggunaan perkhidmatan proksi pengesahan",
       "menu": {
+        "disable": "Matikan adapter proksi",
+        "enable": "Nyalakan adapter proksi",
         "hostname": {
           "label": "Nama perumah"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "prompt": {
+        "hostname": {
+          "label": "Nyatakan nama hos untuk server proksi tempatan (memerlukan mulakan semula):"
         }
       }
     },
@@ -347,6 +366,13 @@
           "none": "Tiada",
           "title": "Pilih bahasa kapsyen"
         }
+      }
+    },
+    "discord": {
+      "description": "Tunjukkan kepada rakan anda perkara yang anda dengar dengan Rich Presence",
+      "menu": {
+        "connected": "Tersambung",
+        "disconnected": "Tidak disambungkan"
       }
     },
     "synced-lyrics": {
