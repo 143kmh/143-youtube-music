@@ -169,12 +169,45 @@
                   "button": {
                     "cancel": "Zrušiť",
                     "remove": "Odstrániť"
-                  }
+                  },
+                  "remove-theme": "Ste si istý že chcete odstrániť tento vlastný štýl?",
+                  "remove-theme-message": "Toto odstráni vlastný štýl"
+                },
+                "label": "Štýl",
+                "submenu": {
+                  "import-css-file": "Nahrať vlasný CSS súbor",
+                  "no-theme": "Žiadny štýl"
                 }
               }
             }
           }
         }
+      },
+      "plugins": {
+        "enabled": "Zapnuté",
+        "new": "NOVÝ"
+      },
+      "view": {
+        "submenu": {
+          "force-reload": "Natvrdo obnoviť",
+          "reload": "Obnoviť",
+          "reset-zoom": "Ozajstná veľkosť",
+          "toggle-fullscreen": "Prepnúť režim Celej Obrazovky",
+          "zoom-in": "Priblížiť",
+          "zoom-out": "Oddialiť"
+        }
+      }
+    },
+    "tray": {
+      "next": "Ďalšie",
+      "play-pause": "Prehrať/Pozastaviť",
+      "previous": "Predcházdajúce",
+      "quit": "Skončiť",
+      "restart": "Reštartovať aplikáciu",
+      "show": "Zobraziť okno",
+      "tooltip": {
+        "default": "YouTube Hudba",
+        "with-song-info": "Youtube Hudba: {{artist}} - {{title}}"
       }
     }
   }
