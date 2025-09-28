@@ -422,6 +422,7 @@
       }
     },
     "custom-output-device": {
+      "description": "Atur perangkat media keluaran khusus untuk lagu-lagu",
       "menu": {
         "device-selector": "Pilih Perangkat"
       },
