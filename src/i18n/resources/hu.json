@@ -342,6 +342,9 @@
     },
     "auth-proxy-adapter": {
       "menu": {
+        "hostname": {
+          "label": "Gazdanév"
+        },
         "port": {
           "label": "Port"
         }
