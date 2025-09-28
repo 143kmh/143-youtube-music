@@ -151,7 +151,9 @@
             "label": "Pembaikan Visual",
             "submenu": {
               "custom-window-title": {
+                "label": "Tajuk tetingkap tersuai",
                 "prompt": {
+                  "label": "Masukkan tajuk tetingkap tersuai: (biarkan kosong untuk matikan)",
                   "placeholder": "Contoh: YouTube Music"
                 }
               },
@@ -248,8 +250,17 @@
             "pixels": "{{blurAmount}}piksel"
           }
         },
+        "buffer": {
+          "label": "Buffer",
+          "submenu": {
+            "buffer": "{{buffer}}"
+          }
+        },
         "opacity": {
-          "label": "Kelegapan"
+          "label": "Kelegapan",
+          "submenu": {
+            "percent": "{{opacity}}%"
+          }
         },
         "quality": {
           "label": "Kualiti",
@@ -277,6 +288,7 @@
     },
     "amuse": {
       "description": "Menambahkan sokongan YouTube Music untuk widget sedang dimain Amuse oleh 6K Labs",
+      "name": "Terhibur",
       "response": {
         "query": "API server Amuse telah berjalan. GET /query untuk mendapatkan maklumat lagu."
       }
@@ -340,13 +352,20 @@
           "label": "Port"
         }
       },
+      "name": "Adapter Auth Proksi",
       "prompt": {
         "hostname": {
-          "label": "Nyatakan nama hos untuk server proksi tempatan (memerlukan mulakan semula):"
+          "label": "Nyatakan nama hos untuk server proksi tempatan (memerlukan mulakan semula):",
+          "title": "Nama hos proksi"
+        },
+        "port": {
+          "label": "Masukkan port untuk server proksi tempatan (memerlukan restart):",
+          "title": "Port Proksi"
         }
       }
     },
     "blur-nav-bar": {
+      "description": "Menjadikan bar navigasi telus dan kabur",
       "name": "Kaburkan Bar navigasi"
     },
     "bypass-age-restrictions": {
@@ -366,6 +385,14 @@
           "none": "Tiada",
           "title": "Pilih bahasa kapsyen"
         }
+      },
+      "templates": {
+        "title": "Buka pemilih kapsyen"
+      },
+      "toast": {
+        "caption-changed": "Sarikata berubah kepada {{language}}",
+        "caption-disabled": "Sarikata dimatikan",
+        "no-captions": "Tiada sarikata untuk lagu ini"
       }
     },
     "compact-sidebar": {
@@ -374,25 +401,89 @@
     },
     "crossfade": {
       "description": "Pudar silang antara lagu",
+      "menu": {
+        "advanced": "Maju"
+      },
       "name": "Pudar Selang [Beta]",
       "prompt": {
         "options": {
           "multi-input": {
-            "fade-in-duration": "Pudar dalam tempoh (ms)"
-          }
+            "fade-in-duration": "Pudar dalam tempoh (ms)",
+            "fade-out-duration": "Tempoh pudar (ms)",
+            "fade-scaling": {
+              "label": "Penskalaan pudar",
+              "linear": "Linear",
+              "logarithmic": "Logaritma"
+            },
+            "seconds-before-end": "Pudar silang N saat sebelum tamat"
+          },
+          "title": "Opsi pudar silang"
         }
       }
     },
+    "custom-output-device": {
+      "description": "Konfigurasikan peranti media output tersuai untuk lagu",
+      "menu": {
+        "device-selector": "Pilih peranti"
+      },
+      "name": "Peranti Output Tersuai",
+      "prompt": {
+        "device-selector": {
+          "label": "Pilih peranti media output yang akan digunakan",
+          "title": "Pilih Peranti Output"
+        }
+      }
+    },
+    "disable-autoplay": {
+      "description": "Membuat lagu bermula dalam mod \"jeda\"",
+      "menu": {
+        "apply-once": "Terpakai hanya pada permulaan"
+      },
+      "name": "Matikan automain"
+    },
     "discord": {
+      "backend": {
+        "already-connected": "Cuba untuk menyambung dengan sambungan aktif",
+        "connected": "Disambungkan ke Discord",
+        "disconnected": "Diputuskan sambungan daripada Discord"
+      },
       "description": "Tunjukkan kepada rakan anda perkara yang anda dengar dengan Rich Presence",
       "menu": {
+        "auto-reconnect": "Auto sambung semula",
+        "clear-activity": "Padamkan aktiviti",
+        "clear-activity-after-timeout": "Kosongkan aktiviti selepas tamat masa",
         "connected": "Tersambung",
-        "disconnected": "Tidak disambungkan"
+        "disconnected": "Tidak disambungkan",
+        "hide-duration-left": "Sembunyikan tempoh yang tinggal",
+        "hide-github-button": "Sembunyikan Butang pautan GitHub",
+        "play-on-youtube-music": "Main di YouTube Music",
+        "set-inactivity-timeout": "Tetapkan tamat masa tidak aktif",
+        "set-status-display-type": {
+          "label": "Teks status",
+          "submenu": {
+            "artist": "Sedang mendengar {artist}",
+            "youtube-music": "Mendengar YouTube Music"
+          }
+        }
+      },
+      "name": "Discord Rich Presence",
+      "prompt": {
+        "set-inactivity-timeout": {
+          "label": "Masukkan tamat masa tidak aktif dalam beberapa saat:",
+          "title": "Tetapkan tamat masa tidak aktif"
+        }
       }
     },
     "downloader": {
       "backend": {
         "dialog": {
+          "error": {
+            "buttons": {
+              "ok": "OK"
+            },
+            "message": "Argh! Maaf, muat turun gagal…",
+            "title": "Ralat dalam muat turun!"
+          },
           "start-download-playlist": {
             "buttons": {
               "ok": "OK"
