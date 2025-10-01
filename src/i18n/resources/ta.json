@@ -889,7 +889,7 @@
         "opacity": {
           "label": "ஒளிபுகாநிலை",
           "submenu": {
-            "percent": "{{opacity}}{{ஒளிபுகாநிலை}}%"
+            "percent": "{{opacity}}%"
           }
         },
         "type": {
