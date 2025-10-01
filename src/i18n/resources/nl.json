@@ -189,12 +189,12 @@
         "new": "NIEUW"
       },
       "view": {
-        "label": "Weergeven",
+        "label": "Bekijken",
         "submenu": {
           "force-reload": "Forceer Herladen",
           "reload": "Herladen",
           "reset-zoom": "Ware Grootte",
-          "toggle-fullscreen": "Volledig Scherm Wisselen",
+          "toggle-fullscreen": "Volledig Scherm Ja/Nee",
           "zoom-in": "Inzoomen",
           "zoom-out": "Uitzoomen"
         }
@@ -204,7 +204,7 @@
       "next": "Volgende",
       "play-pause": "Afspelen/Pauze",
       "previous": "Vorige",
-      "quit": "Afsluiten",
+      "quit": "Verlaat",
       "restart": "Herstarten App",
       "show": "Weergeven Venster",
       "tooltip": {
