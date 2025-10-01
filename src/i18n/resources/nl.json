@@ -421,6 +421,18 @@
         }
       }
     },
+    "custom-output-device": {
+      "menu": {
+        "device-selector": "Selecteer je apparaat"
+      },
+      "name": "Aangepast uitvoerapparaat",
+      "prompt": {
+        "device-selector": {
+          "label": "Kies het uitvoermedia-apparaat dat gebruikt zal worden",
+          "title": "Selecteer het uitvoermedia"
+        }
+      }
+    },
     "disable-autoplay": {
       "description": "Zorgt ervoor dat nummers starten in 'gepauzeerde' modus",
       "menu": {
