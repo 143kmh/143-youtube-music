@@ -1,3 +1,5 @@
+import { type IntrinsicElements as MDUIElements } from 'mdui/jsx.en';
+
 import type { Icons } from '@/types/icons';
 import type { ComponentProps } from 'solid-js';
 
@@ -37,7 +39,16 @@ declare module 'solid-js' {
       key?: string;
     }
 
-    interface IntrinsicElements {
+    type MduiIcons = Extract<
+      keyof HTMLElementTagNameMap,
+      `mdui-icon-${string}`
+    >;
+
+    type MduiIconElements = {
+      [k in MduiIcons]: ComponentProps<'div'>;
+    };
+
+    interface IntrinsicElements extends MDUIElements, MduiIconElements {
       'center': ComponentProps<'div'>;
       'ytmd-trans': ComponentProps<'span'> & YtmdTransProps;
       'yt-formatted-string': ComponentProps<'span'> & YtFormattedStringProps;

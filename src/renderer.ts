@@ -1,5 +1,9 @@
 import i18next from 'i18next';
 
+import { setTheme } from 'mdui/functions/setTheme.js';
+import 'mdui/mdui.css';
+import 'mdui';
+
 import { startingPages } from './providers/extracted-data';
 import { setupSongInfo } from './providers/song-info-front';
 import {
@@ -24,6 +28,8 @@ import type { QueueElement } from '@/types/queue';
 import type { QueueResponse } from '@/types/youtube-music-desktop-internal';
 import type { YouTubeMusicAppElement } from '@/types/youtube-music-app-element';
 import type { SearchBoxElement } from '@/types/search-box-element';
+
+setTheme('dark');
 
 let api: (Element & YoutubePlayer) | null = null;
 let isPluginLoaded = false;
@@ -388,10 +394,14 @@ async function onApiLoaded() {
     const style = document.createElement('style');
     style.textContent = `
       ytmusic-player-bar[is-mweb-player-bar-modernization-enabled] .middle-controls-buttons.ytmusic-player-bar, #like-button-renderer {
-        display: ${likeButtonsOptions === 'hide' ? 'none' : 'inherit'} !important;
+        display: ${
+          likeButtonsOptions === 'hide' ? 'none' : 'inherit'
+        } !important;
       }
       ytmusic-player-bar[is-mweb-player-bar-modernization-enabled] .middle-controls.ytmusic-player-bar {
-        justify-content: ${likeButtonsOptions === 'hide' ? 'flex-start' : 'space-between'} !important;
+        justify-content: ${
+          likeButtonsOptions === 'hide' ? 'flex-start' : 'space-between'
+        } !important;
       }`;
 
     document.head.appendChild(style);
