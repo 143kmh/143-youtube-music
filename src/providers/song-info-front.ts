@@ -6,7 +6,7 @@ import type { MusicPlayer } from '@/types/music-player';
 import type {
   AlbumDetails,
   PlayerOverlays,
-  VideoDataChangeValue
+  VideoDataChangeValue,
 } from '@/types/player-api-events';
 
 import type { SongInfo } from './song-info';
@@ -21,7 +21,7 @@ window.ipcRenderer.on(
   'peard:update-song-info',
   (_, extractedSongInfo: SongInfo) => {
     songInfo = extractedSongInfo;
-  }
+  },
 );
 
 // Used because 'loadeddata' or 'loadedmetadata' weren't firing on song start for some users (https://github.com/pear-devs/pear-music/issues/473)
@@ -61,11 +61,11 @@ export const setupRepeatChangedListener = singleton(() => {
             getState: () => GetState;
           };
         }
-      ).__dataHost.getState().queue.repeatMode
+      ).__dataHost.getState().queue.repeatMode,
     );
   });
   repeatObserver.observe(document.querySelector('#right-controls .repeat')!, {
-    attributeFilter: ['title']
+    attributeFilter: ['title'],
   });
 
   // Emit the initial value as well; as it's persistent between launches.
@@ -75,10 +75,10 @@ export const setupRepeatChangedListener = singleton(() => {
     document
       .querySelector<
         HTMLElement & {
-        getState: () => GetState;
-      }
+          getState: () => GetState;
+        }
       >('ytmusic-player-bar')
-      ?.getState().queue.repeatMode
+      ?.getState().queue.repeatMode,
   );
 });
 
@@ -95,22 +95,22 @@ export const setupLikeChangedListener = singleton(() => {
       'peard:like-changed',
       mapLikeStatus(
         (mutations[0].target as HTMLElement)?.getAttribute?.(
-          LIKE_STATUS_ATTRIBUTE
-        )
-      )
+          LIKE_STATUS_ATTRIBUTE,
+        ),
+      ),
     );
   });
   const likeButtonRenderer = document.querySelector('#like-button-renderer');
   if (likeButtonRenderer) {
     likeDislikeObserver.observe(likeButtonRenderer, {
       attributes: true,
-      attributeFilter: [LIKE_STATUS_ATTRIBUTE]
+      attributeFilter: [LIKE_STATUS_ATTRIBUTE],
     });
 
     // Emit the initial value as well; as it's persistent between launches.
     window.ipcRenderer.send(
       'peard:like-changed',
-      mapLikeStatus(likeButtonRenderer.getAttribute?.(LIKE_STATUS_ATTRIBUTE))
+      mapLikeStatus(likeButtonRenderer.getAttribute?.(LIKE_STATUS_ATTRIBUTE)),
     );
   }
 });
@@ -119,14 +119,14 @@ export const setupVolumeChangedListener = singleton((api: MusicPlayer) => {
   document.querySelector('video')?.addEventListener('volumechange', () => {
     window.ipcRenderer.send('peard:volume-changed', {
       state: api.getVolume(),
-      isMuted: api.isMuted()
+      isMuted: api.isMuted(),
     });
   });
 
   // Emit the initial value as well; as it's persistent between launches.
   window.ipcRenderer.send('peard:volume-changed', {
     state: api.getVolume(),
-    isMuted: api.isMuted()
+    isMuted: api.isMuted(),
   });
 });
 
@@ -141,7 +141,7 @@ export const setupShuffleChangedListener = singleton(() => {
   const observer = new MutationObserver(() => {
     window.ipcRenderer.send(
       'peard:shuffle-changed',
-      (playerBar?.attributes.getNamedItem('shuffle-on') ?? null) !== null
+      (playerBar?.attributes.getNamedItem('shuffle-on') ?? null) !== null,
     );
   });
 
@@ -149,7 +149,7 @@ export const setupShuffleChangedListener = singleton(() => {
     attributes: true,
     attributeFilter: ['shuffle-on'],
     childList: false,
-    subtree: false
+    subtree: false,
   });
 });
 
@@ -165,7 +165,7 @@ export const setupFullScreenChangedListener = singleton(() => {
     window.ipcRenderer.send(
       'peard:fullscreen-changed',
       (playerBar?.attributes.getNamedItem('player-fullscreened') ?? null) !==
-      null
+        null,
     );
   });
 
@@ -173,13 +173,13 @@ export const setupFullScreenChangedListener = singleton(() => {
     attributes: true,
     attributeFilter: ['player-fullscreened'],
     childList: false,
-    subtree: false
+    subtree: false,
   });
 });
 
 export const setupAutoPlayChangedListener = singleton(() => {
   const autoplaySlider = document.querySelector<HTMLInputElement>(
-    '.autoplay > tp-yt-paper-toggle-button'
+    '.autoplay > tp-yt-paper-toggle-button',
   );
 
   const observer = new MutationObserver(() => {
@@ -189,7 +189,7 @@ export const setupAutoPlayChangedListener = singleton(() => {
   observer.observe(autoplaySlider!, {
     attributes: true,
     childList: false,
-    subtree: false
+    subtree: false,
   });
 });
 
@@ -233,25 +233,25 @@ export const setupSongInfo = (api: MusicPlayer) => {
     ) {
       window.ipcRenderer.send('peard:play-or-paused', {
         isPaused: status === 'pause',
-        elapsedSeconds: Math.floor(e.target.currentTime)
+        elapsedSeconds: Math.floor(e.target.currentTime),
       });
     }
   };
 
   const playPausedHandlers = {
     playing: (e: Event) => playPausedHandler(e, 'playing'),
-    pause: (e: Event) => playPausedHandler(e, 'pause')
+    pause: (e: Event) => playPausedHandler(e, 'pause'),
   };
 
   const videoEventDispatcher = async (
     name: string,
-    videoData: VideoDataChangeValue
+    videoData: VideoDataChangeValue,
     // eslint-disable-next-line @typescript-eslint/require-await
   ) =>
     document.dispatchEvent(
       new CustomEvent<VideoDataChanged>('videodatachange', {
-        detail: { name, videoData }
-      })
+        detail: { name, videoData },
+      }),
     );
 
   const waitingEvent = new Set<string>();
@@ -311,7 +311,7 @@ export const setupSongInfo = (api: MusicPlayer) => {
         title,
         author,
         video_id: videoId,
-        list: playlistId
+        list: playlistId,
       } = api.getVideoData();
 
       const watchNextResponse = api.getWatchNextResponse();
@@ -326,7 +326,7 @@ export const setupSongInfo = (api: MusicPlayer) => {
         lengthSeconds: video.duration,
         loading: true,
 
-        ytmdWatchNextResponse: watchNextResponse
+        ['\u0079\u0074\u006d\u0064WatchNextResponse']: watchNextResponse,
       } satisfies VideoDataChangeValue);
     }
   }
@@ -336,18 +336,19 @@ export const setupSongInfo = (api: MusicPlayer) => {
 
     let playerOverlay: PlayerOverlays | undefined;
 
-    if (!videoData.ytmdWatchNextResponse) {
+    if (!videoData['\u0079\u0074\u006d\u0064WatchNextResponse']) {
       playerOverlay = (
         Object.entries(videoData).find(
-          ([, value]) => value && Object.hasOwn(value, 'playerOverlays')
+          ([, value]) => value && Object.hasOwn(value, 'playerOverlays'),
         ) as [string, AlbumDetails | undefined]
       )?.[1]?.playerOverlays;
     } else {
-      playerOverlay = videoData.ytmdWatchNextResponse?.playerOverlays;
+      playerOverlay =
+        videoData['\u0079\u0074\u006d\u0064WatchNextResponse']?.playerOverlays;
     }
     data.videoDetails.album =
       playerOverlay?.playerOverlayRenderer?.browserMediaSession?.browserMediaSessionRenderer?.album?.runs?.at(
-        0
+        0,
       )?.text;
     data.videoDetails.elapsedSeconds = 0;
     data.videoDetails.isPaused = false;

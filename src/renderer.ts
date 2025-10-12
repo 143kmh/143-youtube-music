@@ -411,12 +411,12 @@ async function onApiLoaded() {
 /**
  * Original still using ES5, so we need to define custom elements using ES5 style
  */
-const defineYTMDTransElements = () => {
-  const YTMDTrans = function () {};
+const definePearTransElements = () => {
+  const PearTrans = function () {};
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  YTMDTrans.prototype = Object.create(HTMLElement.prototype);
+  PearTrans.prototype = Object.create(HTMLElement.prototype);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  YTMDTrans.prototype.connectedCallback = function () {
+  PearTrans.prototype.connectedCallback = function () {
     const that = this as HTMLElement;
     const key = that.getAttribute('key');
     if (key) {
@@ -427,8 +427,8 @@ const defineYTMDTransElements = () => {
     }
   };
   customElements.define(
-    'ytmd-trans',
-    YTMDTrans as unknown as CustomElementConstructor,
+    'pear-trans',
+    PearTrans as unknown as CustomElementConstructor,
   );
 };
 
@@ -438,7 +438,7 @@ const preload = async () => {
   window.i18n = {
     t: i18t.bind(i18next),
   };
-  defineYTMDTransElements();
+  definePearTransElements();
   if (document.body?.dataset?.os) {
     document.body.dataset.os = navigator.userAgent;
   }
