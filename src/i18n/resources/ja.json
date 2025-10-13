@@ -369,7 +369,7 @@
       "name": "ナビゲーションバーの曇り効果"
     },
     "bypass-age-restrictions": {
-      "description": "ユーチューブの年齢制限を迂回します",
+      "description": "音楽プレーヤーの年齢確認をバイパスする",
       "name": "年齢制限迂回"
     },
     "captions-selector": {
