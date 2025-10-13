@@ -154,7 +154,7 @@
                 "label": "Pielāgots loga nosaukums",
                 "prompt": {
                   "label": "Ievadiet pielāgotu loga nosaukumu: (atstājiet tukšu, lai atspējotu)",
-                  "placeholder": "Piemērs: YouTube mūzika"
+                  "placeholder": "Piemērs: Pear mūzika"
                 }
               },
               "like-buttons": {
@@ -461,7 +461,7 @@
           "submenu": {
             "artist": "Klausos {mākslinieku}",
             "title": "Klausos {dziesmas nosaukums}",
-            "youtube-music": "YouTube mūzikas klausīšanās"
+            "pear-music": "Pear mūzikas klausīšanās"
           }
         }
         "play-on-pear-desktop": "Atskaņot uz Pear Desktop",
