@@ -462,8 +462,8 @@
           "label": "Opis statusu",
           "submenu": {
             "artist": "Słucha {artist}",
-            "title": "Słucha {song title}",
-            "pear-desktop": "Słucha Pear Desktop"
+            "pear-desktop": "Słucha Pear Desktop",
+            "title": "Słucha {song title}"
           }
         }
       },
