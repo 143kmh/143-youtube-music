@@ -53,7 +53,7 @@
           "later": "Nanti",
           "restart-now": "Restart Sekarang"
         },
-        "detail": "Plugin {{pluginName}} perlu dimulakan semula untuk berkuatkuasa",
+        "detail": "\"{{pluginName}}\" plugin memerlukan mula semula untuk ambil keberkesanan",
         "message": "\"{{pluginName}}\" perlu dimulakan semula",
         "title": "Mulakan Semula Diperlukan"
       },
@@ -74,7 +74,7 @@
           "ok": "OK"
         },
         "detail": "Versi baharu kini tersedia dan boleh dimuat turun di {{downloadLink}}",
-        "message": "Versi baharu tersedia",
+        "message": "Versi baharu kini tersedia",
         "title": "Kemas Kini Tersedia"
       }
     },
@@ -462,8 +462,8 @@
           "label": "Teks status",
           "submenu": {
             "artist": "Sedang mendengar {artist}",
-            "title": "Sedang mendengar {tajuk lagu}",
-            "pear-desktop": "Mendengar Pear Desktop"
+            "pear-desktop": "Mendengar Pear Desktop",
+            "title": "Sedang mendengar {tajuk lagu}"
           }
         }
       },
