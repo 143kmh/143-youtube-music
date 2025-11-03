@@ -185,9 +185,11 @@
       },
       "plugins": {
         "enabled": "Zapnuté",
+        "label": "Rozšírenia",
         "new": "NOVÝ"
       },
       "view": {
+        "label": "Náhľad",
         "submenu": {
           "force-reload": "Natvrdo obnoviť",
           "reload": "Obnoviť",
@@ -208,6 +210,27 @@
       "tooltip": {
         "default": "Pear Desktop",
         "with-song-info": "Pear Desktop: {{artist}} - {{title}}"
+      }
+    }
+  },
+  "plugins": {
+    "ad-speedup": {
+      "description": "Ak sa spustí reklama, stlmí sa zvuk a nastaví sa rýchlosť prehrávania na 16x"
+    },
+    "adblocker": {
+      "menu": {
+        "blocker": "Blokovač"
+      },
+      "name": "Blokovač reklám"
+    },
+    "album-color-theme": {
+      "name": "Farebná téma albumu"
+    },
+    "ambient-mode": {
+      "menu": {
+        "blur-amount": {
+          "label": "Hodnota rozmazania"
+        }
       }
     }
   }
