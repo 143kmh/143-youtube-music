@@ -230,6 +230,11 @@
       "menu": {
         "blur-amount": {
           "label": "Hodnota rozmazania"
+        },
+        "size": {
+          "submenu": {
+            "percent": "{{size}}%"
+          }
         }
       }
     }
