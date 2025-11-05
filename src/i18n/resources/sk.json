@@ -231,10 +231,145 @@
         "blur-amount": {
           "label": "Hodnota rozmazania"
         },
+        "quality": {
+          "label": "Kvalita"
+        },
         "size": {
+          "label": "Veľkosť",
           "submenu": {
             "percent": "{{size}}%"
           }
+        }
+      }
+    },
+    "amuse": {
+      "name": "Amuse"
+    },
+    "api-server": {
+      "dialog": {
+        "request": {
+          "buttons": {
+            "allow": "Povoliť",
+            "deny": "Zakázať"
+          },
+          "message": "Povoliť {{ID}} ({{origin}}) prístup cez API?"
+        }
+      },
+      "menu": {
+        "auth-strategy": {
+          "label": "Stratégia autorizácie",
+          "submenu": {
+            "none": {
+              "label": "Žiadna autorizácia"
+            }
+          }
+        },
+        "hostname": {
+          "label": "Hostname"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "name": "API Server [Beta]",
+      "prompt": {
+        "hostname": {
+          "title": "Hostname"
+        },
+        "port": {
+          "title": "Port"
+        }
+      }
+    },
+    "audio-compressor": {
+      "name": "Kompresor zvuku"
+    },
+    "auth-proxy-adapter": {
+      "description": "Podpora používania autentifikačných proxy služieb",
+      "menu": {
+        "disable": "Vypnúť Proxy Adaptér",
+        "enable": "Zapnúť Proxy Adaptér",
+        "hostname": {
+          "label": "Hostname"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "name": "Adaptér autentifikačného proxy servera",
+      "prompt": {
+        "hostname": {
+          "label": "Zadajte hostname pre lokálny proxy server (vyžaduje reštart):",
+          "title": "Proxy Hostname"
+        },
+        "port": {
+          "label": "Zadajte port pre lokálny proxy server (vyžaduje reštart):",
+          "title": "Proxy Port"
+        }
+      }
+    },
+    "blur-nav-bar": {
+      "description": "Navigačnú lištu nastaví ako priehľadnú a rozmazanú",
+      "name": "Rozmazať navigačnú lištu"
+    },
+    "bypass-age-restrictions": {
+      "description": "Obísť overenie veku v hudobnom prehrávači",
+      "name": "Obísť vekové obmedzenia"
+    },
+    "captions-selector": {
+      "description": "Selektor titulkov pre zvukové stopy Pear Desktop",
+      "menu": {
+        "autoload": "Automatický výber naposledy použitých titulkov",
+        "disable-captions": "Žiadne titulky"
+      },
+      "name": "Selektor titulkov",
+      "prompt": {
+        "selector": {
+          "label": "Aktuálny jazyk titulkov: {{language}}",
+          "none": "Žiadne",
+          "title": "Výber jazyka titulkov"
+        }
+      },
+      "templates": {
+        "title": "Otvoriť selektor titulkov"
+      },
+      "toast": {
+        "caption-changed": "Titulky zmenené na {{language}}",
+        "caption-disabled": "Deaktivované titulky",
+        "no-captions": "Pre túto skladbu nie sú dostupné žiadne titulky"
+      }
+    },
+    "compact-sidebar": {
+      "description": "Vždy nastaviť bočný panel do kompaktného režimu",
+      "name": "Kompaktný bočný panel"
+    },
+    "crossfade": {
+      "description": "Prelínanie medzi skladbami",
+      "menu": {
+        "advanced": "Pokročilé"
+      },
+      "name": "Prelínanie [Beta]",
+      "prompt": {
+        "options": {
+          "multi-input": {
+            "fade-in-duration": "Trvanie nábehu (ms)",
+            "fade-out-duration": "Trvanie doznievania (ms)",
+            "fade-scaling": {
+              "label": "Škálovanie prelínania"
+            }
+          },
+          "title": "Možnosti prelínania"
+        }
+      }
+    },
+    "custom-output-device": {
+      "menu": {
+        "device-selector": "Výber Zariadenia"
+      },
+      "name": "Vlastné výstupné zariadenie",
+      "prompt": {
+        "device-selector": {
+          "title": "Výber výstupného zariadenia"
         }
       }
     }
