@@ -730,6 +730,48 @@
           }
         }
       }
+    },
+    "synced-lyrics": {
+      "description": "Poskytuje synchronizované texty k skladbám, pričom používa poskytovateľov ako LRClib.",
+      "errors": {
+        "not-found": "⚠️Pre túto skladbu nebol nájdený žiadny text."
+      },
+      "menu": {
+        "line-effect": {
+          "submenu": {
+            "offset": {
+              "label": "Offset"
+            }
+          }
+        },
+        "precise-timing": {
+          "label": "Dokonale synchronizovať text piesne"
+        },
+        "preferred-provider": {
+          "label": "Preferovaný Poskytovateľ",
+          "none": {
+            "label": "Žiadne",
+            "tooltip": "Žiadny preferovaný poskytovateľ"
+          }
+        }
+      }
+    },
+    "touchbar": {
+      "name": "Dotykový Panel"
+    },
+    "transparent-player": {
+      "description": "Nastaví okno aplikácie ako priehľadné"
+    },
+    "video-toggle": {
+      "menu": {
+        "align": {
+          "submenu": {
+            "left": "Vľavo",
+            "middle": "Stred",
+            "right": "Vpravo"
+          }
+        }
+      }
     }
   }
 }
