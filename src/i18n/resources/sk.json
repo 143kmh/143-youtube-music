@@ -537,7 +537,7 @@
           }
         },
         "download-playlist": "Stiahnuť zoznam",
-        "presets": "Prednastavenia",
+        "presets": "Predvoľby",
         "skip-existing": "Preskočiť už existujúce súbory"
       },
       "name": "Sťahovač",
@@ -552,7 +552,7 @@
       "description": "Pridáva ekvalizér do prehrávača",
       "menu": {
         "presets": {
-          "label": "Prednastavenia",
+          "label": "Predvoľby",
           "list": {
             "bass-booster": "Zosilňovač basov"
           }
@@ -726,7 +726,9 @@
       "backend": {
         "dialog": {
           "quality-changer": {
-            "detail": "Aktuálna kvalita: {{quality}}"
+            "detail": "Aktuálna kvalita: {{quality}}",
+            "message": "Výber kvality videa:",
+            "title": "Výber kvality videa"
           }
         }
       }
@@ -770,8 +772,26 @@
             "middle": "Stred",
             "right": "Vpravo"
           }
+        },
+        "mode": {
+          "submenu": {
+            "disabled": "Vypnuté",
+            "native": "Natívny prepínač"
+          }
         }
+      },
+      "name": "Prepínač Videa",
+      "templates": {
+        "button-song": "Skladba",
+        "button-video": "Video"
       }
+    },
+    "visualizer": {
+      "description": "Pridá do prehrávača vizualizér",
+      "menu": {
+        "visualizer-type": "Typ Vizualizéra"
+      },
+      "name": "Vizualizér"
     }
   }
 }
