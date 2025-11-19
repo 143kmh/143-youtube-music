@@ -132,15 +132,17 @@
             }
           },
           "resume-on-start": "Rakenduse käivitamisel jätka viimatiesitatud loo esitamist",
+          "single-instance-lock": "Ühe instantsi lukk",
           "start-at-login": "Käivita sisselogimisel",
           "starting-page": {
             "label": "Avaleht",
             "unset": "Määramata"
           },
           "tray": {
+            "label": "Trey",
             "submenu": {
               "disabled": "Välja lülitatud",
-              "enabled-and-hide-app": "Sisste lülitatud ja rakendus peidetud",
+              "enabled-and-hide-app": "Sisse lülitatud ja rakendus peidetud",
               "enabled-and-show-app": "Sisse lülitatud ja rakendus nähtav",
               "play-pause-on-click": "Mängi/Peata klõpsates"
             }
@@ -223,8 +225,28 @@
       },
       "name": "Reklaamiblokeerija"
     },
-    "ambient-mode": {
+    "album-actions": {
+      "description": "Lisab Undislike, Ebameeldiv, Meeldiv ja Unlike nupud selle rakendamiseks kõikidele loendisse või albumisse kuuluvatele lauludele.",
+      "name": "Albumi aktsioonid"
+    },
+    "album-color-theme": {
+      "description": "Rakendab dünaamilist teemat ja visuaalseid efekte, mis põhinevad albumi värvipalettil",
       "menu": {
+        "color-mix-ratio": {
+          "label": "Värvide segamissuhe",
+          "submenu": {
+            "percent": "{{suhe}}%"
+          }
+        }
+      },
+      "name": "Albumi värviteema"
+    },
+    "ambient-mode": {
+      "description": "Rakendab valgusefekti, projitseerides videost õrnad värvid ekraani taustale",
+      "menu": {
+        "blur-amount": {
+          "label": "Hägusus"
+        },
         "opacity": {
           "submenu": {
             "percent": "{{opacity}}%"
