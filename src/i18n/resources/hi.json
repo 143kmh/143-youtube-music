@@ -426,7 +426,13 @@
       "menu": {
         "device-selector": "डिवाइस चुनें"
       },
-      "name": "अपनी पसंद का आउटपुट डिवाइस"
+      "name": "अपनी पसंद का आउटपुट डिवाइस",
+      "prompt": {
+        "device-selector": {
+          "label": "उपयोग किए जाने वाला आउटपुट मीडिया चुने",
+          "title": "आउटपुट डिवाइस चुनें"
+        }
+      }
     },
     "disable-autoplay": {
       "description": "गीत को \"रुके हुए \" मोड में शुरू करता है",
@@ -451,7 +457,15 @@
         "hide-duration-left": "शेष अवधि छिपाएँ",
         "hide-github-button": "GitHub लिंक के बटन को छिपाएँ",
         "play-on-pear-desktop": "Pear Desktop म्यूज़िक पर चलाएँ",
-        "set-inactivity-timeout": "निष्क्रियता समय समाप्ति सेट करें"
+        "set-inactivity-timeout": "निष्क्रियता समय समाप्ति सेट करें",
+        "set-status-display-type": {
+          "label": "स्टेटस टेक्स्ट",
+          "submenu": {
+            "artist": "{artist} को सुन रहे है",
+            "pear-desktop": "Pear Desktop सुन रहे है",
+            "title": "{song title} सुन रहे है"
+          }
+        }
       },
       "name": "डिस्कॉर्ड रिच प्रेजेंस",
       "prompt": {
@@ -743,6 +757,7 @@
         "listenbrainz": {
           "token": "listenbrainz उपयोगकर्ता टोकन दर्ज करें"
         },
+        "scrobble-alternative-artist": "वैकल्पिक आर्टिस्ट का उपयोग करें",
         "scrobble-alternative-title": "वैकल्पिक शीर्षक का उपयोग करें",
         "scrobble-other-media": "अन्य मीडिया स्क्रोबल करें"
       },
@@ -788,8 +803,11 @@
       "name": "साइलेंस स्किप करें"
     },
     "sponsorblock": {
-      "description": "Intro/Outro जैसे गैर-संगीत भागों को स्किप करता है",
+      "description": "गाने के वीडियो में जहाँ म्यूजिक नहीं चलता, जैसे शुरुआत या अंत के हिस्से, उन्हें अपने आप स्किप कर देता है",
       "name": "SponsorBlock"
+    },
+    "synced-lyrics": {
+      "description": "LRClib जैसे सोर्सेज के उपयोग से, गानों के लिए सिंक किए गए लिरिक्स देता है।"
     },
     "video-toggle": {
       "menu": {
