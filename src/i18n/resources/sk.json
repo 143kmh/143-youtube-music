@@ -462,7 +462,7 @@
           "label": "Text stavu",
           "submenu": {
             "artist": "Aktuálne si prehráva {artist}",
-            "pear-desktop": "Aktuálne prehráva Pear Desktop",
+            "pear-desktop": "Počúva Pear Desktop",
             "title": "Aktuálne si prehráva {song title}"
           }
         }
