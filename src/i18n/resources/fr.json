@@ -303,7 +303,7 @@
             "deny": "Interdire"
           },
           "message": "Autoriser {{ID}} ({{origin}}) à accéder à l'API ?",
-          "title": "Requête d'autorisation d'API"
+          "title": "Demande d'autorisation à l'API"
         }
       },
       "menu": {
