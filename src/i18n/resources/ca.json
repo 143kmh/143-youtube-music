@@ -2,7 +2,7 @@
   "common": {
     "console": {
       "plugins": {
-        "execute-failed": "Ha fallat l'execució de l'extensió {{pluginName}}::{{contextName}}",
+        "execute-failed": "Error en l'execució de l'extensió {{pluginName}}::{{contextName}}",
         "executed-at-ms": "L'extensió {{pluginName}}::{{contextName}} s'ha executat als {{ms}}ms",
         "initialize-failed": "Ha fallat la inicialització de l'extensió \"{{pluginName}}\"",
         "load-all": "Carregant totes les extensions",
