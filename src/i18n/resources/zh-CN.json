@@ -321,6 +321,9 @@
         "hostname": {
           "label": "主机名"
         },
+        "https": {
+          "label": "HTTPS & 数字证书"
+        },
         "port": {
           "label": "端口号"
         }
