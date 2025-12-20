@@ -154,7 +154,7 @@
                 "label": "Titre de fenêtre personnalisé",
                 "prompt": {
                   "label": "Entrer un titre de fenêtre : (Laissé vide pour désactiver)",
-                  "placeholder": "Exemple : Pear Desktop"
+                  "placeholder": "Exemple : {{applicationName}}"
                 }
               },
               "like-buttons": {
@@ -208,8 +208,8 @@
       "restart": "Redémarrer l'application",
       "show": "Afficher la fenêtre",
       "tooltip": {
-        "default": "Pear Desktop",
-        "with-song-info": "Pear Desktop : {{artist}} - {{title}}"
+        "default": "{{applicationName}}",
+        "with-song-info": "{{applicationName}}: {{artist}} - {{title}}"
       }
     }
   },
@@ -288,7 +288,7 @@
       "name": "Mode ambiant"
     },
     "amuse": {
-      "description": "Ajout de la prise en charge de Pear Desktop pour le widget Amuse now playing de 6K Labs",
+      "description": "Ajout de la prise en charge de {{applicationName}} pour le widget Amuse now playing de 6K Labs",
       "name": "Amuse",
       "response": {
         "query": "Le serveur API d'Amuse est en cours d'exécution. GET /query pour obtenir des informations sur les chansons."
@@ -374,7 +374,7 @@
       "name": "Contourner les restrictions d’âge"
     },
     "captions-selector": {
-      "description": "Sélecteur de sous-titres pour les pistes audio Pear Desktop",
+      "description": "Sélecteur de sous-titres pour les pistes audio {{applicationName}}",
       "menu": {
         "autoload": "Sélectionner automatiquement la dernière légende utilisée",
         "disable-captions": "Pas de sous-titres par défaut"
@@ -457,13 +457,13 @@
         "disconnected": "Déconnecté",
         "hide-duration-left": "Masquer la durée restante",
         "hide-github-button": "Masquer le bouton du lien GitHub",
-        "play-on-pear-desktop": "Jouer sur Pear Desktop",
+        "play-on-application": "Jouer sur {{applicationName}}",
         "set-inactivity-timeout": "Définir le délai d'inactivité",
         "set-status-display-type": {
           "label": "Texte d'état",
           "submenu": {
             "artist": "Écoute {artiste}",
-            "pear-desktop": "Écoute Pear Desktop",
+            "application": "Écoute {{applicationName}}",
             "title": "Écoute {titre de la chanson}"
           }
         }

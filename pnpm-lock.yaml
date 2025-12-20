@@ -82,8 +82,8 @@ importers:
         specifier: 0.10.3
         version: 0.10.3
       '@jellybrick/electron-better-web-request':
-        specifier: 1.0.4
-        version: 1.0.4
+        specifier: 2.0.0
+        version: 2.0.0
       '@jellybrick/mpris-service':
         specifier: 2.1.5
         version: 2.1.5
@@ -886,8 +886,8 @@ packages:
   '@jellybrick/dbus-next@0.10.3':
     resolution: {integrity: sha512-7MLAiQS/UCa8V8/G3eyoWIzMhCUv3GaNxIpclu1wauDGUsL48ZT0CrilEO739gP/bviPiCUhy00DtvCNmYfPhA==}
 
-  '@jellybrick/electron-better-web-request@1.0.4':
-    resolution: {integrity: sha512-vL2lv7Gz8BWgCpwXb3ha17oaEmJqG5ZLdVWssAkA/0PGPMCWH2lLWq7vDymyTswmZ+zKpfOdzwTomvMqn9nElg==}
+  '@jellybrick/electron-better-web-request@2.0.0':
+    resolution: {integrity: sha512-BatvX5xGdn4vNGCHaIsoCQZWe65C0GD4xZ+wNTtEVJDjSAN+wbdfUmPKwuog+GKw7YqmilPI7LKO0a9rjTRk9Q==}
 
   '@jellybrick/mpris-service@2.1.5':
     resolution: {integrity: sha512-B6wOeS7aHO7BIJRFHbDA4h5tJHeQHf2VzVwIi2rN2wsB0Uf9wsITebGfnknPypZ1ZxRjobDkeTG4EKdBGXwSww==}
@@ -4632,8 +4632,8 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  uuid@9.0.1:
-    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+  uuid@13.0.0:
+    resolution: {integrity: sha512-XQegIaBTVUjSHliKqcnFqYypAd4S+WCYt5NIeRs6w/UAry7z8Y9j5ZwRRL4kzq9U3sD6v+85er9FvkEaBpji2w==}
     hasBin: true
 
   validate-html-nesting@1.2.3:
@@ -5405,10 +5405,10 @@ snapshots:
       safe-buffer: 5.2.1
       xml2js: 0.6.2
 
-  '@jellybrick/electron-better-web-request@1.0.4':
+  '@jellybrick/electron-better-web-request@2.0.0':
     dependencies:
       browser-extension-url-match: 1.2.0
-      uuid: 9.0.1
+      uuid: 13.0.0
 
   '@jellybrick/mpris-service@2.1.5':
     dependencies:
@@ -9618,7 +9618,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  uuid@9.0.1: {}
+  uuid@13.0.0: {}
 
   validate-html-nesting@1.2.3: {}
 

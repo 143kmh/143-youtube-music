@@ -15,6 +15,8 @@ import { createBackend } from '@/utils';
 import { JWTPayloadSchema } from './scheme';
 import { registerAuth, registerControl, registerWebsocket } from './routes';
 
+import { APPLICATION_NAME } from '@/i18n';
+
 import { type APIServerConfig, AuthStrategy } from '../config';
 
 import type { BackendType } from './types';
@@ -146,7 +148,7 @@ export const backend = createBackend<BackendType, APIServerConfig>({
       openapi: '3.1.0',
       info: {
         version: '1.0.0',
-        title: 'Pear Desktop API Server',
+        title: `${APPLICATION_NAME} API Server`,
         description:
           'Note: You need to get an access token using the `/auth/{id}` endpoint first to call any API endpoints under `/api`.',
       },
