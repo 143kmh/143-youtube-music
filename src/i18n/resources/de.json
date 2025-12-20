@@ -321,6 +321,22 @@
         "hostname": {
           "label": "Hostname"
         },
+        "https": {
+          "label": "HTTPS & Zertifikate",
+          "submenu": {
+            "cert": {
+              "dialogTitle": "HTTPS Zertifikat Datei auswählen",
+              "label": "Zertifikate Datei (.crt/.pem)"
+            },
+            "enable-https": {
+              "label": "HTTPS aktivieren"
+            },
+            "key": {
+              "dialogTitle": "HTTPS privaten Schlüssel Datei auswählen",
+              "label": "Privater Schlüssel Datei (.key/.pem)"
+            }
+          }
+        },
         "port": {
           "label": "Port"
         }
