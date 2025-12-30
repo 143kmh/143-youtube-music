@@ -2,11 +2,11 @@ name: Build Pear Desktop
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
   pull_request:
 
 env:
-  NODE_VERSION: '22.x'
+  NODE_VERSION: "22.x"
 
 jobs:
   build:
@@ -16,16 +16,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [ macos-latest, ubuntu-latest, windows-latest ]
 
     steps:
       - uses: actions/checkout@v5
-
-      - name: Setup XCode
-        if: startsWith(matrix.os, 'macos')
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '26'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -34,14 +28,14 @@ jobs:
           run_install: false
 
       - name: Setup NodeJS
-        if: startsWith(matrix.os, 'macos') != true
+        if: startsWith(matrix.os, 'macOS') != true
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
-      - name: Setup NodeJS for macos
-        if: startsWith(matrix.os, 'macos')
+      - name: Setup NodeJS for macOS
+        if: startsWith(matrix.os, 'macOS')
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -90,6 +84,7 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         with:
           run: pnpm test:debug
+
 
   release:
     runs-on: ubuntu-latest
@@ -171,6 +166,6 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: Update changelog for ${{ env.VERSION_TAG }}
-          file_pattern: 'changelog.md'
+          file_pattern: "changelog.md"
           commit_user_name: CI
           commit_user_email: th-ch@users.noreply.github.com
