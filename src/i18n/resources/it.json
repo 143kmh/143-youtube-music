@@ -883,7 +883,7 @@
       },
       "name": "Testi sincronizzati",
       "refetch-btn": {
-        "fetching": "Sto recuperando...",
+        "fetching": "Caricamento...",
         "normal": "Recupera i testi"
       },
       "warnings": {
