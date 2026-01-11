@@ -128,7 +128,7 @@
             },
             "label": "Keel",
             "submenu": {
-              "to-help-translate": "Soovid aidata tõlkimisel? Klõpsi siin"
+              "to-help-translate": "Soovid aidata tõlkimisel? Klõpsa siin"
             }
           },
           "resume-on-start": "Rakenduse käivitamisel jätka viimatiesitatud loo esitamist",
@@ -139,7 +139,7 @@
             "unset": "Määramata"
           },
           "tray": {
-            "label": "Trey",
+            "label": "Tasku",
             "submenu": {
               "disabled": "Välja lülitatud",
               "enabled-and-hide-app": "Sisse lülitatud ja rakendus peidetud",
