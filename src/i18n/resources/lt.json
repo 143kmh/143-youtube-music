@@ -397,12 +397,14 @@
       }
     },
     "custom-output-device": {
+      "description": "Konfigūruoti pasirinktiną medijos išvesties įrenginį dainoms",
       "menu": {
         "device-selector": "Pasirinkti įrenginį"
       },
       "name": "Pasirinktinas išvesties įrenginys",
       "prompt": {
         "device-selector": {
+          "label": "Pasirinkti naudotiną medijos išvesties įrenginį",
           "title": "Pasirinkite išvesties įrenginį"
         }
       }
@@ -562,6 +564,8 @@
       },
       "menu": {
         "click-to-copy-id": "Kopijuoti Vedėjo ID",
+        "connected-users": "Prisijungę vartotojai",
+        "empty-user": "Nėra prisijungusių vartotojų",
         "permission": {
           "all": "Leisti svečiams valdyti grojaraštį ir grotuvą",
           "playlist": "Leisti svečiams valdyti grojaraštį"
@@ -667,10 +671,28 @@
         }
       },
       "description": "Leidžia pakeisti vaizdo kokybę su mygtuku ant vaizdo perdangos",
-      "name": "Vaizdo Kokybės Pakeitėjas"
+      "name": "Vaizdo Kokybės Pakeitėjas",
+      "renderer": {
+        "quality-settings-button": {
+          "label": "Atidaryti grotuvo kokybės keistuvą"
+        }
+      }
     },
     "scrobbler": {
+      "dialog": {
+        "lastfm": {
+          "auth-failed": {
+            "title": "Autentifikacija nepavyko"
+          }
+        }
+      },
       "menu": {
+        "lastfm": {
+          "api-settings": "Last.fm API nustatymai"
+        },
+        "listenbrainz": {
+          "token": "Įvesti ListenBrainz vartotojo žetoną"
+        },
         "scrobble-alternative-artist": "Naudoti alternatyvius atlikėjus",
         "scrobble-alternative-title": "Naudoti alternatyvius pavadinimus"
       },
