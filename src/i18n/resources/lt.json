@@ -578,16 +578,16 @@
       }
     },
     "equalizer": {
-      "description": "Prideda equalizerį prie grotuvo",
+      "description": "Prideda vienodintuvą į grotuvą",
       "menu": {
         "presets": {
           "label": "Išankstiniai nustatymai",
           "list": {
-            "bass-booster": "Žemų Dažnių (Bass) stiprintuvas"
+            "bass-booster": "Žemų dažnių stiprintuvas"
           }
         }
       },
-      "name": "Equalizeris"
+      "name": "Vienodintuvas"
     },
     "exponential-volume": {
       "description": "Padaro garsumo slankiklį eksponentinį, kad būtų lengviau pasirinkti mažesnį garsumą.",
@@ -665,7 +665,7 @@
       "name": "Navigacija",
       "templates": {
         "back": {
-          "title": "Eiti į ankstesnįjį puslapį"
+          "title": "Eiti į praeitą puslapį"
         },
         "forward": {
           "title": "Eiti į kitą puslapį"
@@ -872,7 +872,8 @@
               "tooltip": "Naudoti didelius, panašius į programos efektus dabartinei eilutei"
             },
             "focus": {
-              "label": "Sutelkti dėmesį"
+              "label": "Sutelkti dėmesį",
+              "tooltip": "Padaryti tik dabartinę eilutę baltą"
             },
             "offset": {
               "label": "Nuokrypis",
@@ -880,7 +881,7 @@
             },
             "scale": {
               "label": "Skalė",
-              "tooltip": "Padidinti dabartinę liniją"
+              "tooltip": "Padidinti dabartinę eilutę"
             }
           },
           "tooltip": "Pasirinkti efektą, kurį pritaikyti dabartinei linijai"
@@ -892,7 +893,7 @@
         "preferred-provider": {
           "label": "Pageidaujamas tiekėjas",
           "none": {
-            "label": "Joks",
+            "label": "Jokio",
             "tooltip": "Jokio pageidaujamo tiekėjo"
           },
           "tooltip": "Pasirinkti numatytąjį tiekėją kurį naudoti"
@@ -903,11 +904,11 @@
         },
         "show-lyrics-even-if-inexact": {
           "label": "Rodyti dainos žodžius, net jei jie netikslūs",
-          "tooltip": "Jei daina nerandama, šis įskiepis dar kartą bandys su skirtinga paieškos užklausa.\nRezultatas iš antrojo bandymo gali būti netikslus."
+          "tooltip": "Jeigu daina nerasta, įskiepis bando iš naujo su skirtinga paieškos užklausa.\nAntro bandymo rezultatas gali būti netikslus."
         },
         "show-time-codes": {
-          "label": "Rodyti laiko kodus",
-          "tooltip": "Rodyti laiko kodus šalia dainos žodžių"
+          "label": "Rodyti laiko žymes",
+          "tooltip": "Rodyti laiko žymes kartu su dainos žodžiais"
         }
       },
       "name": "„Synced Lyrics“",
