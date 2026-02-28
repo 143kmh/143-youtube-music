@@ -746,6 +746,18 @@
         "fetch": "⚠️\t\tĮvyko klaida gaunant dainos žodžius.\n\tPabandykite dar karta vėliau.",
         "not-found": "⚠️ Šiai dainai nerasti dainos tekstai."
       },
+      "menu": {
+        "default-text-string": {
+          "label": "Numatytasis simbolis tarp dainos tekstų"
+        },
+        "preferred-provider": {
+          "label": "Pageidaujamas tiekėjas",
+          "none": {
+            "tooltip": "Jokio pageidaujamo tiekėjo"
+          },
+          "tooltip": "Pasirinkti numatytąjį tiekėją kurį naudoti"
+        }
+      },
       "refetch-btn": {
         "fetching": "Gaunama...",
         "normal": "Atgauti dainos žodžius"
