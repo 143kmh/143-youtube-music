@@ -698,7 +698,13 @@
       },
       "prompt": {
         "lastfm": {
-          "api-key": "Last.fm API raktas"
+          "api-key": "Last.fm API raktas",
+          "api-secret": "Last.fm API paslaptis"
+        },
+        "listenbrainz": {
+          "token": {
+            "label": "Įveskite savo ListenBrainz vartotojo žetoną:"
+          }
         }
       }
     },
