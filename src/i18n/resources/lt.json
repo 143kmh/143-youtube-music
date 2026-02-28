@@ -751,6 +751,14 @@
           "label": "Numatytasis simbolis tarp dainos tekstų",
           "tooltip": "Pasirinkite numatytąjį simbolį kurį naudoti tarpui tarp dainos tekstų"
         },
+        "line-effect": {
+          "label": "Teksto linijos efektas",
+          "submenu": {
+            "fancy": {
+              "label": "Gražus"
+            }
+          }
+        },
         "preferred-provider": {
           "label": "Pageidaujamas tiekėjas",
           "none": {
