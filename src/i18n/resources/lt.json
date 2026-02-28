@@ -703,7 +703,8 @@
         },
         "listenbrainz": {
           "token": {
-            "label": "Įveskite savo ListenBrainz vartotojo žetoną:"
+            "label": "Įveskite savo ListenBrainz vartotojo žetoną:",
+            "title": "ListenBrainz žetonas"
           }
         }
       }
