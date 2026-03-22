@@ -2,12 +2,14 @@ name: reviewdog
 
 on: [pull_request_target]
 
+permissions: {}
+
 env:
   NODE_VERSION: "22.x"
 
 jobs:
   eslint:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
     name: runner / eslint
     runs-on: ubuntu-latest
     permissions:
@@ -20,7 +22,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
         with:
           version: 10
           run_install: false
@@ -34,9 +36,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - uses: reviewdog/action-eslint@v1.34.0
+      - uses: reviewdog/action-eslint@556a3fdaf8b4201d4d74d406013386aa4f7dab96
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-review # Change reporter.
+          reporter: github-pr-review
           eslint_flags: './src'
           fail_level: error
