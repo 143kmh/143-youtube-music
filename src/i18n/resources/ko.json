@@ -843,7 +843,6 @@
       },
       "menu": {
         "convert-chinese-character": {
-          "label": "",
           "submenu": {
             "disabled": {
               "label": "비활성화됨"
