@@ -161,7 +161,8 @@
                 "default": "За замовчуванням",
                 "force-show": "Завжди показувати",
                 "hide": "Приховати",
-                "label": "Як кнопки"
+                "label": "Як кнопки",
+                "swap": "Замінити місцями порядок кнопок лайка"
               },
               "remove-upgrade-button": "Прибрати кнопку оновлення",
               "theme": {
@@ -237,7 +238,8 @@
           "submenu": {
             "percent": "{{ratio}}%"
           }
-        }
+        },
+        "enable-seekbar": "Увімкнути стилізацію (тему) повзунка прогресу"
       },
       "name": "Кольорова тема альбому"
     },
@@ -319,6 +321,22 @@
         },
         "hostname": {
           "label": "Назва серверу"
+        },
+        "https": {
+          "label": "HTTPS і сертифікати",
+          "submenu": {
+            "cert": {
+              "dialogTitle": "Виберіть файл HTTPS сертифікату",
+              "label": "Файл сертифіката (.crt/.pem)"
+            },
+            "enable-https": {
+              "label": "Увімкнути HTTPS"
+            },
+            "key": {
+              "dialogTitle": "Виберіть файл приватного ключа HTTPS",
+              "label": "Файл приватного ключа (.key/.pem)"
+            }
+          }
         },
         "port": {
           "label": "Порт"
@@ -461,8 +479,8 @@
         "set-status-display-type": {
           "label": "Статус",
           "submenu": {
-            "artist": "Ви слухаєте {artist}",
             "application": "Відтворення з {{applicationName}}",
+            "artist": "Ви слухаєте {artist}",
             "title": "Ви слухаєте {song title}"
           }
         }
