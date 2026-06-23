@@ -1,7 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
 
-import { type NodeWebSocket } from '@hono/node-ws';
-
 import {
   registerCallback,
   type SongInfo,
@@ -10,7 +8,8 @@ import {
 
 import { API_VERSION } from '../api-version';
 
-import type { WebSocket as NodeWS } from 'ws';
+import type { WebSocketLike, upgradeWebSocket } from '@hono/node-server';
+
 import type { WSContext } from 'hono/ws';
 import type { Context, Next } from 'hono';
 import type { RepeatMode, VolumeState } from '@/types/datahost-get-state';
@@ -41,14 +40,14 @@ type PlayerState = {
 export const register = (
   app: HonoApp,
   { ipc }: BackendContext<APIServerConfig>,
-  { upgradeWebSocket }: NodeWebSocket,
+  uws: typeof upgradeWebSocket,
 ) => {
   let volumeState: VolumeState | undefined = undefined;
   let repeat: RepeatMode = 'NONE';
   let shuffle = false;
   let lastSongInfo: SongInfo | undefined = undefined;
 
-  const sockets = new Set<WSContext<NodeWS>>();
+  const sockets = new Set<WSContext<WebSocketLike>>();
 
   const send = (type: DataTypes, state: Partial<PlayerState>) => {
     sockets.forEach((socket) =>
@@ -129,7 +128,7 @@ export const register = (
         },
       },
     }),
-    upgradeWebSocket(() => ({
+    uws(() => ({
       onOpen(_, ws) {
         sockets.add(ws);
 

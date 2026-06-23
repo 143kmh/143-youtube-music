@@ -7,8 +7,8 @@ import { jwt } from 'hono/jwt';
 import { OpenAPIHono as Hono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
 import { swaggerUI } from '@hono/swagger-ui';
-import { serve } from '@hono/node-server';
-import { createNodeWebSocket } from '@hono/node-ws';
+import { serve, upgradeWebSocket } from '@hono/node-server';
+import { WebSocketServer } from 'ws';
 
 import { registerCallback } from '@/providers/song-info';
 import { createBackend } from '@/utils';
@@ -84,10 +84,6 @@ export const backend = createBackend<BackendType, APIServerConfig>({
   init(backendCtx) {
     this.app = new Hono();
 
-    const ws = createNodeWebSocket({
-      app: this.app,
-    });
-
     this.app.use('*', cors());
 
     // for web remote control
@@ -137,7 +133,7 @@ export const backend = createBackend<BackendType, APIServerConfig>({
       () => this.volumeState,
     );
     registerAuth(this.app, backendCtx);
-    registerWebsocket(this.app, backendCtx, ws);
+    registerWebsocket(this.app, backendCtx, upgradeWebSocket);
 
     // swagger
     this.app.openAPIRegistry.registerComponent(
@@ -165,13 +161,12 @@ export const backend = createBackend<BackendType, APIServerConfig>({
     });
 
     this.app.get('/swagger', swaggerUI({ url: '/doc' }));
-
-    this.injectWebSocket = ws.injectWebSocket.bind(this);
   },
   run(config) {
     if (!this.app) return;
 
     try {
+      const wss = new WebSocketServer({ noServer: true });
       const serveOptions =
         config.useHttps && config.certPath && config.keyPath
           ? {
@@ -183,19 +178,17 @@ export const backend = createBackend<BackendType, APIServerConfig>({
                 key: readFileSync(config.keyPath),
                 cert: readFileSync(config.certPath),
               },
+              websocket: { server: wss },
             }
           : {
               fetch: this.app.fetch.bind(this.app),
               port: config.port,
               hostname: config.hostname,
               createServer: createHttpServer,
+              websocket: { server: wss },
             };
 
       this.server = serve(serveOptions);
-
-      if (this.injectWebSocket && this.server) {
-        this.injectWebSocket(this.server);
-      }
     } catch (err) {
       console.error(err);
     }

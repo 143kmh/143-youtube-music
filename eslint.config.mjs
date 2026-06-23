@@ -127,7 +127,6 @@ export default tsEslint.config(
       },
       'import/resolver': {
         typescript: {},
-        exports: {},
       },
     },
   },
