@@ -1,26 +1,21 @@
+import { readFileSync } from 'node:fs';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
-import { readFileSync } from 'node:fs';
 
-import { jwt } from 'hono/jwt';
-
+import { serve, upgradeWebSocket } from '@hono/node-server';
+import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono as Hono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
-import { swaggerUI } from '@hono/swagger-ui';
-import { serve, upgradeWebSocket } from '@hono/node-server';
+import { jwt } from 'hono/jwt';
 import { WebSocketServer } from 'ws';
 
+import { registerAuth, registerControl, registerWebsocket } from './routes';
+import { JWTPayloadSchema } from './scheme';
+import { APPLICATION_NAME } from '@/i18n';
 import { registerCallback } from '@/providers/song-info';
 import { createBackend } from '@/utils';
 
-import { JWTPayloadSchema } from './scheme';
-import { registerAuth, registerControl, registerWebsocket } from './routes';
-
-import { APPLICATION_NAME } from '@/i18n';
-
 import { type APIServerConfig, AuthStrategy } from '../config';
-
-import type { MiddlewareHandler } from 'hono';
 
 import type { BackendType } from './types';
 import type {
@@ -28,6 +23,7 @@ import type {
   RepeatMode,
   VolumeState,
 } from '@/types/datahost-get-state';
+import type { MiddlewareHandler } from 'hono';
 
 export const backend = createBackend<BackendType, APIServerConfig>({
   async start(ctx) {
