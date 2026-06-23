@@ -18,6 +18,7 @@
     "prefer-promise-reject-errors": "off",
     "class-methods-use-this": "off",
 
+    "typescript/no-require-imports": "error",
     "typescript/consistent-type-imports": [
       "error",
       {
