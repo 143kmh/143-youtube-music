@@ -1,3 +1,4 @@
+import { disposeReactiveRoot } from './reactive-root';
 import { setConfig, setCurrentTime } from './renderer';
 import { fetchLyrics } from './store';
 import { selectors, tabStates } from './utils';
@@ -81,5 +82,9 @@ export const renderer = createRenderer<
     ctx.ipc.on('peard:update-song-info', (info: SongInfo) => {
       fetchLyrics(info);
     });
+  },
+
+  stop() {
+    disposeReactiveRoot();
   },
 });
