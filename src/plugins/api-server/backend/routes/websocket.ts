@@ -1,4 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
+import { app as electronApp } from 'electron';
 
 import {
   registerCallback,
@@ -72,6 +73,13 @@ export const register = (
     volume: volumeState?.state ?? 100,
     repeat,
     shuffle,
+  });
+
+  electronApp.once('before-quit', () => {
+    send(DataTypes.PlayerStateChanged, {
+      isPlaying: false,
+      position: lastSongInfo?.elapsedSeconds ?? 0,
+    });
   });
 
   registerCallback((songInfo, event) => {
