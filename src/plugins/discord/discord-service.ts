@@ -135,10 +135,10 @@ export class DiscordService {
       songInfo.songDuration > 0 &&
       typeof songInfo.elapsedSeconds === 'number'
     ) {
-      const songStartTime = Date.now() - songInfo.elapsedSeconds * 1000;
+      const songStartTime = Date.now() - (songInfo.elapsedSeconds * 1000);
       activityInfo.startTimestamp = Math.floor(songStartTime / 1000);
       activityInfo.endTimestamp = Math.floor(
-        (songStartTime + songInfo.songDuration * 1000) / 1000,
+        (songStartTime + (songInfo.songDuration * 1000)) / 1000,
       );
     }
 
@@ -176,7 +176,7 @@ export class DiscordService {
     this.lastSongInfo = undefined;
     this.lastProgressUpdate = 0;
     this.timerManager.clearAll();
-    if (electronIs.dev()) {
+    if (is.dev()) {
       console.log(LoggerPrefix, t('plugins.discord.backend.disconnected'));
     }
   }
@@ -235,7 +235,7 @@ export class DiscordService {
    */
   connect(showErrorDialog = false): void {
     if (this.rpc.isConnected) {
-      if (electronIs.dev()) {
+      if (is.dev()) {
         console.log(
           LoggerPrefix,
           t('plugins.discord.backend.already-connected'),

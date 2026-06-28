@@ -30,10 +30,10 @@ const inAppMenuActive = await config.plugins.isEnabled('in-app-menu');
 const pluginEnabledMenu = async (
   plugin: string,
   label = '',
-  description: string | undefined = undefined,
+  description?: string ,
   isNew = false,
   hasSubmenu = false,
-  refreshMenu: (() => void) | undefined = undefined,
+  refreshMenu?: (() => void) ,
 ): Promise<Electron.MenuItemConstructorOptions> => ({
   label: label || plugin,
   sublabel: isNew ? t('main.menu.plugins.new') : undefined,

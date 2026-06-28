@@ -49,5 +49,5 @@ export const backend = createBackend({
   stop({ window }) {
     setWindowTransparency(window, MaterialType.NONE, 1);
     this.window = null;
-  }
+  },
 });

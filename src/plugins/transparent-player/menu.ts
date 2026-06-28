@@ -1,9 +1,13 @@
 import is from 'electron-is';
 
-import { MaterialType, WINDOWS_MATERIALS, MACOS_MATERIALS } from './types';
+import {
+  MaterialType,
+  WINDOWS_MATERIALS,
+  MACOS_MATERIALS,
+  type TransparentPlayerConfig,
+} from './types';
 import { t } from '@/i18n';
 
-import type { TransparentPlayerConfig } from './types';
 import type { MenuTemplate } from '@/menu';
 import type { MenuContext } from '@/types/contexts';
 
