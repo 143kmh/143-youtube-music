@@ -85,7 +85,7 @@ export const backend = createBackend<BackendType, APIServerConfig>({
 
     // for web remote control
     this.app.use('*', async (ctx, next) => {
-      ctx.header('Access-Control-Request-Private-Network', 'true');
+      ctx.header('Access-Control-Allow-Private-Network', 'true');
       await next();
     });
 
