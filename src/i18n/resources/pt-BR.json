@@ -489,10 +489,10 @@
           }
         }
       },
-      "name": "Rich Presence do Discord",
+      "name": "Presença Marcante no Discord",
       "prompt": {
         "set-inactivity-timeout": {
-          "label": "Digite o tempo de inatividade em segundos:",
+          "label": "Insira o tempo limite de inatividade em segundos:",
           "title": "Definir tempo limite de inatividade"
         }
       }
