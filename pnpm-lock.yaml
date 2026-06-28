@@ -17,7 +17,7 @@ patchedDependencies:
   '@malept/flatpak-bundler@0.4.0': c787371eeb2af011ea934e8818a0dad6d7dcb2df31bbb1686babc7231af0183c
   electron-is@3.0.0: 08664a5453f092fe45542f9005ffc07527b1f207447318374cba0f4d30f466a0
   kuromoji@0.1.2: 4a948f1ea45c61779fa371feb020253ccf7a24e1f7c6b2e250b3ce53d86216d4
-  mdui@2.1.4: 5c55833e7d736e20ab2f063f3dc6016728fcc1cf6c205d6c636b39eccee395c9
+  mdui@2.1.4: e6f91e8e974b4ccc0903ec27b2c840fa3a84048144098e96671fc9915df47ef1
   vudio@2.1.1: 0e06c2ed11c02bdc490c209fa80070e98517c2735c641f5738b6e15d7dc1959d
 
 importers:
@@ -182,7 +182,7 @@ importers:
         version: 2.2.2
       mdui:
         specifier: 2.1.4
-        version: 2.1.4(patch_hash=5c55833e7d736e20ab2f063f3dc6016728fcc1cf6c205d6c636b39eccee395c9)
+        version: 2.1.4(patch_hash=e6f91e8e974b4ccc0903ec27b2c840fa3a84048144098e96671fc9915df47ef1)
       node-html-parser:
         specifier: 8.0.3
         version: 8.0.3
@@ -6763,7 +6763,7 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  mdui@2.1.4(patch_hash=5c55833e7d736e20ab2f063f3dc6016728fcc1cf6c205d6c636b39eccee395c9):
+  mdui@2.1.4(patch_hash=e6f91e8e974b4ccc0903ec27b2c840fa3a84048144098e96671fc9915df47ef1):
     dependencies:
       '@floating-ui/utils': 0.2.11
       '@lit/localize': 0.12.2
