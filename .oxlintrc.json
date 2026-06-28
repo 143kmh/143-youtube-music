@@ -193,7 +193,8 @@
         "groups": [
           "builtin",
           "external",
-          ["internal", "index", "sibling"],
+          "internal",
+          ["index", "sibling"],
           "parent",
           "type"
         ],

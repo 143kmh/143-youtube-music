@@ -1,9 +1,10 @@
+import { t } from '@/i18n';
+import { createPlugin } from '@/utils';
+
 import { backend } from './backend';
 import { onMenu } from './menu';
 import style from './style.css?inline';
 import { MaterialType, type TransparentPlayerConfig } from './types';
-import { t } from '@/i18n';
-import { createPlugin } from '@/utils';
 
 const defaultConfig: TransparentPlayerConfig = {
   enabled: false,

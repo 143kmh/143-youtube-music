@@ -1,15 +1,16 @@
 import { createSignal, Show } from 'solid-js';
 import { render } from 'solid-js/web';
 
+import { t } from '@/i18n';
+import { createPlugin } from '@/utils';
+import { waitForElement } from '@/utils/wait-for-element';
+
 import {
   DislikeButton,
   LikeButton,
   UnDislikeButton,
   UnLikeButton,
 } from './templates';
-import { t } from '@/i18n';
-import { createPlugin } from '@/utils';
-import { waitForElement } from '@/utils/wait-for-element';
 
 export default createPlugin<
   unknown,

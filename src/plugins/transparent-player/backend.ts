@@ -1,12 +1,13 @@
 import is from 'electron-is';
 
+import { createBackend } from '@/utils';
+
 import {
   MaterialType,
   WINDOWS_MATERIALS,
   MACOS_MATERIALS,
   type TransparentPlayerConfig,
 } from './types';
-import { createBackend } from '@/utils';
 
 import type { BackendContext } from '@/types/contexts';
 import type { BrowserWindow } from 'electron';

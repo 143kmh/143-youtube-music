@@ -9,12 +9,13 @@ import { cors } from 'hono/cors';
 import { jwt } from 'hono/jwt';
 import { WebSocketServer } from 'ws';
 
-import { API_VERSION } from './api-version';
-import { registerAuth, registerControl, registerWebsocket } from './routes';
-import { JWTPayloadSchema } from './scheme';
 import { APPLICATION_NAME } from '@/i18n';
 import { registerCallback } from '@/providers/song-info';
 import { createBackend } from '@/utils';
+
+import { API_VERSION } from './api-version';
+import { registerAuth, registerControl, registerWebsocket } from './routes';
+import { JWTPayloadSchema } from './scheme';
 
 import { type APIServerConfig, AuthStrategy } from '../config';
 

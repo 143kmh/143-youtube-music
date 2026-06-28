@@ -13,12 +13,13 @@ import { satisfies } from 'semver';
 import { languageResources } from 'virtual:i18n';
 import { allPlugins } from 'virtual:plugins';
 
+import { APPLICATION_NAME, setLanguage, t } from '@/i18n';
+
 import * as config from './config';
 import { getAllMenuTemplate, loadAllMenuPlugins } from './loader/menu';
 import { restart } from './providers/app-controls';
 import { startingPages } from './providers/extracted-data';
 import promptOptions from './providers/prompt-options';
-import { APPLICATION_NAME, setLanguage, t } from '@/i18n';
 
 import packageJson from '../package.json';
 

@@ -1,8 +1,9 @@
 import { createMemo, runWithOwner } from 'solid-js';
 import { createStore } from 'solid-js/store';
 
-import { reactiveOwner } from './reactive-root';
 import { getSongInfo } from '@/providers/song-info-front';
+
+import { reactiveOwner } from './reactive-root';
 
 import {
   type ProviderName,

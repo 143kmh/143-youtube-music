@@ -20,12 +20,6 @@ import {
   type Types,
 } from '\u0079\u006f\u0075\u0074\u0075\u0062\u0065i.js';
 
-import {
-  cropMaxWidth,
-  getFolder,
-  sendFeedback as sendFeedback_,
-  setBadge,
-} from './utils';
 import { t } from '@/i18n';
 import { getNetFetchAsFetch } from '@/plugins/utils/main';
 import {
@@ -36,6 +30,13 @@ import {
   type SongInfo,
   SongInfoEvent,
 } from '@/providers/song-info';
+
+import {
+  cropMaxWidth,
+  getFolder,
+  sendFeedback as sendFeedback_,
+  setBadge,
+} from './utils';
 
 import { DefaultPresetList, type Preset, VideoFormatList } from '../types';
 
