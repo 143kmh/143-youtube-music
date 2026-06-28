@@ -131,7 +131,12 @@ if (is.linux()) {
 
   // Overrides WM_CLASS for X11 to correspond to icon filename
   app.setName(
-    'com.github.th_ch.\u0079\u006f\u0075\u0074\u0075\u0062\u0065\u005f\u006d\u0075\u0073\u0069\u0063',
+    'com.github.th-ch.\u0079\u006f\u0075\u0074\u0075\u0062\u0065\u002d\u006d\u0075\u0073\u0069\u0063',
+  );
+  // for wayland
+  app.commandLine.appendSwitch(
+    'class',
+    'com.github.th-ch.\u0079\u006f\u0075\u0074\u0075\u0062\u0065\u002d\u006d\u0075\u0073\u0069\u0063',
   );
 }
 
