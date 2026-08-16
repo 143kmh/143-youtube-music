@@ -299,12 +299,44 @@
         }
       }
     },
+    "audio-compressor": {
+      "name": "აუდიოკომპრესორი"
+    },
+    "auth-proxy-adapter": {
+      "menu": {
+        "hostname": {
+          "label": "ჰოსტის სახელი"
+        },
+        "port": {
+          "label": "პორტი"
+        }
+      }
+    },
+    "bypass-age-restrictions": {
+      "name": "ასაკობრივი შეზღუდვების გვერდის ავლა"
+    },
     "captions-selector": {
       "prompt": {
         "selector": {
-          "none": "არცერთი"
+          "none": "არცერთი",
+          "title": "აირჩიეთ სუბტიტრების ენა"
         }
+      },
+      "toast": {
+        "caption-disabled": "სუბტიტრები გათიშულია",
+        "no-captions": "ამ სიმღერისთვის სუბტიტრები მიუწვდომელია"
       }
+    },
+    "clock": {
+      "description": "საათის დამატება ნავიგაციის პანელზე",
+      "menu": {
+        "format": {
+          "24-hour-format": "24 საათიანი ფორმატი",
+          "display-seconds": "წამების ჩვენება",
+          "label": "ფორმატი"
+        }
+      },
+      "name": "საათი"
     },
     "crossfade": {
       "menu": {
@@ -321,10 +353,22 @@
         }
       }
     },
+    "custom-output-device": {
+      "menu": {
+        "device-selector": "აირჩიეთ მოწყობილობა"
+      }
+    },
+    "disable-autoplay": {
+      "name": "ავტომატური დაკვრის გამორთვა"
+    },
     "discord": {
       "menu": {
+        "clear-activity": "აქტივობის გასუფთავება",
         "connected": "დაკავშირებული",
-        "disconnected": "გათიშული"
+        "disconnected": "გათიშული",
+        "set-status-display-type": {
+          "label": "სტატუსის ტექსტი"
+        }
       }
     },
     "downloader": {
@@ -338,18 +382,24 @@
           "start-download-playlist": {
             "buttons": {
               "ok": "დიახ"
-            }
+            },
+            "title": "გადმოწერა დაწყებულია"
           }
         },
         "feedback": {
           "converting": "გადაყვანა…",
           "downloading": "გადმოწერა…",
           "loading": "ჩატვირთვა…",
-          "saving": "შენახვა…"
+          "playlist-is-empty": "პლეილისტი ცარიელია",
+          "preparing-file": "ფაილი მზადდება…",
+          "saving": "შენახვა…",
+          "video-id-not-found": "ვიდეო არ მოიძებნა"
         }
       },
       "menu": {
+        "choose-download-folder": "აირჩიეთ ჩამოტვირთვის საქაღალდე",
         "download-finish-settings": {
+          "label": "დასრულებისას ჩამოტვირთვა",
           "submenu": {
             "advanced": "დამატებით",
             "enabled": "ჩართულია",
@@ -357,16 +407,28 @@
             "seconds": "წამი"
           }
         },
-        "presets": "პრესეტი"
+        "download-playlist": "პლეილისტის ჩამოტვირთვა",
+        "presets": "პრესეტი",
+        "skip-existing": "არსებული ფაილების გამოტოვება"
       },
       "name": "გადმომწერი",
       "templates": {
         "button": "გადმოწერა"
       }
     },
+    "equalizer": {
+      "menu": {
+        "presets": {
+          "list": {
+            "bass-booster": "ბასის გამაძლიერებელი"
+          }
+        }
+      }
+    },
     "music-together": {
       "internal": {
-        "save": "შენახვა"
+        "save": "შენახვა",
+        "unknown-user": "უცნობი მომხმარებელი"
       },
       "menu": {
         "status": {
@@ -374,18 +436,35 @@
         }
       },
       "toast": {
+        "add-song-failed": "სიმღერის დამატება ვერ მოხერხდა",
         "closed": "Music Together-ის ორგანიზატორი დაიხურა",
         "disconnected": "Music Together-ის კავშირი გათიშულია",
         "host-failed": "Music Together-ის გამოცხადება ვერ მოხერხდა",
         "id-copied": "გამოსაცხადებელი ID დაკოპირებულია ბუფერში",
-        "id-copy-failed": "გამოსაცხადებელი ID-ის ვერ დაკოპირდა ბუფერში"
+        "id-copy-failed": "გამოსაცხადებელი ID-ის ვერ დაკოპირდა ბუფერში",
+        "remove-song-failed": "სიმღერის წაშლა ვერ მოხერხდა"
       }
     },
     "navigation": {
-      "name": "ნავიგაცია"
+      "name": "ნავიგაცია",
+      "templates": {
+        "back": {
+          "title": "წინა გვერდზე გადასვლა"
+        },
+        "forward": {
+          "title": "მომდევნო გვერდზე გადასვლა"
+        }
+      }
     },
     "notifications": {
-      "name": "გაფრთხილებები"
+      "menu": {
+        "interactive-settings": {
+          "submenu": {
+            "hide-button-text": "ღილაკის ტექსტის დამალვა"
+          }
+        }
+      },
+      "name": "შეტყობინებები"
     },
     "picture-in-picture": {
       "name": "სურათი სურათში",
@@ -394,36 +473,111 @@
       }
     },
     "playback-speed": {
+      "name": "დაკვრის სიჩქარე",
       "templates": {
         "button": "სიჩქარე"
       }
     },
+    "precise-volume": {
+      "prompt": {
+        "global-shortcuts": {
+          "keybind-options": {
+            "decrease": "ხმის დაწევა",
+            "increase": "ხმის აწევა"
+          }
+        }
+      }
+    },
+    "quality-changer": {
+      "backend": {
+        "dialog": {
+          "quality-changer": {
+            "message": "აირჩიეთ ვიდეოს ხარისხი:",
+            "title": "აირჩიეთ ვიდეოს ხარისხი"
+          }
+        }
+      },
+      "name": "ვიდეოს ხარისხის შემცვლელი"
+    },
+    "scrobbler": {
+      "dialog": {
+        "lastfm": {
+          "auth-failed": {
+            "title": "ავთენტიფიკაცია ვერ მოხერხდა"
+          }
+        }
+      },
+      "prompt": {
+        "listenbrainz": {
+          "token": {
+            "label": "შეიყვანეთ თქვენი ListenBrainz მომხმარებლის ტოკენი:"
+          }
+        }
+      }
+    },
     "shortcuts": {
+      "name": "მალსახმობები (& MPRIS)",
       "prompt": {
         "keybind": {
           "keybind-options": {
             "next": "შემდეგი",
+            "play-pause": "დაკვრა/პაუზა",
             "previous": "წინა"
           }
         }
       }
+    },
+    "skip-disliked-songs": {
+      "description": "გამოტოვებს დაწუნებულ სიმღერებს",
+      "name": "დაწუნებული სიმღერების გამოტოვება"
     },
     "sponsorblock": {
       "name": "სარეკლამო ბლოკი"
     },
     "synced-lyrics": {
       "menu": {
+        "convert-chinese-character": {
+          "submenu": {
+            "disabled": {
+              "label": "გამორთული"
+            }
+          }
+        },
         "line-effect": {
           "submenu": {
             "focus": {
               "label": "ფოკუსი"
+            },
+            "scale": {
+              "label": "მასშტაბი"
             }
+          }
+        },
+        "preferred-provider": {
+          "none": {
+            "label": "არცერთი"
+          }
+        }
+      }
+    },
+    "transparent-player": {
+      "menu": {
+        "type": {
+          "submenu": {
+            "window": "ფანჯარა"
           }
         }
       }
     },
     "video-toggle": {
       "menu": {
+        "align": {
+          "submenu": {
+            "left": "მარცხენა",
+            "middle": "შუა",
+            "right": "მარჯვენა"
+          }
+        },
         "mode": {
           "label": "რეჟიმი",
           "submenu": {
