@@ -610,12 +610,18 @@
       "backend": {
         "dialog": {
           "quality-changer": {
+            "detail": "მიმდინარე ხარისხი: {{quality}}",
             "message": "აირჩიეთ ვიდეოს ხარისხი:",
             "title": "აირჩიეთ ვიდეოს ხარისხი"
           }
         }
       },
-      "name": "ვიდეოს ხარისხის შემცვლელი"
+      "name": "ვიდეოს ხარისხის შემცვლელი",
+      "renderer": {
+        "quality-settings-button": {
+          "label": "პლეიერის ხარისხის შემცვლელის გახსნა"
+        }
+      }
     },
     "scrobbler": {
       "dialog": {
