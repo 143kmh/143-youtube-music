@@ -334,16 +334,28 @@
     },
     "auth-proxy-adapter": {
       "menu": {
+        "disable": "პროქსი-ადაპტერის გამორთვა",
+        "enable": "პროქსი-ადაპტერის ჩართვა",
         "hostname": {
           "label": "ჰოსტის სახელი"
         },
         "port": {
           "label": "პორტი"
         }
+      },
+      "prompt": {
+        "hostname": {
+          "label": "შეიყვანეთ ლოკალური პროქსი-სერვერის ჰოსტის სახელი (საჭიროებს გადატვირთვას):",
+          "title": "პროქსის ჰოსტის სახელი"
+        },
+        "port": {
+          "label": "შეიყვანეთ ლოკალური პროქსი-სერვერის პორტი (საჭიროებს გადატვირთვას):"
+        }
       }
     },
     "blur-nav-bar": {
-      "description": "ხდის ნავიგაციის პანელს გამჭვირვალესა და ბუნდოვანს"
+      "description": "ხდის ნავიგაციის პანელს გამჭვირვალესა და ბუნდოვანს",
+      "name": "ნავიგაციის პანელის გაბუნდოვნება"
     },
     "bypass-age-restrictions": {
       "description": "მუსიკის პლეიერის ასაკის ვერიფიკაციის გვერდის ავლა",
@@ -378,6 +390,10 @@
       },
       "name": "საათი"
     },
+    "compact-sidebar": {
+      "description": "გვერდითა პანელის ყოველთვის კომპაქტურ რეჟიმში დაყენება",
+      "name": "კომპაქტური გვერდითი პანელი"
+    },
     "crossfade": {
       "menu": {
         "advanced": "დამატებით"
@@ -407,9 +423,11 @@
         "connected": "Discord-თან დაკავშირებულია",
         "disconnected": "Discrod-იდან გამოსულია"
       },
+      "description": "აჩვენე მეგობრებს რას უსმენ Rich Presence-ს მეშვეობით",
       "menu": {
         "auto-reconnect": "ავტომატური ხელახალი დაკავშირება",
         "clear-activity": "აქტივობის გასუფთავება",
+        "clear-activity-after-timeout": "აქტივობის გასუფთავება ტაიმაუტის/შესვენების შემდეგ",
         "connected": "დაკავშირებული",
         "disconnected": "გათიშული",
         "hide-duration-left": "დარჩენილი ხანგრძლივობის დამალვა",
@@ -419,6 +437,7 @@
           "label": "სტატუსის ტექსტი"
         }
       },
+      "name": "",
       "prompt": {
         "set-inactivity-timeout": {
           "label": "შეიყვანეთ უმოქმედობის დროის ლიმიტი წამებში:",
@@ -451,10 +470,13 @@
           }
         },
         "feedback": {
+          "conversion-progress": "გარდაქმნა: {{percent}}%",
           "converting": "გადაყვანა…",
           "done": "დასრულებულია: {{filePath}}",
           "download-info": "მიმდინარეობს ჩამოტვირთვა {{artist}} - {{title}} [{{videoId}}",
+          "download-progress": "გადმოწერა: {{percent}}%",
           "downloading": "მიმდინარეობს ჩამოტვირთვა…",
+          "downloading-counter": "მიმდინარეობს გადმოწერა {{current}}/{{total}}…",
           "downloading-playlist": "მიმდინარეობს პლეილისტის ჩამოტვირთვა \"{{playlistTitle}}\" - {{playlistSize}} სიმღერა ({{playlistId}})",
           "error-while-downloading": "მოხდა შეცდომა ჩამოტვირთვისას \"{{author}} - {{title}}\": {{error}}",
           "folder-already-exists": "საქაღალდე {{playlistFolder}} უკვე არსებობს",
@@ -463,11 +485,15 @@
           "playlist-has-only-one-song": "პლეილისტში მხოლოდ ერთი ელემენტია, მიმდინარეობს მისი უშუალო ჩამოტვირთვა",
           "playlist-id-not-found": "პლეილისტის ID ვერ მოიძებნა",
           "playlist-is-empty": "პლეილისტი ცარიელია",
+          "playlist-is-mix-or-private": "დაფიქსირდა შეცდომა პლეილისტის ინფორმაციის მიღებისას: დარწმუნდით, რომ ეს არ არის პირადი ან \"Mixed for you\" პლეილისტი\n\n{{error}}",
           "preparing-file": "ფაილი მზადდება…",
           "saving": "შენახვა…",
-          "video-id-not-found": "ვიდეო არ მოიძებნა"
+          "trying-to-get-playlist-id": "მიმდინარეობს პლეილისტის ID - ით {{playlistId}} მიღება",
+          "video-id-not-found": "ვიდეო არ მოიძებნა",
+          "writing-id3": "მიმდინარეობს ID3-ტეგების ჩაწერა…"
         }
       },
+      "description": "ჩამოტვირთავს MP3-ს / აუდიოს წყაროს პირდაპირ ინტერფეისიდან",
       "menu": {
         "choose-download-folder": "აირჩიეთ ჩამოტვირთვის საქაღალდე",
         "download-finish-settings": {
@@ -498,6 +524,7 @@
       }
     },
     "equalizer": {
+      "description": "ამატებს ექვალიზერს პლეიერს",
       "menu": {
         "presets": {
           "list": {
@@ -508,9 +535,17 @@
       "name": "მარეგულირებელი"
     },
     "in-app-menu": {
+      "menu": {
+        "hide-dom-window-controls": "DOM-ის ფანჯრის მართვის ელემენტების დამალვა"
+      },
       "name": "აპლიკაციის მენიუ"
     },
+    "lumiastream": {
+      "description": "ამატებს Lumia Stream-ის მხარდაჭერას",
+      "name": "Lumia Stream [ბეტა]"
+    },
     "lyrics-genius": {
+      "description": "ამატებს ტექსტის მხარდაჭერას უმეტესი სიმღერებისთვის",
       "menu": {
         "romanized-lyrics": "რომანიზებული სიმღერის ტექსტი"
       }
@@ -530,13 +565,21 @@
         "connected-users": "დაკავშირებული მომხმარებლები",
         "disconnect": "Music Together-დან გამოსვლა",
         "empty-user": "დაკავშირებული მომხმარებლები არ არიან",
+        "host": "Music Together-ის ჰოსტი",
         "join": "შეუერთდით Music Together-ს",
+        "permission": {
+          "all": "სტუმრისთვის პლეილისტისა და პლეიერის კონტროლის ნების დართვა",
+          "host-only": "პლეილისტისა და პლეიერის კონტროლი მხოლოდ ჰოსტს შეუძლია",
+          "playlist": "სტუმრისთვის პლეიერის კონტროლის ნების დართვა"
+        },
+        "set-permission": "კონტროლის ნებართვის შეცვლა",
         "status": {
           "disconnected": "გათიშული",
           "guest": "დაკავშირებულია როგორც სტუმარი",
           "host": "დაკავშირებულია როგორც ჰოსტი"
         }
       },
+      "name": "Music Together [ბეტა]",
       "toast": {
         "add-song-failed": "სიმღერის დამატება ვერ მოხერხდა",
         "closed": "Music Together-ის ორგანიზატორი დაიხურა",
@@ -545,7 +588,11 @@
         "id-copied": "გამოსაცხადებელი ID დაკოპირებულია ბუფერში",
         "id-copy-failed": "გამოსაცხადებელი ID-ის ვერ დაკოპირდა ბუფერში",
         "join-failed": "Music Together-ში გაწევრიანება ვერ მოხერხდა",
-        "remove-song-failed": "სიმღერის წაშლა ვერ მოხერხდა"
+        "joined": "შესული ხართ Music Together-ში",
+        "permission-changed": "Music Together-ის ნებართვა შეიცვალა და გახდა \"{{permission}}\"",
+        "remove-song-failed": "სიმღერის წაშლა ვერ მოხერხდა",
+        "user-connected": "{{name}} შეუერთდა Music Together-ს",
+        "user-disconnected": "{{name}}-მ დატოვა Music Together"
       }
     },
     "navigation": {
@@ -561,7 +608,8 @@
       }
     },
     "no-google-login": {
-      "description": "ინტერფეისიდან Google-ით შესვლის ღილაკების და ბმულების წაშლა"
+      "description": "ინტერფეისიდან Google-ით შესვლის ღილაკების და ბმულების წაშლა",
+      "name": "Google-თი შესვლა არ არის"
     },
     "notifications": {
       "description": "აჩვენეთ შეტყობინება სიმღერის დაწყებისას (Windows-ზე ხელმისაწვდომია ინტერაქტიული შეტყობინებები)",
@@ -575,12 +623,29 @@
           }
         },
         "priority": "შეტყობინების პრიორიტეტი",
+        "toast-style": "შეტყობინების სტილი",
         "unpause-notification": "შეტყობინების ჩვენება პაუზის შეწყვეტისას"
       },
       "name": "შეტყობინებები"
     },
+    "performance-improvement": {
+      "description": "ჩართეთ ექსპერიმენტული სკრიპტები პერფორმანსის გასაუმჯობესებლად",
+      "name": "პერფორმანსის გაუმჯობესება [ბეტა]"
+    },
     "picture-in-picture": {
+      "description": "აპლიკაციის \"picture-in-picture\"-ს რეჟიმში გადაყვანის ნებართვა",
       "menu": {
+        "always-on-top": "ყოველთვის ზევით",
+        "hotkey": {
+          "label": "მალსახმობი კლავიში",
+          "prompt": {
+            "keybind-options": {
+              "hotkey": "მალსახმობი კლავიში"
+            },
+            "label": "აირჩიეთ \"picture-in-picture\" რეჟიმში გადასართავი მალსახმობი კლავიში",
+            "title": "\"Picture-in-picture\" მალსახმობი კლავიში"
+          }
+        },
         "save-window-position": "ფანჯრის პოზიციის შენახვა",
         "save-window-size": "ფანჯრის ზომის შენახვა"
       },
@@ -596,13 +661,18 @@
       }
     },
     "precise-volume": {
+      "menu": {
+        "global-shortcuts": "გლობალური მალსახმობი კლავიშები"
+      },
       "name": "ზუსტი ხმა",
       "prompt": {
         "global-shortcuts": {
           "keybind-options": {
             "decrease": "ხმის დაწევა",
             "increase": "ხმის აწევა"
-          }
+          },
+          "label": "აირჩიეთ ხმის რეგულირების გლობალური კლავიშები:",
+          "title": "ხმის გლობალური კლავიშები"
         }
       }
     },
@@ -616,6 +686,7 @@
           }
         }
       },
+      "description": "ვიდეოზე განთავსებული ღილაკის მეშვეობით ვიდეოს ხარისხის შეცვლის საშუალების მიცემა",
       "name": "ვიდეოს ხარისხის შემცვლელი",
       "renderer": {
         "quality-settings-button": {
@@ -631,10 +702,24 @@
           }
         }
       },
+      "menu": {
+        "lastfm": {
+          "api-settings": "Last.fm API-ს პარამეტრები"
+        },
+        "listenbrainz": {
+          "token": "შეიყვანეთ ListenBrainz-ის მომხმარებლის ტოკენი"
+        },
+        "scrobble-alternative-title": "გამოიყენეთ ალტერნატიული სათაურები"
+      },
       "prompt": {
+        "lastfm": {
+          "api-key": "Last.fm-ს API გასაღები",
+          "api-secret": "Last.fm-ს API საიდუმლო"
+        },
         "listenbrainz": {
           "token": {
-            "label": "შეიყვანეთ თქვენი ListenBrainz მომხმარებლის ტოკენი:"
+            "label": "შეიყვანეთ თქვენი ListenBrainz მომხმარებლის ტოკენი:",
+            "title": "ListenBrainz-ის ტოკენი"
           }
         }
       }
@@ -647,7 +732,8 @@
             "next": "შემდეგი",
             "play-pause": "დაკვრა/პაუზა",
             "previous": "წინა"
-          }
+          },
+          "title": "გლობალური კლავიშთა კომბინაციები"
         }
       }
     },
@@ -655,25 +741,37 @@
       "description": "გამოტოვებს დაწუნებულ სიმღერებს",
       "name": "დაწუნებული სიმღერების გამოტოვება"
     },
+    "skip-silences": {
+      "description": "სიმღერებში ჩუმი მონაკვეთების ავტომატური გამოტოვება",
+      "name": "ჩუმი მონაკვეთების გამოტოვება"
+    },
     "sponsorblock": {
+      "description": "ავტომატურად ტოვებს არამუსიკალურ ნაწილებს, როგორიცაა შესავალი/დასასრული ან მუსიკალური ვიდეოს ის მონაკვეთები, სადაც სიმღერა არ ჟღერს",
       "name": "სარეკლამო ბლოკი"
     },
     "synced-lyrics": {
+      "description": "უზრუნველყოფს სიმღერების სინქრონიზებულ ტექსტებს ისეთი სერვისების გამოყენებით, როგორიცაა LRClib.",
+      "errors": {
+        "not-found": "⚠️ ამ სიმღერის ტექსტი ვერ მოიძებნა."
+      },
       "menu": {
         "convert-chinese-character": {
           "label": "ჩინური სიმბოლოს კონვერტაცია",
           "submenu": {
             "disabled": {
-              "label": "გამორთული"
+              "label": "გამორთული",
+              "tooltip": "ჩინური სიმბოლოების გარდაქმნის გამორთვა"
             },
             "simplified-to-traditional": {
               "label": "გამარტივებულიდან ტრადიციულზე",
               "tooltip": "გამარტივებულიდან ტრადიციულ ჩინურზე გადაყვანა"
             },
             "traditional-to-simplified": {
-              "label": "ტრადიციულიდან გამარტივებულზე"
+              "label": "ტრადიციულიდან გამარტივებულზე",
+              "tooltip": "ტრადიციული ჩინურის გამარტივებულ ჩინურზე გადაყვანა"
             }
-          }
+          },
+          "tooltip": "ჩინური იეროგლიფის ტრადიციულ ან გამარტივებულ ფორმაში გადაყვანა"
         },
         "line-effect": {
           "submenu": {
@@ -685,18 +783,52 @@
             }
           }
         },
+        "precise-timing": {
+          "label": "სიმღერის ტექსტის ზუსტი სინქრონიზაცია"
+        },
         "preferred-provider": {
           "none": {
             "label": "არცერთი"
           }
+        },
+        "romanization": {
+          "tooltip": "თუ სიმღერის ტექსტი სხვა ენაზეა, ლათინური ვერსიის ჩვენება."
+        },
+        "show-lyrics-even-if-inexact": {
+          "label": "სიმღერის ტექსტის ჩვენება, თუნდაც არაზუსტი იყოს"
+        },
+        "show-time-codes": {
+          "label": "დროის კოდების ჩვენება",
+          "tooltip": "დროის კოდების ჩვენება სიმღერის ტექსტის გვერდით"
         }
+      },
+      "name": "სინქრონიზირებული ტექსტი",
+      "refetch-btn": {
+        "fetching": "მიმდინარეობს ჩატვირთვა...",
+        "normal": "სიმღერის ტექსტის ხელახალი ჩატვირთვა"
+      },
+      "warnings": {
+        "duration-mismatch": "⚠️ - ხანგრძლივობის შეუსაბამობის გამო, სიმღერის ტექსტი შესაძლოა არ ემთხვეოდეს ერთმანეთს.",
+        "inexact": "⚠️ - ამ სიმღერის ტექსტი შესაძლოა არ იყოს ზუსტი",
+        "instrumental": "⚠️ - ეს არის ინსტრუმენტული სიმღერა"
       }
     },
+    "touchbar": {
+      "name": "თაჩბარი"
+    },
     "transparent-player": {
+      "description": "ხდის აპლიკაციის ფანჯარას გამჭვირვალეს",
       "menu": {
+        "opacity": {
+          "submenu": {
+            "percent": "{{opacity}}%"
+          }
+        },
         "type": {
           "label": "ტიპი",
           "submenu": {
+            "content": "კონტენტი",
+            "fullscreen-ui": "სრულეკრანიანი ინტერფეისი",
             "none": "არცერთი",
             "under-page": "გვერდის ქვეშ",
             "under-window": "ფანჯრის ქვეშ",
@@ -705,9 +837,14 @@
         }
       }
     },
+    "tuna-obs": {
+      "description": "OBS-ის პლაგინ \"Tuna\"-სთან ინტეგრაცია"
+    },
     "video-toggle": {
+      "description": "ამატებს ღილაკს ვიდეოსა და სიმღერის რეჟიმებს შორის გადასართავად. ასევე შესაძლებელია ვიდეოს მთლიანი ჩანართის დამალვა",
       "menu": {
         "align": {
+          "label": "გასწორება",
           "submenu": {
             "left": "მარცხენა",
             "middle": "შუა",
