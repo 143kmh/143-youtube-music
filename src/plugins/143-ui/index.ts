@@ -1,5 +1,6 @@
 import { createPlugin } from '@/utils';
 
+import playerStyle from './player.css?inline';
 import style from './style.css?inline';
 
 const UI_ROOT_ID = 'ui143-root';
@@ -274,13 +275,19 @@ export default createPlugin({
   },
   renderer: {
     styleSheet: null as CSSStyleSheet | null,
+    playerStyleSheet: null as CSSStyleSheet | null,
 
     async start() {
       this.styleSheet = new CSSStyleSheet();
-      await this.styleSheet.replace(style);
+      this.playerStyleSheet = new CSSStyleSheet();
+      await Promise.all([
+        this.styleSheet.replace(style),
+        this.playerStyleSheet.replace(playerStyle),
+      ]);
       document.adoptedStyleSheets = [
         ...document.adoptedStyleSheets,
         this.styleSheet,
+        this.playerStyleSheet,
       ];
       createShell();
     },
@@ -288,7 +295,10 @@ export default createPlugin({
     async stop() {
       document.getElementById(UI_ROOT_ID)?.remove();
       document.documentElement.removeAttribute(UI_ATTR);
-      await this.styleSheet?.replace('');
+      await Promise.all([
+        this.styleSheet?.replace(''),
+        this.playerStyleSheet?.replace(''),
+      ]);
     },
   },
 });
