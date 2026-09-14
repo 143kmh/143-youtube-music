@@ -20,8 +20,11 @@ const tagRegex = /^\[(?<tag>\w+):\s*(?<value>.+?)\s*\]$/;
 // prettier-ignore
 const timestampRegex = /^\[(?<minutes>\d+):(?<seconds>\d+)\.(?<centiseconds>\d+)\]/m;
 
+// Enhanced-LRC can timestamp each word with <mm:ss.xx>. Capture everything
+// until the next word timestamp instead of using \w+, so Cyrillic and other
+// scripts (plus punctuation) are preserved too.
 // prettier-ignore
-const wordRegex = /<(?<minutes>\d+):(?<seconds>\d+)\.(?<centiseconds>\d+)> *(?<word>\w+)/g;
+const wordRegex = /<(?<minutes>\d+):(?<seconds>\d+)\.(?<centiseconds>\d+)>\s*(?<word>[^<]+)/gu;
 
 export const LRC = {
   parse: (text: string): LRC => {
@@ -79,8 +82,8 @@ export const LRC = {
           (parseInt(seconds) * 1000) +
           parseInt(milliseconds);
 
-        return { timeInMs, word };
-      });
+        return { timeInMs, word: word.trim() };
+      }).filter(({ word }) => word.length > 0);
 
       if (words.length) {
         text = words.map(({ word }) => word).join(' ');
@@ -98,15 +101,21 @@ export const LRC = {
     }
 
     lrc.lines.sort(({ timeInMs: timeA }, { timeInMs: timeB }) => timeA - timeB);
+
+    // Apply the offset consistently to both line and enhanced word timestamps
+    // before durations are calculated.
+    for (const line of lrc.lines) {
+      line.timeInMs += offset;
+      line.words = line.words.map((word) => ({
+        ...word,
+        timeInMs: word.timeInMs + offset,
+      }));
+    }
+
     for (let i = 0; i < lrc.lines.length; i++) {
       const current = lrc.lines[i];
       const next = lrc.lines[i + 1];
-
-      current.timeInMs += offset;
-
-      if (next) {
-        current.duration = next.timeInMs - current.timeInMs;
-      }
+      if (next) current.duration = next.timeInMs - current.timeInMs;
     }
 
     const first = lrc.lines.at(0);
