@@ -32,42 +32,14 @@ test('does not match unrelated initialize methods', () => {
 
 test('Maximum disables server-ABR before native initialize and records diagnostics', () => {
   let seenDuringInitialize: unknown;
-  let maximum = true;
-
-  const initialize = new Function(
-    `return (${initializeSource})`,
-  )() as (this: unknown) => void;
-
   const prototype = {
-    initialize,
-  };
-  const controller = Object.create(prototype) as {
-    policy: { K: boolean };
-    audioTrack: object;
-    videoTrack: object;
-    XK: { isManifestless: boolean };
-    Zb: object;
-    cL: object;
-    fQ: object;
-    getCurrentTime: () => number;
-  };
-  controller.policy = { K: true };
-  controller.audioTrack = {};
-  controller.videoTrack = {};
-  controller.XK = { isManifestless: false };
-  controller.Zb = {};
-  controller.cL = {};
-  controller.fQ = {};
-  controller.getCurrentTime = () => 0;
-
-  // The synthetic source references helpers only when initialize executes.
-  // Replace it with the same structural signature and a side-effect body after
-  // the detector has a real Function#toString contract to inspect.
-  Object.defineProperty(prototype, 'initialize', {
-    configurable: true,
-    writable: true,
-    value: function initialize(this: typeof controller) {
-      // Structural markers retained deliberately for detector coverage.
+    initialize: function initialize(this: {
+      policy: { K: boolean };
+      audioTrack: object;
+      videoTrack: object;
+      XK: object;
+      getCurrentTime: () => number;
+    }) {
       void this.audioTrack;
       void this.videoTrack;
       void this.XK;
@@ -77,9 +49,16 @@ test('Maximum disables server-ABR before native initialize and records diagnosti
       this.policy.K && void 0;
       seenDuringInitialize = this.policy.K;
     },
+  };
+  const controller = Object.assign(Object.create(prototype), {
+    policy: { K: true },
+    audioTrack: {},
+    videoTrack: {},
+    XK: {},
+    getCurrentTime: () => 0,
   });
 
-  const patcher = createDirectPlaybackPolicyPatcher(() => maximum);
+  const patcher = createDirectPlaybackPolicyPatcher(() => true);
   expect(patcher.scan([controller])).toBe(true);
   expect(patcher.getStatus().hookFound).toBe(true);
   expect(patcher.getStatus().policyKey).toBe('K');
@@ -95,8 +74,6 @@ test('Maximum disables server-ABR before native initialize and records diagnosti
 
   patcher.restore();
   expect(controller.policy.K).toBe(true);
-
-  maximum = false;
 });
 
 test('Default leaves native server-ABR policy untouched', () => {
