@@ -1,0 +1,28 @@
+/* Restore native page scrolling. The first 143 shell pass accidentally locked
+   YouTube Music's main scroller with overflow:hidden. */
+html[data-143-ui] #content.ytmusic-app-layout,
+html[data-143-ui] ytmusic-app-layout #content {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+/* Keep native list rows feeling like a desktop music client: the whole row is
+   a playback target while buttons/links inside retain their own actions. */
+html[data-143-ui] ytmusic-responsive-list-item-renderer,
+html[data-143-ui] ytmusic-player-queue-item {
+  cursor: pointer !important;
+}
+
+html[data-143-ui] .ui143-player-art {
+  cursor: pointer;
+  transition: filter 100ms ease, transform 100ms ease;
+}
+
+html[data-143-ui] .ui143-player-art:hover {
+  filter: brightness(1.08);
+}
+
+html[data-143-ui] .ui143-player-art:active {
+  transform: scale(0.975);
+}
