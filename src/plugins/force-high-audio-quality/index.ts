@@ -20,9 +20,27 @@ export default createPlugin({
 
   menu: async ({ getConfig, setConfig, window }) => {
     const config = await getConfig();
+    const qualityOptions: {
+      quality: QualityConfig['quality'];
+      label: string;
+    }[] = [
+      {
+        quality: 'default',
+        label: t('plugins.force-high-audio-quality.default'),
+      },
+      {
+        quality: 'maximum',
+        label: t('plugins.force-high-audio-quality.maximum'),
+      },
+      {
+        quality: 'opus',
+        label: 'Maximum Opus (experimental)',
+      },
+    ];
+
     return [
-      ...(['default', 'maximum'] as const).map((quality) => ({
-        label: t(`plugins.force-high-audio-quality.${quality}`),
+      ...qualityOptions.map(({ quality, label }) => ({
+        label,
         type: 'radio' as const,
         checked: config.quality === quality,
         click: () => setConfig({ quality }),
@@ -54,6 +72,7 @@ export default createPlugin({
             PlaybackDetails & {
               preferenceActive: boolean;
               maximumRequested: boolean;
+              requestedMode: QualityConfig['quality'];
               patchedLoads: number;
               proxyFound: boolean;
               incomingHigh: string;
@@ -74,6 +93,7 @@ export default createPlugin({
           });
           const script = this.scriptPatchStatus;
           const scriptDetail = [
+            `Requested mode: ${stats.requestedMode}`,
             `Player script interceptor: ${script?.installed ? 'installed' : 'not installed'}`,
             `base.js requests seen: ${script?.matchedRequests ?? 0}`,
             `base.js responses patched: ${script?.patchedRequests ?? 0}`,
