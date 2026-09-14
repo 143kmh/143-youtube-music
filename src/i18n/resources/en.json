@@ -997,6 +997,17 @@
         "visualizer-type": "Visualizer Type"
       },
       "name": "Visualizer"
+    },
+    "force-high-audio-quality": {
+      "name": "Force High Audio Quality",
+      "description": "Prefer native Premium high-quality audio. Applies to newly loaded tracks; reload the page to clear preloaded streams.",
+      "default": "Default",
+      "maximum": "High / Maximum available",
+      "inspect": "Show current audio stream",
+      "unknown": "Unknown",
+      "stats": "itag: {{itag}}\nCodec: {{codec}}\nApproximate bitrate: {{bitrate}}",
+      "detail": "Preference override: {{preference}}\nYouTube subscriber flag: {{subscriber}}\nEffective preference: {{effectivePreference}}\nMusic PlayerProxy found: {{proxyFound}}\nNative playback calls patched: {{patchedLoads}}\nLast incoming aac_high: {{incomingHigh}}\nTrack ID: {{videoId}}\n\nOffered audio formats (not necessarily selected):\n{{offeredFormats}}\n\nReload, then open a track to apply the preference. The subscriber flag is reported by YouTube Music; it is not an independent subscription check.",
+      "unavailable": "Unavailable (using normal playback)"
     }
   }
 }
