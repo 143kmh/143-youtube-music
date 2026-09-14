@@ -2,8 +2,9 @@ import { createPlugin } from '@/utils';
 
 import style from './style.css?inline';
 
-const UI_ROOT_ID = '143-ui-root';
+const UI_ROOT_ID = 'ui143-root';
 const UI_ATTR = 'data-143-ui';
+const UI_SEARCH_ID = 'ui143-search';
 
 type MusicApp = HTMLElement & {
   navigate?: (page: string) => void;
@@ -155,7 +156,7 @@ const createShell = () => {
   searchText.textContent = 'Search';
   search.append(searchText);
   search.addEventListener('click', () => {
-    document.querySelector<HTMLInputElement>('#143-ui-search')?.focus();
+    document.getElementById(UI_SEARCH_ID)?.focus();
   });
 
   primary.append(
@@ -223,7 +224,7 @@ const createShell = () => {
   searchForm.setAttribute('role', 'search');
   searchForm.append(createIcon('search'));
   const input = document.createElement('input');
-  input.id = '143-ui-search';
+  input.id = UI_SEARCH_ID;
   input.type = 'search';
   input.autocomplete = 'off';
   input.spellcheck = false;
