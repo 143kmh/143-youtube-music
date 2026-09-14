@@ -1,5 +1,6 @@
 const CUSTOM_ARTIST_SELECTOR = '.ui143-player-artist-link';
 const CUSTOM_ART_SELECTOR = '.ui143-player-art';
+const CUSTOM_META_SELECTOR = '.ui143-player-meta';
 const TRACK_ROW_SELECTOR = [
   'ytmusic-responsive-list-item-renderer',
   'ytmusic-player-queue-item',
@@ -35,15 +36,11 @@ const openArtistWithoutReload = (customLink: HTMLAnchorElement) => {
   const wantedText = customLink.textContent?.trim() ?? '';
   const candidates = getNativeArtistLinks();
   const target =
-    candidates.find(
-      (link) => normalizedHref(link.href) === wantedHref,
-    ) ??
-    candidates.find(
-      (link) => (link.textContent?.trim() ?? '') === wantedText,
-    );
+    candidates.find((link) => normalizedHref(link.href) === wantedHref) ??
+    candidates.find((link) => (link.textContent?.trim() ?? '') === wantedText);
 
-  // Important: click the original Polymer/YouTube Music endpoint instead of
-  // navigating the copied href. That keeps the current playback session alive.
+  // Click the original Polymer/YouTube Music endpoint so the playback session
+  // survives the navigation instead of hard-loading the copied href.
   target?.click();
 };
 
@@ -72,6 +69,11 @@ const isInteractiveTrackChild = (target: Element, row: Element) => {
     ].join(','),
   );
   return Boolean(interactive && row.contains(interactive));
+};
+
+const isInteractivePlayerChild = (target: Element, meta: Element) => {
+  const interactive = target.closest('a, button, input, [role="button"]');
+  return Boolean(interactive && meta.contains(interactive));
 };
 
 const playTrackRow = (row: HTMLElement) => {
@@ -107,6 +109,14 @@ export const mountInteractions = () => {
     }
 
     if (target.closest(CUSTOM_ART_SELECTOR)) {
+      event.preventDefault();
+      event.stopPropagation();
+      openNowPlaying();
+      return;
+    }
+
+    const meta = target.closest<HTMLElement>(CUSTOM_META_SELECTOR);
+    if (meta && !isInteractivePlayerChild(target, meta)) {
       event.preventDefault();
       event.stopPropagation();
       openNowPlaying();
