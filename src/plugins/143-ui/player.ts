@@ -13,7 +13,7 @@ const svg = (path: string, viewBox = '0 0 24 24') => {
 
 const icons = {
   play: 'M8 5v14l11-7L8 5Z',
-  pause: 'M7 5h4v14H7V5Zm6 0h4v14H6V5Zm7 0h4v14h-4V5Z',
+  pause: 'M7 5h4v14H7V5Zm6 0h4v14h-4V5Z',
   previous: 'M6 5h2v14H6V5Zm3 7 9-7v14l-9-7Z',
   next: 'M16 5h2v14h-2V5ZM6 5l9 7-9 7V5Z',
   shuffle:
@@ -89,7 +89,10 @@ const setActive = (el: HTMLButtonElement, active: boolean) => {
 
 const readPressed = (target: HTMLElement | null): boolean | null => {
   if (!target) return null;
-  const candidates = [target, target.closest<HTMLElement>('[aria-pressed], [aria-checked]')];
+  const candidates = [
+    target,
+    target.closest<HTMLElement>('[aria-pressed], [aria-checked]'),
+  ];
   for (const element of candidates) {
     if (!element) continue;
     const pressed = element.getAttribute('aria-pressed');
@@ -229,26 +232,29 @@ export const mountPlayer = () => {
   let repeatState: 0 | 1 | 2 = 0;
   let repeatTouched = false;
   let desiredPlaying: boolean | null = null;
-  let lastPlayInputAt = 0;
 
   shuffle.addEventListener('click', () => {
     shuffleTouched = true;
     shuffleState = !shuffleState;
     setActive(shuffle, shuffleState);
-    nativeClick('.shuffle', '#shuffle-button');
+    nativeClick('#shuffle-button', '.shuffle');
   });
   previous.addEventListener('click', () =>
-    nativeClick('.previous-button', '#previous-button'),
+    nativeClick('#previous-button', '.previous-button'),
   );
-  next.addEventListener('click', () => nativeClick('.next-button', '#next-button'));
+  next.addEventListener('click', () => nativeClick('#next-button', '.next-button'));
   repeat.addEventListener('click', () => {
     repeatTouched = true;
     repeatState = (((repeatState + 1) % 3) as 0 | 1 | 2);
     setActive(repeat, repeatState !== 0);
     setIcon(repeat, repeatState === 2 ? 'repeatOne' : 'repeat');
     repeat.title =
-      repeatState === 0 ? 'Repeat off' : repeatState === 1 ? 'Repeat all' : 'Repeat one';
-    nativeClick('.repeat', '#repeat-button');
+      repeatState === 0
+        ? 'Repeat off'
+        : repeatState === 1
+          ? 'Repeat all'
+          : 'Repeat one';
+    nativeClick('#repeat-button', '.repeat');
   });
 
   const renderPlayState = (playing: boolean) => {
@@ -263,12 +269,11 @@ export const mountPlayer = () => {
 
     const currentlyPlaying = desiredPlaying ?? !current.paused;
     desiredPlaying = !currentlyPlaying;
-    lastPlayInputAt = performance.now();
     renderPlayState(desiredPlaying);
 
     if (desiredPlaying) {
       void current.play().catch(() => {
-        if (performance.now() - lastPlayInputAt > 160) {
+        if (desiredPlaying === true) {
           desiredPlaying = null;
           renderPlayState(!current.paused);
         }
@@ -327,6 +332,8 @@ export const mountPlayer = () => {
 
   let likedState = false;
   let likeTouched = false;
+  let activeSongKey = '';
+
   like.addEventListener('click', () => {
     const nativeLike = getLikeButton();
     if (!nativeLike) return;
@@ -414,12 +421,12 @@ export const mountPlayer = () => {
   document.body.append(root);
 
   let lastArtistKey = '';
-  let lastTitleText = '';
 
   const syncMetadata = () => {
     const bar = nativeBar();
+    let titleText = '';
     if (bar) {
-      const titleText =
+      titleText =
         bar.querySelector<HTMLElement>('.title.ytmusic-player-bar')?.textContent?.trim() ??
         bar.querySelector<HTMLElement>('.title')?.textContent?.trim() ??
         '';
@@ -439,9 +446,8 @@ export const mountPlayer = () => {
       const artistKey = artistLinks
         .map((link) => `${link.textContent?.trim() ?? ''}|${link.href}`)
         .join('::');
-      if (artistKey !== lastArtistKey || titleText !== lastTitleText) {
+      if (artistKey !== lastArtistKey) {
         lastArtistKey = artistKey;
-        lastTitleText = titleText;
         artist.replaceChildren();
 
         if (artistLinks.length > 0) {
@@ -465,37 +471,42 @@ export const mountPlayer = () => {
       }
     }
 
-    const nativeShuffle = nativeElement('.shuffle', '#shuffle-button');
-    const detectedShuffle = readPressed(nativeShuffle);
-    if (detectedShuffle !== null) {
-      shuffleState = detectedShuffle;
-      shuffleTouched = false;
-    } else if (!shuffleTouched) {
-      shuffleState = false;
+    if (!shuffleTouched) {
+      const detectedShuffle = readPressed(
+        nativeElement('#shuffle-button', '.shuffle'),
+      );
+      if (detectedShuffle !== null) shuffleState = detectedShuffle;
     }
     setActive(shuffle, shuffleState);
 
-    const nativeRepeat = nativeElement('.repeat', '#repeat-button') as StatefulElement | null;
-    const repeatMode = nativeRepeat?.repeatMode;
-    if (repeatMode !== undefined && repeatMode !== null) {
-      const raw = String(repeatMode).toLowerCase();
-      if (raw === '2' || raw.includes('one')) repeatState = 2;
-      else if (raw === '1' || raw.includes('all')) repeatState = 1;
-      else repeatState = 0;
-      repeatTouched = false;
-    } else {
-      const detectedRepeat = readPressed(nativeRepeat);
-      if (detectedRepeat !== null && !repeatTouched) repeatState = detectedRepeat ? 1 : 0;
+    if (!repeatTouched) {
+      const nativeRepeat = nativeElement(
+        '#repeat-button',
+        '.repeat',
+      ) as StatefulElement | null;
+      const repeatMode = nativeRepeat?.repeatMode;
+      if (repeatMode !== undefined && repeatMode !== null) {
+        const raw = String(repeatMode).toLowerCase();
+        if (raw === '2' || raw.includes('one')) repeatState = 2;
+        else if (raw === '1' || raw.includes('all')) repeatState = 1;
+        else repeatState = 0;
+      } else {
+        const detectedRepeat = readPressed(nativeRepeat);
+        if (detectedRepeat !== null) repeatState = detectedRepeat ? 1 : 0;
+      }
     }
     setActive(repeat, repeatState !== 0);
     setIcon(repeat, repeatState === 2 ? 'repeatOne' : 'repeat');
 
-    const detectedLike = readLikeState();
-    if (detectedLike !== null) {
-      likedState = detectedLike;
+    const songKey = `${location.pathname}|${new URLSearchParams(location.search).get('v') ?? ''}|${titleText}`;
+    if (songKey !== activeSongKey) {
+      activeSongKey = songKey;
       likeTouched = false;
-    } else if (!likeTouched && titleText !== lastTitleText) {
-      likedState = false;
+      const detectedLike = readLikeState();
+      if (detectedLike !== null) likedState = detectedLike;
+    } else if (!likeTouched) {
+      const detectedLike = readLikeState();
+      if (detectedLike !== null) likedState = detectedLike;
     }
     setActive(like, likedState);
     setIcon(like, likedState ? 'heartFilled' : 'heart');
@@ -520,13 +531,12 @@ export const mountPlayer = () => {
       }
       duration.textContent = formatTime(currentDuration);
 
-      if (performance.now() - lastPlayInputAt > 120) {
+      const actualPlaying = !current.paused;
+      if (desiredPlaying !== null && actualPlaying === desiredPlaying) {
         desiredPlaying = null;
-        renderPlayState(!current.paused);
-      } else if (desiredPlaying !== null) {
-        renderPlayState(desiredPlaying);
       }
-      progressWrap.classList.toggle('is-playing', !current.paused);
+      renderPlayState(desiredPlaying ?? actualPlaying);
+      progressWrap.classList.toggle('is-playing', desiredPlaying ?? actualPlaying);
 
       const volumeValue = current.muted ? 0 : Math.round(current.volume * 100);
       volume.value = String(volumeValue);
