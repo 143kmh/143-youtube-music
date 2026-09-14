@@ -38,6 +38,29 @@ const app = () =>
 const playerApi = () =>
   document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
 
+const normalizeArtistName = (value: string) =>
+  value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const artistFromRun = (run: TextRun): ArtistEntry | null => {
+  const browse = run.navigationEndpoint?.browseEndpoint;
+  const browseId = browse?.browseId;
+  const name = run.text?.replaceAll(/\s+/g, ' ').trim();
+  const pageType =
+    browse?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig
+      ?.pageType;
+
+  if (!name || !browseId) return null;
+  if (pageType !== 'MUSIC_PAGE_TYPE_ARTIST' && !browseId.startsWith('UC')) {
+    return null;
+  }
+  return { name, browseId };
+};
+
 const currentQueueRenderer = () => {
   const queue = document.querySelector<QueueElement>('#queue');
   const items = queue?.queue.store.store.getState().queue.items ?? [];
@@ -59,16 +82,10 @@ const currentArtists = (): ArtistEntry[] => {
   const seen = new Set<string>();
 
   for (const run of renderer?.longBylineText?.runs ?? []) {
-    const browse = run.navigationEndpoint?.browseEndpoint;
-    const pageType =
-      browse?.browseEndpointContextSupportedConfigs
-        ?.browseEndpointContextMusicConfig?.pageType;
-    const name = run.text?.trim();
-    const browseId = browse?.browseId;
-    if (!name || !browseId || pageType !== 'MUSIC_PAGE_TYPE_ARTIST') continue;
-    if (seen.has(browseId)) continue;
-    seen.add(browseId);
-    result.push({ name, browseId });
+    const artist = artistFromRun(run);
+    if (!artist || seen.has(artist.browseId)) continue;
+    seen.add(artist.browseId);
+    result.push(artist);
   }
 
   if (result.length > 0) return result;
@@ -84,15 +101,140 @@ const currentArtists = (): ArtistEntry[] => {
   return name && browseId ? [{ name, browseId }] : [];
 };
 
-const syncArtistLinks = () => {
+const currentTrackTitle = () => {
+  const data = playerApi()?.getVideoData();
+  if (data?.title?.trim()) return data.title.trim();
+  return (
+    document
+      .querySelector<HTMLElement>('ytmusic-player-bar .title.ytmusic-player-bar')
+      ?.textContent?.trim() ?? ''
+  );
+};
+
+const featuredArtistNames = (title: string) => {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  const featurePattern =
+    /(?:\bfeat(?:uring)?\.?|\bft\.?|\bwith)\s+([^\])}|–—]+)/giu;
+
+  for (const match of title.matchAll(featurePattern)) {
+    const captured = match[1]?.trim();
+    if (!captured) continue;
+    for (const piece of captured.split(/\s*(?:,|&|\+|;|\bx\b)\s*/giu)) {
+      const name = piece.replace(/[\])}]+$/g, '').trim();
+      const key = normalizeArtistName(name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+  }
+
+  return names;
+};
+
+const readRuns = (value: unknown): TextRun[] => {
+  if (!isRecord(value) || !Array.isArray(value.runs)) return [];
+  return value.runs.filter(isRecord) as TextRun[];
+};
+
+const collectArtistRuns = (root: unknown): ArtistEntry[] => {
+  const result: ArtistEntry[] = [];
+  const seen = new Set<string>();
+
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!isRecord(value)) return;
+
+    for (const run of readRuns(value)) {
+      const artist = artistFromRun(run);
+      if (!artist || seen.has(artist.browseId)) continue;
+      seen.add(artist.browseId);
+      result.push(artist);
+    }
+    Object.values(value).forEach(visit);
+  };
+
+  visit(root);
+  return result;
+};
+
+const artistSearchCache = new Map<string, Promise<ArtistEntry | null>>();
+
+const resolveArtist = (name: string) => {
+  const cacheKey = normalizeArtistName(name);
+  const cached = artistSearchCache.get(cacheKey);
+  if (cached) return cached;
+
+  const request = (async () => {
+    const musicApp = app();
+    if (!musicApp) return null;
+
+    const searchBox = document.querySelector<
+      HTMLElement & { getSearchboxStats?: () => unknown }
+    >('ytmusic-search-box');
+
+    try {
+      const response = await musicApp.networkManager.fetch<
+        unknown,
+        { query: string; suggestStats?: unknown }
+      >('/search', {
+        query: name,
+        suggestStats: searchBox?.getSearchboxStats?.(),
+      });
+      const candidates = collectArtistRuns(response);
+      if (candidates.length === 0) return null;
+
+      const exact = candidates.find(
+        (candidate) => normalizeArtistName(candidate.name) === cacheKey,
+      );
+      if (exact) return exact;
+
+      const startsWith = candidates.find((candidate) => {
+        const candidateName = normalizeArtistName(candidate.name);
+        return candidateName.startsWith(cacheKey) || cacheKey.startsWith(candidateName);
+      });
+      return startsWith ?? candidates[0] ?? null;
+    } catch (error) {
+      console.warn(`[143 Music] Could not resolve featured artist ${name}`, error);
+      return null;
+    }
+  })();
+
+  artistSearchCache.set(cacheKey, request);
+  return request;
+};
+
+const navigateArtist = (browseId: string) => {
+  const nativeLink = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('a[href]'),
+  ).find((link) => {
+    const href = link.getAttribute('href') ?? '';
+    return href.includes(`/channel/${browseId}`) || href.includes(`/browse/${browseId}`);
+  });
+
+  if (nativeLink) {
+    nativeLink.click();
+    return;
+  }
+
+  const route = browseId.startsWith('UC')
+    ? `/channel/${browseId}`
+    : `/browse/${browseId}`;
+  app()?.navigate(route);
+};
+
+const renderArtists = (artists: ArtistEntry[]) => {
   const container = document.querySelector<HTMLElement>('.ui143-player-artist');
   if (!container) return;
 
-  const artists = currentArtists();
   if (artists.length === 0) {
-    const primary = playerApi()?.getVideoData().author?.trim();
-    if (primary && container.dataset.ui143Artists !== `plain:${primary}`) {
-      container.dataset.ui143Artists = `plain:${primary}`;
+    const primary = playerApi()?.getVideoData().author?.trim() ?? '';
+    const key = `plain:${primary}`;
+    if (container.dataset.ui143Artists !== key) {
+      container.dataset.ui143Artists = key;
       container.textContent = primary;
     }
     return;
@@ -116,18 +258,57 @@ const syncArtistLinks = () => {
     artist.className = 'ui143-player-artist-link ui143-player-artist-button';
     artist.textContent = name;
     artist.title = `Open ${name}`;
+    artist.dataset.browseId = browseId;
     artist.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      app()?.navigate(browseId);
+      navigateArtist(browseId);
     });
     container.append(artist);
   });
 };
 
-const readRuns = (value: unknown): TextRun[] => {
-  if (!isRecord(value) || !Array.isArray(value.runs)) return [];
-  return value.runs.filter(isRecord) as TextRun[];
+let artistSyncSourceKey = '';
+let artistSyncGeneration = 0;
+
+const syncArtistLinks = () => {
+  const title = currentTrackTitle();
+  const videoId = playerApi()?.getVideoData().video_id ?? '';
+  const baseArtists = currentArtists();
+  const featureNames = featuredArtistNames(title);
+  const sourceKey = [
+    videoId,
+    title,
+    baseArtists.map(({ name, browseId }) => `${name}:${browseId}`).join('|'),
+    featureNames.join('|'),
+  ].join('::');
+
+  if (sourceKey === artistSyncSourceKey) return;
+  artistSyncSourceKey = sourceKey;
+  const generation = ++artistSyncGeneration;
+
+  renderArtists(baseArtists);
+
+  const knownNames = new Set(
+    baseArtists.map(({ name }) => normalizeArtistName(name)),
+  );
+  const missingFeatures = featureNames.filter(
+    (name) => !knownNames.has(normalizeArtistName(name)),
+  );
+  if (missingFeatures.length === 0) return;
+
+  void Promise.all(missingFeatures.map(resolveArtist)).then((resolved) => {
+    if (generation !== artistSyncGeneration) return;
+
+    const merged = [...baseArtists];
+    const seen = new Set(merged.map(({ browseId }) => browseId));
+    for (const artist of resolved) {
+      if (!artist || seen.has(artist.browseId)) continue;
+      seen.add(artist.browseId);
+      merged.push(artist);
+    }
+    renderArtists(merged);
+  });
 };
 
 const candidateRuns = (candidate: UnknownRecord): TextRun[] => {
