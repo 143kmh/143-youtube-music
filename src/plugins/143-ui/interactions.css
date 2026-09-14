@@ -26,3 +26,65 @@ html[data-143-ui] .ui143-player-art:hover {
 html[data-143-ui] .ui143-player-art:active {
   transform: scale(0.975);
 }
+
+/* Clean idle state. Never show Chromium's broken-image glyph when there is no
+   track; use a deliberate music placeholder and strip actions that make no
+   sense until playback exists. */
+html[data-143-ui] .ui143-player-art-placeholder {
+  display: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-art {
+  display: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-art-placeholder {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(138, 123, 209, 0.18), transparent 42%),
+    #1b1b1b;
+  color: #777;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-meta {
+  cursor: default;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-meta-actions {
+  display: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-title {
+  color: #d7d7d7;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-artist {
+  color: transparent;
+  font-size: 0;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-artist::before {
+  content: 'Choose something to play';
+  color: #777;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-center,
+html[data-143-ui] .ui143-player.is-idle .ui143-player-utils {
+  opacity: 0.38;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-progress-fill {
+  width: 0 !important;
+}
