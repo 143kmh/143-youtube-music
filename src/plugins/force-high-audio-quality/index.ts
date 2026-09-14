@@ -58,9 +58,13 @@ export default createPlugin({
     scriptPatchStatus: null as PlayerScriptPatchStatus | null,
     restoreScriptPatch: null as (() => Promise<void>) | null,
 
-    async start({ ipc, window }) {
+    async start({ ipc, window, getConfig }) {
       const scriptPatch = await installPlayerScriptPatch(
         window.webContents.session,
+        async () => {
+          const config = await getConfig();
+          return config.enabled && config.quality === 'opus';
+        },
       );
       this.scriptPatchStatus = scriptPatch.status;
       this.restoreScriptPatch = scriptPatch.restore;
@@ -98,6 +102,10 @@ export default createPlugin({
             `base.js requests seen: ${script?.matchedRequests ?? 0}`,
             `base.js responses patched: ${script?.patchedRequests ?? 0}`,
             `Detected source policy key: ${script?.detectedPolicyKey ?? 'unknown'}`,
+            `player API responses seen: ${script?.playerApiRequests ?? 0}`,
+            `Opus responses narrowed: ${script?.opusResponsesPatched ?? 0}`,
+            `Forced Opus itag: ${script?.lastForcedOpusItag ?? 'none'}`,
+            `Opus patch error: ${script?.lastOpusError ?? 'none'}`,
             `Script patch error: ${script?.lastError ?? 'none'}`,
           ].join('\n');
 
