@@ -22,8 +22,10 @@ import {
 } from './preference';
 
 type MusicWindow = Window & {
-  yt?: { config_?: MusicConfig };
+  yt?: { config_?: MusicConfig; player?: unknown };
   ytcfg?: { data_?: MusicConfig };
+  YT?: unknown;
+  ytplayer?: unknown;
 };
 
 type RendererState = {
@@ -160,23 +162,33 @@ export default createRenderer<RendererState, QualityConfig>({
       'ytmusic-player',
     );
     const moviePlayer = document.querySelector('#movie_player');
+    const app = document.querySelector('ytmusic-app');
+    const media = document.querySelector('#movie_player video, #movie_player audio, video, audio');
     const controllerHost = host as
       | (MusicPlayerHost & {
           polymerController?: unknown;
           inst?: unknown;
         })
       | null;
+    const musicWindow = window as MusicWindow;
 
-    // Search only the known player object graph. The patcher itself is bounded,
-    // ignores accessors and fails open if YouTube changes the private contract.
+    // Search the known page/player object graph plus YouTube's exposed player
+    // namespaces. The patcher is bounded and fails open when private internals
+    // move again.
     this.directPlayback.scan([
       this.player,
       moviePlayer,
+      media,
       host,
+      app,
       controllerHost?.polymerController,
       controllerHost?.inst,
       controllerHost?.playerApi,
       this.proxy,
+      musicWindow.yt,
+      musicWindow.yt?.player,
+      musicWindow.YT,
+      musicWindow.ytplayer,
     ]);
   },
 
