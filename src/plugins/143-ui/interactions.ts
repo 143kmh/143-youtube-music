@@ -17,18 +17,51 @@ const normalizedHref = (href: string) => {
   }
 };
 
-const getNativeArtistLinks = () => {
-  const byline =
-    nativeBar()?.querySelector<HTMLElement>('.byline.ytmusic-player-bar') ??
-    nativeBar()?.querySelector<HTMLElement>('.byline');
-  if (!byline) return [];
+const currentTitle = () =>
+  nativeBar()?.querySelector<HTMLElement>('.title.ytmusic-player-bar')?.textContent?.trim() ??
+  nativeBar()?.querySelector<HTMLElement>('.title')?.textContent?.trim() ??
+  '';
 
-  const links = Array.from(byline.querySelectorAll<HTMLAnchorElement>('a[href]'));
-  const artists = links.filter((link) => {
-    const href = link.getAttribute('href') ?? '';
-    return href.includes('/channel/') || /\/browse\/UC[\w-]+/.test(href);
-  });
-  return artists.length > 0 ? artists : links;
+const currentTrackRoots = () => {
+  const roots = [
+    ...Array.from(
+      document.querySelectorAll<HTMLElement>(
+        'ytmusic-player-queue-item[selected], ytmusic-player-queue-item[play-button-state="playing"], ytmusic-responsive-list-item-renderer[play-button-state="playing"]',
+      ),
+    ),
+  ];
+
+  const title = currentTitle().toLocaleLowerCase();
+  if (title) {
+    const matching = Array.from(
+      document.querySelectorAll<HTMLElement>(TRACK_ROW_SELECTOR),
+    ).find((row) => (row.textContent ?? '').toLocaleLowerCase().includes(title));
+    if (matching) roots.unshift(matching);
+  }
+
+  const bar = nativeBar();
+  if (bar) roots.push(bar);
+  return Array.from(new Set(roots));
+};
+
+const getNativeArtistLinks = () => {
+  const links: HTMLAnchorElement[] = [];
+  const seen = new Set<string>();
+
+  for (const root of currentTrackRoots()) {
+    for (const link of Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href]'))) {
+      const href = link.getAttribute('href') ?? '';
+      const text = link.textContent?.replaceAll(/\s+/g, ' ').trim() ?? '';
+      if (!text || !(href.includes('/channel/') || /\/browse\/UC[\w-]+/.test(href))) {
+        continue;
+      }
+      const key = `${normalizedHref(link.href)}|${text.toLocaleLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push(link);
+    }
+  }
+  return links;
 };
 
 const openArtistWithoutReload = (customLink: HTMLAnchorElement) => {
@@ -39,8 +72,6 @@ const openArtistWithoutReload = (customLink: HTMLAnchorElement) => {
     candidates.find((link) => normalizedHref(link.href) === wantedHref) ??
     candidates.find((link) => (link.textContent?.trim() ?? '') === wantedText);
 
-  // Click the original Polymer/YouTube Music endpoint so the playback session
-  // survives the navigation instead of hard-loading the copied href.
   target?.click();
 };
 
@@ -130,10 +161,6 @@ export const mountInteractions = () => {
     playTrackRow(row);
   };
 
-  // Capture first so copied artist links never fall through to a hard page load.
   document.addEventListener('click', onClick, true);
-
-  return () => {
-    document.removeEventListener('click', onClick, true);
-  };
+  return () => document.removeEventListener('click', onClick, true);
 };
