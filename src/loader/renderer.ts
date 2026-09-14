@@ -69,6 +69,8 @@ export const forceUnloadRendererPlugin = async (id: string) => {
 };
 
 export const forceLoadRendererPlugin = async (id: string) => {
+  if (!window.mainConfig.plugins.isAllowedPlugin(id)) return;
+
   const plugin = (await rendererPlugins())[id];
   if (!plugin) return;
 
@@ -118,12 +120,10 @@ export const loadAllRendererPlugins = async () => {
   for (const [pluginId, pluginDef] of Object.entries(await rendererPlugins())) {
     const config = deepmerge(pluginDef.config, pluginConfigs[pluginId] ?? {});
 
-    if (config.enabled) {
+    if (window.mainConfig.plugins.isAllowedPlugin(pluginId) && config.enabled) {
       await forceLoadRendererPlugin(pluginId);
-    } else {
-      if (loadedPluginMap[pluginId]) {
-        await forceUnloadRendererPlugin(pluginId);
-      }
+    } else if (loadedPluginMap[pluginId]) {
+      await forceUnloadRendererPlugin(pluginId);
     }
   }
 };
