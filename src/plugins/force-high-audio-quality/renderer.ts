@@ -1,6 +1,10 @@
 import { createRenderer } from '@/utils';
 
 import {
+  createDirectPlaybackPolicyPatcher,
+  type DirectPlaybackPolicyPatcher,
+} from './direct-playback';
+import {
   readAudioDiagnostics,
   readPlaybackDetails,
   type DiagnosticPlayer,
@@ -33,6 +37,13 @@ type RendererState = {
   proxy: PlayerVarsApi | null;
   proxyTimer: ReturnType<typeof setInterval> | null;
   syncPlayerProxy: () => void;
+  directPlayback: DirectPlaybackPolicyPatcher | null;
+  syncDirectPlayback: () => void;
+};
+
+const getMusicConfig = () => {
+  const musicWindow = window as MusicWindow;
+  return musicWindow.yt?.config_ ?? musicWindow.ytcfg?.data_;
 };
 
 export default createRenderer<RendererState, QualityConfig>({
@@ -44,14 +55,15 @@ export default createRenderer<RendererState, QualityConfig>({
   incomingHigh: 'No calls yet',
   proxy: null,
   proxyTimer: null,
+  directPlayback: null,
 
   apply() {
     this.syncPlayerProxy();
+    this.syncDirectPlayback();
     this.restore?.();
     this.restore = null;
     if (!this.config.enabled || this.config.quality !== 'maximum') return;
-    const musicWindow = window as MusicWindow;
-    const config = musicWindow.yt?.config_ ?? musicWindow.ytcfg?.data_;
+    const config = getMusicConfig();
     if (config) this.restore = overrideAudioQuality(config);
   },
 
@@ -59,24 +71,41 @@ export default createRenderer<RendererState, QualityConfig>({
     this.patchedLoads = 0;
     this.incomingHigh = 'No calls yet';
     this.config = await getConfig();
+    this.directPlayback = createDirectPlaybackPolicyPatcher(
+      () => {
+        const config = getMusicConfig();
+        return (
+          this.config.enabled &&
+          this.config.quality === 'maximum' &&
+          config?.IS_SUBSCRIBER === true
+        );
+      },
+    );
     this.apply();
-    // The Music component resolves its proxy asynchronously. Also notice proxy
-    // replacement after navigation; don't stack wrappers on a stable instance.
-    this.proxyTimer = setInterval(() => this.syncPlayerProxy(), 1000);
+    // Music/player internals resolve asynchronously and may be replaced after
+    // navigation. Keep both hooks synchronized without stacking wrappers.
+    this.proxyTimer = setInterval(() => {
+      this.syncPlayerProxy();
+      this.syncDirectPlayback();
+    }, 1000);
     ipc.on('peard:force-high-audio-quality:inspect', () => {
-      const musicWindow = window as MusicWindow;
+      const directPlayback = this.directPlayback?.getStatus() ?? {
+        hookFound: false,
+        policyKey: null,
+        applications: 0,
+        lastBefore: null,
+        lastAfter: null,
+      };
       return ipc
         .invoke('peard:force-high-audio-quality:show', {
           ...readAudioDiagnostics(this.player),
-          ...readPlaybackDetails(
-            this.player,
-            musicWindow.yt?.config_ ?? musicWindow.ytcfg?.data_,
-          ),
+          ...readPlaybackDetails(this.player, getMusicConfig()),
           preferenceActive: this.restore !== null,
           maximumRequested: this.config.quality === 'maximum',
           patchedLoads: this.patchedLoads,
           proxyFound: this.proxy !== null,
           incomingHigh: this.incomingHigh,
+          directPlayback,
         })
         .catch(() => {
           // The backend may already have stopped if the plugin was just disabled.
@@ -100,8 +129,7 @@ export default createRenderer<RendererState, QualityConfig>({
     this.restorePlayerVars = interceptPlayerVars(
       api,
       () => {
-        const musicWindow = window as MusicWindow;
-        const config = musicWindow.yt?.config_ ?? musicWindow.ytcfg?.data_;
+        const config = getMusicConfig();
         return (
           this.config.enabled &&
           this.config.quality === 'maximum' &&
@@ -120,9 +148,42 @@ export default createRenderer<RendererState, QualityConfig>({
     );
   },
 
+  syncDirectPlayback() {
+    if (!this.directPlayback) return;
+    if (!this.config.enabled || this.config.quality !== 'maximum') {
+      this.directPlayback.restore();
+      return;
+    }
+    if (this.directPlayback.getStatus().hookFound) return;
+
+    const host = document.querySelector<HTMLElement & MusicPlayerHost>(
+      'ytmusic-player',
+    );
+    const moviePlayer = document.querySelector('#movie_player');
+    const controllerHost = host as
+      | (MusicPlayerHost & {
+          polymerController?: unknown;
+          inst?: unknown;
+        })
+      | null;
+
+    // Search only the known player object graph. The patcher itself is bounded,
+    // ignores accessors and fails open if YouTube changes the private contract.
+    this.directPlayback.scan([
+      this.player,
+      moviePlayer,
+      host,
+      controllerHost?.polymerController,
+      controllerHost?.inst,
+      controllerHost?.playerApi,
+      this.proxy,
+    ]);
+  },
+
   onPlayerApiReady(api) {
     this.player = api;
-    // Retry here if the runtime config wasn't initialized when start ran.
+    // Retry here if the runtime config/player internals were not initialized
+    // when start ran.
     this.apply();
   },
 
@@ -137,6 +198,8 @@ export default createRenderer<RendererState, QualityConfig>({
     this.proxy = null;
     this.restorePlayerVars?.();
     this.restorePlayerVars = null;
+    this.directPlayback?.restore();
+    this.directPlayback = null;
     this.restore?.();
     this.restore = null;
     this.player = null;
