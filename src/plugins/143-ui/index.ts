@@ -1,10 +1,19 @@
+import { net } from 'electron';
+
 import { createPlugin } from '@/utils';
 
 import interactionStyle from './interactions.css?inline';
 import { mountInteractions } from './interactions';
+import {
+  attachKaraokePlayer,
+  startKaraoke,
+  stopKaraoke,
+} from './karaoke';
 import playerStyle from './player.css?inline';
 import { mountPlayer } from './player';
 import style from './style.css?inline';
+
+import type { MusicPlayer } from '@/types/music-player';
 
 const UI_ROOT_ID = 'ui143-root';
 const UI_ATTR = 'data-143-ui';
@@ -264,9 +273,7 @@ export default createPlugin({
     enabled: true,
   },
   backend: {
-    start({ window }) {
-      // Pear opens DevTools automatically in non-packaged builds. Suppress only
-      // that startup call, then restore openDevTools so F12/Ctrl+Shift+I works.
+    start({ window, ipc }) {
       const webContents = window.webContents;
       const originalOpenDevTools = webContents.openDevTools.bind(webContents);
 
@@ -274,6 +281,23 @@ export default createPlugin({
       webContents.once('did-finish-load', () => {
         webContents.openDevTools = originalOpenDevTools;
       });
+
+      // Karaoke is a 143 feature now. We reuse the mature lyric providers from
+      // the old Pear module internally without enabling that plugin itself.
+      ipc.handle(
+        'synced-lyrics:fetch',
+        async (url: string, init: RequestInit) => {
+          const response = await net.fetch(url, init);
+          return [
+            response.status,
+            await response.text(),
+            Object.fromEntries(response.headers.entries()),
+          ] as [number, string, Record<string, string>];
+        },
+      );
+    },
+    stop({ ipc }) {
+      ipc.removeHandler('synced-lyrics:fetch');
     },
   },
   renderer: {
@@ -283,7 +307,7 @@ export default createPlugin({
     playerCleanup: null as (() => void) | null,
     interactionCleanup: null as (() => void) | null,
 
-    async start() {
+    async start(ctx) {
       this.styleSheet = new CSSStyleSheet();
       this.playerStyleSheet = new CSSStyleSheet();
       this.interactionStyleSheet = new CSSStyleSheet();
@@ -291,6 +315,7 @@ export default createPlugin({
         this.styleSheet.replace(style),
         this.playerStyleSheet.replace(playerStyle),
         this.interactionStyleSheet.replace(interactionStyle),
+        startKaraoke(ctx),
       ]);
       document.adoptedStyleSheets = [
         ...document.adoptedStyleSheets,
@@ -305,7 +330,12 @@ export default createPlugin({
       this.interactionCleanup = mountInteractions();
     },
 
+    async onPlayerApiReady(api: MusicPlayer) {
+      await attachKaraokePlayer(api);
+    },
+
     async stop() {
+      stopKaraoke();
       this.interactionCleanup?.();
       this.interactionCleanup = null;
       this.playerCleanup?.();
