@@ -98,6 +98,8 @@ export const forceLoadMainPlugin = async (
   id: string,
   win: BrowserWindow,
 ): Promise<void> => {
+  if (!config.plugins.isAllowedPlugin(id)) return;
+
   const plugin = (await mainPlugins())[id];
   if (!plugin) return;
 
@@ -132,12 +134,17 @@ export const forceLoadMainPlugin = async (
 
 export const loadAllMainPlugins = async (win: BrowserWindow) => {
   console.log(LoggerPrefix, t('common.console.plugins.load-all'));
+
+  // This fork intentionally keeps the native YouTube Music baseline and only
+  // loads features owned by 143. Persist the policy before preload/renderer run.
+  await config.plugins.enforceAllowedPlugins();
+
   const pluginConfigs = config.plugins.getPlugins();
   const queue: Promise<void>[] = [];
 
   for (const [plugin, pluginDef] of Object.entries(await mainPlugins())) {
-    const config = deepmerge(pluginDef.config, pluginConfigs[plugin] ?? {});
-    if (config.enabled) {
+    const pluginConfig = deepmerge(pluginDef.config, pluginConfigs[plugin] ?? {});
+    if (config.plugins.isAllowedPlugin(plugin) && pluginConfig.enabled) {
       queue.push(forceLoadMainPlugin(plugin, win));
     } else if (loadedPluginMap[plugin]) {
       queue.push(forceUnloadMainPlugin(plugin, win));
