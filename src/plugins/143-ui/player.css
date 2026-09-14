@@ -1,32 +1,33 @@
 html[data-143-ui] {
-  --ui143-player-height: 104px;
+  --ui143-player-height: 92px;
 }
 
-/* The native YT Music player remains alive as the playback engine, but is not rendered. */
+/* Native YT Music still owns playback/state; our bar is only the visible shell. */
 html[data-143-ui] ytmusic-player-bar {
   opacity: 0 !important;
   pointer-events: none !important;
   transform: translateY(140%) !important;
 }
 
+html[data-143-ui] .ui143-sidebar-footer {
+  display: none !important;
+}
+
 .ui143-player {
   position: fixed;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 1400;
-  height: 88px;
+  height: var(--ui143-player-height);
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(420px, 1.35fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(300px, 1fr) minmax(460px, 1.5fr) minmax(220px, 1fr);
   align-items: center;
-  gap: 18px;
-  padding: 10px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  background: rgba(18, 18, 18, 0.985);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(22px) saturate(120%);
-  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  gap: 20px;
+  padding: 10px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #121212;
   color: #fff;
   pointer-events: auto;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -35,24 +36,33 @@ html[data-143-ui] ytmusic-player-bar {
 
 .ui143-player-meta {
   min-width: 0;
+  height: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
+  cursor: pointer;
 }
 
 .ui143-player-art {
-  width: 60px;
-  height: 60px;
-  flex: 0 0 60px;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 5px;
   background: #242424;
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.34);
+  transition: filter 90ms ease, transform 90ms ease;
+}
+
+.ui143-player-meta:hover .ui143-player-art {
+  filter: brightness(1.06);
 }
 
 .ui143-player-copy {
   min-width: 0;
+  max-width: 320px;
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 4px;
 }
@@ -66,7 +76,7 @@ html[data-143-ui] ytmusic-player-bar {
 
 .ui143-player-title {
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.25;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -74,8 +84,8 @@ html[data-143-ui] ytmusic-player-bar {
 
 .ui143-player-artist {
   color: #a7a7a7;
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.3;
   font-weight: 500;
 }
 
@@ -83,7 +93,7 @@ html[data-143-ui] ytmusic-player-bar {
   color: #a7a7a7;
   text-decoration: none;
   cursor: pointer;
-  transition: color 90ms ease;
+  transition: color 80ms ease;
 }
 
 .ui143-player-artist-link:hover {
@@ -96,10 +106,18 @@ html[data-143-ui] ytmusic-player-bar {
   color: #686868;
 }
 
+.ui143-player-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  flex: 0 0 auto;
+}
+
 .ui143-player-center {
   min-width: 0;
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   justify-self: center;
   display: flex;
   flex-direction: column;
@@ -112,13 +130,14 @@ html[data-143-ui] ytmusic-player-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 11px;
+  gap: 12px;
 }
 
 .ui143-player-button {
   appearance: none;
-  width: 30px;
-  height: 30px;
+  position: relative;
+  width: 32px;
+  height: 32px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -127,7 +146,7 @@ html[data-143-ui] ytmusic-player-bar {
   background: transparent;
   color: #a7a7a7;
   cursor: pointer;
-  transition: color 80ms ease, transform 80ms ease, background 80ms ease, opacity 80ms ease;
+  transition: color 75ms ease, transform 75ms ease, background 75ms ease, opacity 75ms ease;
 }
 
 .ui143-player-button:hover {
@@ -136,7 +155,7 @@ html[data-143-ui] ytmusic-player-bar {
 }
 
 .ui143-player-button:active {
-  transform: scale(0.94);
+  transform: scale(0.93);
 }
 
 .ui143-player-button.is-active {
@@ -146,51 +165,59 @@ html[data-143-ui] ytmusic-player-bar {
 .ui143-player-button.is-active::after {
   content: '';
   position: absolute;
+  left: 50%;
+  bottom: -1px;
   width: 3px;
   height: 3px;
-  margin-top: 27px;
   border-radius: 50%;
   background: currentColor;
+  transform: translateX(-50%);
 }
 
 .ui143-player-button.is-disabled,
 .ui143-player-button:disabled {
-  opacity: 0.32;
+  opacity: 0.3;
   cursor: default;
   transform: none;
 }
 
 .ui143-player-icon {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   fill: currentColor;
   pointer-events: none;
 }
 
+.ui143-player-meta-actions .ui143-player-button {
+  width: 30px;
+  height: 30px;
+}
+
 .ui143-player-play {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   margin: 0 3px;
   background: #fff;
   color: #090909;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
 }
 
 .ui143-player-play:hover {
-  background: #f5f5f5;
+  background: #f4f4f4;
   color: #000;
-  transform: scale(1.065);
+  transform: scale(1.055);
 }
 
 .ui143-player-play .ui143-player-icon {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
 }
 
 .ui143-player-timeline {
   width: 100%;
+  max-width: 680px;
   display: grid;
-  grid-template-columns: 36px minmax(120px, 1fr) 36px;
+  grid-template-columns: 40px minmax(140px, 1fr) 40px;
   align-items: center;
   gap: 8px;
 }
@@ -200,6 +227,7 @@ html[data-143-ui] ytmusic-player-bar {
   font-size: 10px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  user-select: none;
 }
 
 .ui143-player-time:first-child {
@@ -210,7 +238,7 @@ html[data-143-ui] ytmusic-player-bar {
   position: relative;
   min-width: 0;
   width: 100%;
-  height: 14px;
+  height: 16px;
   display: flex;
   align-items: center;
 }
@@ -223,9 +251,16 @@ html[data-143-ui] ytmusic-player-bar {
   height: 4px;
   overflow: hidden;
   border-radius: 999px;
-  background: #4d4d4d;
+  background: #4b4b4b;
   transform: translateY(-50%);
   pointer-events: none;
+  transition: height 80ms ease, background 80ms ease;
+}
+
+.ui143-player-progress-wrap:hover .ui143-player-progress-visual,
+.ui143-player-progress-wrap.is-scrubbing .ui143-player-progress-visual {
+  height: 6px;
+  background: #565656;
 }
 
 .ui143-player-progress-fill {
@@ -234,8 +269,13 @@ html[data-143-ui] ytmusic-player-bar {
   height: 100%;
   overflow: hidden;
   border-radius: inherit;
-  background: #f3f3f3;
-  transition: width 35ms linear, background 90ms ease;
+  background: #f2f2f2;
+  transition: width 28ms linear, background 80ms ease;
+}
+
+.ui143-player-progress-wrap:hover .ui143-player-progress-fill,
+.ui143-player-progress-wrap.is-scrubbing .ui143-player-progress-fill {
+  background: var(--ui143-accent-strong);
 }
 
 .ui143-player-progress-fill::after {
@@ -243,32 +283,31 @@ html[data-143-ui] ytmusic-player-bar {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -58px;
-  width: 58px;
+  left: -62px;
+  width: 62px;
   opacity: 0;
   background: linear-gradient(
     105deg,
     transparent 0 18%,
-    rgba(138, 123, 209, 0.08) 30%,
-    rgba(138, 123, 209, 0.9) 48%,
-    rgba(255, 255, 255, 0.75) 55%,
+    rgba(138, 123, 209, 0.06) 30%,
+    rgba(138, 123, 209, 0.82) 48%,
+    rgba(255, 255, 255, 0.7) 55%,
     transparent 74% 100%
   );
 }
 
 .ui143-player-progress-wrap.is-playing .ui143-player-progress-fill::after {
-  opacity: 0.34;
-  animation: ui143-player-wave 1.45s linear infinite;
+  opacity: 0.22;
+  animation: ui143-player-wave 1.5s linear infinite;
 }
 
 .ui143-player-progress-wrap.is-scrubbing .ui143-player-progress-fill {
-  background: var(--ui143-accent-strong);
   transition: none;
 }
 
 .ui143-player-progress-wrap.is-scrubbing .ui143-player-progress-fill::after {
-  opacity: 0.85;
-  animation: ui143-player-wave 0.62s linear infinite;
+  opacity: 0.7;
+  animation: ui143-player-wave 0.7s linear infinite;
 }
 
 @keyframes ui143-player-wave {
@@ -276,7 +315,7 @@ html[data-143-ui] ytmusic-player-bar {
     transform: translateX(0);
   }
   to {
-    transform: translateX(860px);
+    transform: translateX(900px);
   }
 }
 
@@ -305,7 +344,7 @@ html[data-143-ui] ytmusic-player-bar {
   inset: 0;
   z-index: 2;
   width: 100%;
-  height: 14px;
+  height: 16px;
   background: transparent !important;
 }
 
@@ -329,7 +368,7 @@ html[data-143-ui] ytmusic-player-bar {
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   opacity: 0;
-  transition: opacity 70ms ease, transform 70ms ease;
+  transition: opacity 65ms ease, transform 65ms ease;
 }
 
 .ui143-player-range:hover::-webkit-slider-thumb,
@@ -339,7 +378,7 @@ html[data-143-ui] ytmusic-player-bar {
 }
 
 .ui143-player-progress-wrap.is-scrubbing .ui143-player-range::-webkit-slider-thumb {
-  transform: scale(1.06);
+  transform: scale(1.08);
 }
 
 .ui143-player-utils {
@@ -347,37 +386,34 @@ html[data-143-ui] ytmusic-player-bar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 3px;
 }
 
 .ui143-player-utils .ui143-player-button {
-  position: relative;
   width: 32px;
   height: 32px;
 }
 
-.ui143-player-utils-divider {
-  width: 1px;
-  height: 19px;
-  margin: 0 4px;
-  background: rgba(255, 255, 255, 0.09);
-}
-
 .ui143-player-volume {
-  width: min(105px, 7vw);
+  width: 92px;
+  margin-left: 2px;
 }
 
 @media (max-width: 1180px) {
   .ui143-player {
-    grid-template-columns: minmax(220px, 1fr) minmax(350px, 1.3fr) minmax(235px, 0.9fr);
-    gap: 10px;
-    padding-inline: 12px;
+    grid-template-columns: minmax(240px, 1fr) minmax(360px, 1.35fr) minmax(180px, 0.8fr);
+    gap: 12px;
+    padding-inline: 14px;
   }
 
   .ui143-player-art {
-    width: 54px;
-    height: 54px;
-    flex-basis: 54px;
+    width: 58px;
+    height: 58px;
+    flex-basis: 58px;
+  }
+
+  .ui143-player-copy {
+    max-width: 230px;
   }
 
   .ui143-player-volume {
@@ -385,20 +421,20 @@ html[data-143-ui] ytmusic-player-bar {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 920px) {
   .ui143-player {
-    grid-template-columns: minmax(170px, 1fr) minmax(310px, 1.35fr) auto;
+    grid-template-columns: minmax(220px, 1fr) minmax(330px, 1.35fr) auto;
   }
 
-  .ui143-player-volume,
-  .ui143-player-utils-divider {
+  .ui143-player-meta-actions .ui143-player-button:last-child,
+  .ui143-player-volume {
     display: none;
   }
 }
 
 @media (max-width: 760px) {
   .ui143-player {
-    grid-template-columns: minmax(150px, 1fr) minmax(250px, 1.4fr);
+    grid-template-columns: minmax(180px, 0.9fr) minmax(280px, 1.4fr);
   }
 
   .ui143-player-utils {
@@ -406,6 +442,6 @@ html[data-143-ui] ytmusic-player-bar {
   }
 
   .ui143-player-transport {
-    gap: 7px;
+    gap: 8px;
   }
 }
