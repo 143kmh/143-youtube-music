@@ -1,5 +1,7 @@
 import { createPlugin } from '@/utils';
 
+import interactionStyle from './interactions.css?inline';
+import { mountInteractions } from './interactions';
 import playerStyle from './player.css?inline';
 import { mountPlayer } from './player';
 import style from './style.css?inline';
@@ -277,26 +279,35 @@ export default createPlugin({
   renderer: {
     styleSheet: null as CSSStyleSheet | null,
     playerStyleSheet: null as CSSStyleSheet | null,
+    interactionStyleSheet: null as CSSStyleSheet | null,
     playerCleanup: null as (() => void) | null,
+    interactionCleanup: null as (() => void) | null,
 
     async start() {
       this.styleSheet = new CSSStyleSheet();
       this.playerStyleSheet = new CSSStyleSheet();
+      this.interactionStyleSheet = new CSSStyleSheet();
       await Promise.all([
         this.styleSheet.replace(style),
         this.playerStyleSheet.replace(playerStyle),
+        this.interactionStyleSheet.replace(interactionStyle),
       ]);
       document.adoptedStyleSheets = [
         ...document.adoptedStyleSheets,
         this.styleSheet,
         this.playerStyleSheet,
+        this.interactionStyleSheet,
       ];
       createShell();
       this.playerCleanup?.();
+      this.interactionCleanup?.();
       this.playerCleanup = mountPlayer();
+      this.interactionCleanup = mountInteractions();
     },
 
     async stop() {
+      this.interactionCleanup?.();
+      this.interactionCleanup = null;
       this.playerCleanup?.();
       this.playerCleanup = null;
       document.getElementById(UI_ROOT_ID)?.remove();
@@ -304,6 +315,7 @@ export default createPlugin({
       await Promise.all([
         this.styleSheet?.replace(''),
         this.playerStyleSheet?.replace(''),
+        this.interactionStyleSheet?.replace(''),
       ]);
     },
   },
