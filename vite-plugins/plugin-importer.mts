@@ -7,8 +7,10 @@ import { Project } from 'ts-morph';
 // HACK: DO NOT USE @ ALIAS IN THIS FILE, IT WILL CAUSE PROBLEMS
 import { Platform } from '../src/types/plugins';
 
-const kebabToCamel = (text: string) =>
-  text.replace(/-(\w)/g, (_, letter: string) => letter.toUpperCase());
+const kebabToCamel = (text: string) => {
+  const camel = text.replace(/-(\w)/g, (_, letter: string) => letter.toUpperCase());
+  return /^\d/.test(camel) ? `_${camel}` : camel;
+};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const globalProject = new Project({
