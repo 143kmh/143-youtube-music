@@ -41,8 +41,8 @@ const getMusicConfig = () => {
   return musicWindow.yt?.config_ ?? musicWindow.ytcfg?.data_;
 };
 
-const isMaximum = (config: QualityConfig) =>
-  config.enabled && config.quality === 'maximum';
+const isHighMode = (config: QualityConfig) =>
+  config.enabled && (config.quality === 'maximum' || config.quality === 'opus');
 
 export default createRenderer<RendererState, QualityConfig>({
   config: { enabled: false, quality: 'default' } as QualityConfig,
@@ -56,13 +56,13 @@ export default createRenderer<RendererState, QualityConfig>({
 
   apply() {
     const musicWindow = window as MusicWindow;
-    musicWindow.__PEARD_FORCE_DIRECT_HQ__ = isMaximum(this.config);
+    musicWindow.__PEARD_FORCE_DIRECT_HQ__ = isHighMode(this.config);
 
     this.syncPlayerProxy();
     this.restore?.();
     this.restore = null;
 
-    if (!isMaximum(this.config)) return;
+    if (!isHighMode(this.config)) return;
     const config = getMusicConfig();
     if (config) this.restore = overrideAudioQuality(config);
   },
@@ -84,7 +84,8 @@ export default createRenderer<RendererState, QualityConfig>({
           ...readAudioDiagnostics(this.player),
           ...readPlaybackDetails(this.player, getMusicConfig()),
           preferenceActive: this.restore !== null,
-          maximumRequested: this.config.quality === 'maximum',
+          maximumRequested: isHighMode(this.config),
+          requestedMode: this.config.quality,
           patchedLoads: this.patchedLoads,
           proxyFound: this.proxy !== null,
           incomingHigh: this.incomingHigh,
@@ -99,7 +100,7 @@ export default createRenderer<RendererState, QualityConfig>({
     const host = document.querySelector<HTMLElement & MusicPlayerHost>(
       'ytmusic-player',
     );
-    const api = isMaximum(this.config) ? findMusicPlayerProxy(host) : null;
+    const api = isHighMode(this.config) ? findMusicPlayerProxy(host) : null;
     if (api === this.proxy) return;
 
     this.restorePlayerVars?.();
@@ -111,7 +112,7 @@ export default createRenderer<RendererState, QualityConfig>({
       api,
       () => {
         const config = getMusicConfig();
-        return isMaximum(this.config) && config?.IS_SUBSCRIBER === true;
+        return isHighMode(this.config) && config?.IS_SUBSCRIBER === true;
       },
       (incomingHigh) => {
         this.patchedLoads++;
@@ -122,6 +123,7 @@ export default createRenderer<RendererState, QualityConfig>({
               ? 'unset'
               : 'Other';
       },
+      () => this.config.quality !== 'opus',
     );
   },
 
