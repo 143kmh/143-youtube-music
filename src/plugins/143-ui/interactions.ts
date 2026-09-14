@@ -1,12 +1,17 @@
-const CUSTOM_ARTIST_SELECTOR = '.ui143-player-artist-link';
+import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
+
+const CUSTOM_ARTIST_SELECTOR = 'a.ui143-player-artist-link';
 const CUSTOM_ART_SELECTOR = '.ui143-player-art';
 const CUSTOM_META_SELECTOR = '.ui143-player-meta';
+const SEARCH_FORM_SELECTOR = '.ui143-search';
 const TRACK_ROW_SELECTOR = [
   'ytmusic-responsive-list-item-renderer',
   'ytmusic-player-queue-item',
 ].join(',');
 
 const nativeBar = () => document.querySelector<HTMLElement>('ytmusic-player-bar');
+const musicApp = () =>
+  document.querySelector<MusicPlayerAppElement>('ytmusic-app');
 
 const normalizedHref = (href: string) => {
   try {
@@ -21,6 +26,17 @@ const currentTitle = () =>
   nativeBar()?.querySelector<HTMLElement>('.title.ytmusic-player-bar')?.textContent?.trim() ??
   nativeBar()?.querySelector<HTMLElement>('.title')?.textContent?.trim() ??
   '';
+
+const currentVideoId = () => {
+  const api = document.querySelector<
+    HTMLElement & { getVideoData?: () => { video_id?: string } }
+  >('#movie_player');
+  try {
+    return api?.getVideoData?.()?.video_id ?? '';
+  } catch {
+    return '';
+  }
+};
 
 const currentTrackRoots = () => {
   const roots = [
@@ -126,7 +142,57 @@ const playTrackRow = (row: HTMLElement) => {
   playButton?.click();
 };
 
+const navigateSearchWithoutReload = (query: string) => {
+  const app = musicApp();
+  if (!app) return;
+
+  const route = new URL('/search', window.location.origin);
+  route.searchParams.set('q', query);
+  app.navigate(`${route.pathname}${route.search}`);
+};
+
+const syncIdlePlayerState = () => {
+  const root = document.querySelector<HTMLElement>('#ui143-player');
+  if (!root) return;
+
+  const hasTrack = Boolean(currentVideoId() || currentTitle());
+  root.classList.toggle('is-idle', !hasTrack);
+
+  const meta = root.querySelector<HTMLElement>('.ui143-player-meta');
+  const art = root.querySelector<HTMLImageElement>('.ui143-player-art');
+  if (!meta || !art) return;
+
+  let placeholder = meta.querySelector<HTMLElement>(
+    '.ui143-player-art-placeholder',
+  );
+  if (!placeholder) {
+    placeholder = document.createElement('div');
+    placeholder.className = 'ui143-player-art-placeholder';
+    placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.textContent = '♪';
+    meta.insertBefore(placeholder, art);
+  }
+};
+
 export const mountInteractions = () => {
+  const onSubmit = (event: SubmitEvent) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches(SEARCH_FORM_SELECTOR)) {
+      return;
+    }
+
+    const input = form.querySelector<HTMLInputElement>('input[type="search"]');
+    const query = input?.value.trim() ?? '';
+    if (!query) return;
+
+    // The old 143 shell used location.assign(), which reloaded the entire
+    // YouTube Music page and killed the current playback. Use the app's own SPA
+    // navigation instead so searching behaves like native YouTube Music.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    navigateSearchWithoutReload(query);
+  };
+
   const onClick = (event: MouseEvent) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -138,6 +204,11 @@ export const mountInteractions = () => {
       openArtistWithoutReload(artistLink);
       return;
     }
+
+    // player-polish renders artist credits as buttons with their real browseId.
+    // They already use ytmusic-app.navigate() directly. Do not hijack those
+    // buttons in the document capture handler.
+    if (target.closest('.ui143-player-artist-button')) return;
 
     if (target.closest(CUSTOM_ART_SELECTOR)) {
       event.preventDefault();
@@ -161,6 +232,15 @@ export const mountInteractions = () => {
     playTrackRow(row);
   };
 
+  document.addEventListener('submit', onSubmit, true);
   document.addEventListener('click', onClick, true);
-  return () => document.removeEventListener('click', onClick, true);
+
+  const idleInterval = window.setInterval(syncIdlePlayerState, 200);
+  syncIdlePlayerState();
+
+  return () => {
+    document.removeEventListener('submit', onSubmit, true);
+    document.removeEventListener('click', onClick, true);
+    window.clearInterval(idleInterval);
+  };
 };
