@@ -39,7 +39,7 @@ html[data-143-ui] #mini-guide-background.ytmusic-app-layout {
   display: none !important;
 }
 
-#143-ui-root {
+#ui143-root {
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -48,9 +48,9 @@ html[data-143-ui] #mini-guide-background.ytmusic-app-layout {
   color: var(--ui143-text);
 }
 
-#143-ui-root *,
-#143-ui-root *::before,
-#143-ui-root *::after {
+#ui143-root *,
+#ui143-root *::before,
+#ui143-root *::after {
   box-sizing: border-box;
 }
 
