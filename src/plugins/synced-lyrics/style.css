@@ -151,6 +151,51 @@
   animation: var(--lyrics-animations);
 }
 
+/*
+ * Word karaoke: exact enhanced-LRC timestamps are used when the provider has
+ * them. For ordinary line-timed LRC the renderer estimates the active word,
+ * and this subtle float keeps the phrase alive for its full duration instead
+ * of only animating when the line first appears.
+ */
+.text-lyrics > span > .lyrics-word {
+  transform-origin: 50% 65%;
+  transition:
+    opacity 180ms ease,
+    color 180ms ease,
+    transform 220ms ease,
+    text-shadow 220ms ease;
+  will-change: translate, transform, opacity;
+}
+
+.current .text-lyrics > span > .lyrics-word {
+  opacity: 0.58;
+  animation:
+    var(--lyrics-animations),
+    lyrics-word-float 1.9s ease-in-out infinite;
+  animation-delay:
+    0s,
+    0s,
+    calc(var(--lyrics-word-index, 0) * -0.07s);
+}
+
+.current .text-lyrics > span > .lyrics-word.is-sung-word {
+  opacity: 0.82;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.current .text-lyrics > span > .lyrics-word.is-current-word {
+  opacity: 1;
+  color: #fff;
+  transform: translateY(-1px) scale(1.035);
+  text-shadow:
+    0 0 0.45rem rgba(255, 255, 255, 0.34),
+    0 0 1.1rem rgba(255, 255, 255, 0.14);
+}
+
+.previous .text-lyrics > span > .lyrics-word {
+  opacity: var(--lyrics-inactive-opacity);
+}
+
 .lyrics-renderer {
   display: flex;
   flex-direction: column;
@@ -257,6 +302,19 @@ div:has(> .lyrics-picker) {
   }
   to {
     text-shadow: 0 0 0 var(--glow-color);
+  }
+}
+
+@keyframes lyrics-word-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  35% {
+    translate: 0 -1.35px;
+  }
+  70% {
+    translate: 0 0.75px;
   }
 }
 
