@@ -1,6 +1,6 @@
 export type QualityConfig = {
   enabled: boolean;
-  quality: 'default' | 'maximum';
+  quality: 'default' | 'maximum' | 'opus';
 };
 
 export type MusicConfig = Record<string, unknown>;
