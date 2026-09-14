@@ -7,7 +7,18 @@ export type PlayerScriptPatchStatus = {
   matchedRequests: number;
   patchedRequests: number;
   detectedPolicyKey: string | null;
+  playerApiRequests: number;
+  opusResponsesPatched: number;
+  lastForcedOpusItag: string | null;
+  lastOpusError: string | null;
   lastError: string | null;
+};
+
+type PlayerFormat = Record<string, unknown>;
+type PlayerResponse = {
+  streamingData?: {
+    adaptiveFormats?: PlayerFormat[];
+  };
 };
 
 const isPlayerBaseScript = (rawUrl: string) => {
@@ -18,6 +29,19 @@ const isPlayerBaseScript = (rawUrl: string) => {
       parsed.hostname === 'music.youtube.com' &&
       parsed.pathname.includes('/s/player/') &&
       parsed.pathname.endsWith('/base.js')
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isPlayerApiRequest = (rawUrl: string) => {
+  try {
+    const parsed = new URL(rawUrl);
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.hostname === 'music.youtube.com' &&
+      parsed.pathname.endsWith('/youtubei/v1/player')
     );
   } catch {
     return false;
@@ -58,6 +82,107 @@ const findPolicyKey = (body: string): string | null => {
   return null;
 };
 
+const isAudioFormat = (format: PlayerFormat) =>
+  typeof format.mimeType === 'string' && format.mimeType.startsWith('audio/');
+
+const isOpusFormat = (format: PlayerFormat) =>
+  isAudioFormat(format) &&
+  typeof format.mimeType === 'string' &&
+  /(?:^|[^a-z])opus(?:[^a-z]|$)/i.test(format.mimeType);
+
+const bitrateOf = (format: PlayerFormat) => {
+  const average = format.averageBitrate;
+  if (typeof average === 'number' && Number.isFinite(average)) return average;
+  const bitrate = format.bitrate;
+  return typeof bitrate === 'number' && Number.isFinite(bitrate) ? bitrate : 0;
+};
+
+const itagOf = (format: PlayerFormat) => {
+  const itag = format.itag;
+  return typeof itag === 'number' || typeof itag === 'string'
+    ? String(itag)
+    : null;
+};
+
+/**
+ * In experimental Opus mode, keep YouTube's native player response and native
+ * signed URLs, but narrow the audio candidates before the player ranks them.
+ *
+ * The normal Maximum mode is deliberately untouched. When a HIGH Opus stream is
+ * offered, retain the highest-bitrate non-DRC HIGH Opus candidate (or the best
+ * HIGH Opus candidate if every one is DRC) plus every non-audio format. If no
+ * HIGH Opus stream exists, retain the best available Opus stream. If there is
+ * no Opus audio at all, fail open and leave the response byte-for-byte alone.
+ */
+export const patchPlayerResponseForOpus = (
+  source: string,
+): {
+  source: string;
+  patched: boolean;
+  selectedItag: string | null;
+  error: string | null;
+} => {
+  try {
+    const parsed = JSON.parse(source) as PlayerResponse;
+    const adaptiveFormats = parsed.streamingData?.adaptiveFormats;
+    if (!Array.isArray(adaptiveFormats)) {
+      return {
+        source,
+        patched: false,
+        selectedItag: null,
+        error: 'No adaptiveFormats in player response',
+      };
+    }
+
+    const opus = adaptiveFormats.filter(isOpusFormat);
+    if (opus.length === 0) {
+      return {
+        source,
+        patched: false,
+        selectedItag: null,
+        error: 'No Opus audio format offered',
+      };
+    }
+
+    const highOpus = opus.filter(
+      (format) => format.audioQuality === 'AUDIO_QUALITY_HIGH',
+    );
+    const qualityPool = highOpus.length > 0 ? highOpus : opus;
+    const nonDrc = qualityPool.filter((format) => format.isDrc !== true);
+    const candidates = nonDrc.length > 0 ? nonDrc : qualityPool;
+    const selected = [...candidates].sort(
+      (left, right) => bitrateOf(right) - bitrateOf(left),
+    )[0];
+
+    if (!selected) {
+      return {
+        source,
+        patched: false,
+        selectedItag: null,
+        error: 'No usable Opus candidate',
+      };
+    }
+
+    parsed.streamingData!.adaptiveFormats = adaptiveFormats.filter(
+      (format) => !isAudioFormat(format) || format === selected,
+    );
+
+    return {
+      source: JSON.stringify(parsed),
+      patched: true,
+      selectedItag: itagOf(selected),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      source,
+      patched: false,
+      selectedItag: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+
 /**
  * Patch the playback controller at source level because the controller and its
  * shared policy object live inside the minified player closure and are not
@@ -94,8 +219,25 @@ export const patchPlayerScript = (
   return { source, policyKey: null, patched: false };
 };
 
+const rewrittenResponse = (response: Response, body: string) => {
+  const headers = new Headers(response.headers);
+  // The body has been decoded and rewritten, so stale transport metadata must
+  // not be forwarded.
+  headers.delete('content-length');
+  headers.delete('content-encoding');
+  headers.delete('transfer-encoding');
+  headers.delete('etag');
+
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+};
+
 export const installPlayerScriptPatch = async (
   session: Session,
+  shouldForceOpus: () => boolean | Promise<boolean> = () => false,
 ): Promise<{
   status: PlayerScriptPatchStatus;
   restore: () => Promise<void>;
@@ -105,11 +247,52 @@ export const installPlayerScriptPatch = async (
     matchedRequests: 0,
     patchedRequests: 0,
     detectedPolicyKey: null,
+    playerApiRequests: 0,
+    opusResponsesPatched: 0,
+    lastForcedOpusItag: null,
+    lastOpusError: null,
     lastError: null,
   };
 
   try {
     await session.protocol.handle('https', async (request) => {
+      if (isPlayerApiRequest(request.url)) {
+        status.playerApiRequests++;
+
+        let forceOpus = false;
+        try {
+          forceOpus = await shouldForceOpus();
+        } catch (error) {
+          status.lastOpusError =
+            error instanceof Error ? error.message : String(error);
+        }
+
+        if (forceOpus) {
+          try {
+            const response = await session.fetch(request, {
+              bypassCustomProtocolHandlers: true,
+              cache: 'no-store',
+            });
+            if (response.status === 204 || response.status === 304) return response;
+
+            const original = await response.text();
+            const patched = patchPlayerResponseForOpus(original);
+            status.lastForcedOpusItag = patched.selectedItag;
+            status.lastOpusError = patched.error;
+            if (!patched.patched) return rewrittenResponse(response, original);
+
+            status.opusResponsesPatched++;
+            return rewrittenResponse(response, patched.source);
+          } catch (error) {
+            status.lastOpusError =
+              error instanceof Error ? error.message : String(error);
+            return session.fetch(request, { bypassCustomProtocolHandlers: true });
+          }
+        }
+
+        return session.fetch(request, { bypassCustomProtocolHandlers: true });
+      }
+
       if (!isPlayerBaseScript(request.url)) {
         return session.fetch(request, { bypassCustomProtocolHandlers: true });
       }
@@ -132,29 +315,12 @@ export const installPlayerScriptPatch = async (
         status.detectedPolicyKey = patched.policyKey;
         if (!patched.patched) {
           status.lastError = 'Playback initialize signature not found';
-          return new Response(original, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-          });
+          return rewrittenResponse(response, original);
         }
 
         status.patchedRequests++;
         status.lastError = null;
-
-        const headers = new Headers(response.headers);
-        // The body has been decoded and rewritten, so stale transport metadata
-        // must not be forwarded.
-        headers.delete('content-length');
-        headers.delete('content-encoding');
-        headers.delete('transfer-encoding');
-        headers.delete('etag');
-
-        return new Response(patched.source, {
-          status: response.status,
-          statusText: response.statusText,
-          headers,
-        });
+        return rewrittenResponse(response, patched.source);
       } catch (error) {
         status.lastError = error instanceof Error ? error.message : String(error);
         return session.fetch(request, { bypassCustomProtocolHandlers: true });
