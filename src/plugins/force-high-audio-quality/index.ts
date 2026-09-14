@@ -6,6 +6,7 @@ import { createPlugin } from '@/utils';
 import renderer from './renderer';
 
 import type { AudioDiagnostics, PlaybackDetails } from './diagnostics';
+import type { DirectPlaybackStatus } from './direct-playback';
 import type { QualityConfig } from './preference';
 
 export default createPlugin({
@@ -44,9 +45,30 @@ export default createPlugin({
               patchedLoads: number;
               proxyFound: boolean;
               incomingHigh: string;
+              directPlayback: DirectPlaybackStatus;
             },
         ) => {
           const unknown = t('plugins.force-high-audio-quality.unknown');
+          const translatedDetail = t('plugins.force-high-audio-quality.detail', {
+            subscriber: stats.subscriber,
+            patchedLoads: stats.patchedLoads,
+            proxyFound: stats.proxyFound ? 'yes' : 'no',
+            incomingHigh: stats.incomingHigh,
+            effectivePreference: stats.effectivePreference,
+            videoId: stats.videoId,
+            offeredFormats: stats.offeredFormats,
+            preference: t(
+              `plugins.force-high-audio-quality.${stats.preferenceActive ? 'maximum' : stats.maximumRequested ? 'unavailable' : 'default'}`,
+            ),
+          });
+          const direct = stats.directPlayback;
+          const directDetail = [
+            `Direct playback hook: ${direct.hookFound ? 'found' : 'not found'}`,
+            `Server-ABR policy key: ${direct.policyKey ?? 'unknown'}`,
+            `Direct-path applications: ${direct.applications}`,
+            `Last server-ABR policy: ${direct.lastBefore ?? 'unknown'} -> ${direct.lastAfter ?? 'unknown'}`,
+          ].join('\n');
+
           return dialog.showMessageBox(window, {
             type: 'info',
             title: t('plugins.force-high-audio-quality.name'),
@@ -58,18 +80,7 @@ export default createPlugin({
                   ? unknown
                   : `~${stats.approximateKbps} kbps`,
             }),
-            detail: t('plugins.force-high-audio-quality.detail', {
-              subscriber: stats.subscriber,
-              patchedLoads: stats.patchedLoads,
-              proxyFound: stats.proxyFound ? 'yes' : 'no',
-              incomingHigh: stats.incomingHigh,
-              effectivePreference: stats.effectivePreference,
-              videoId: stats.videoId,
-              offeredFormats: stats.offeredFormats,
-              preference: t(
-                `plugins.force-high-audio-quality.${stats.preferenceActive ? 'maximum' : stats.maximumRequested ? 'unavailable' : 'default'}`,
-              ),
-            }),
+            detail: `${translatedDetail}\n\n${directDetail}`,
           });
         },
       );
