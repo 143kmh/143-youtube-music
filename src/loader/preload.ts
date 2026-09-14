@@ -49,6 +49,8 @@ export const forceUnloadPreloadPlugin = async (id: string) => {
 };
 
 export const forceLoadPreloadPlugin = async (id: string) => {
+  if (!config.plugins.isAllowedPlugin(id)) return;
+
   try {
     const plugin = (await preloadPlugins())[id];
     if (!plugin) return;
@@ -84,17 +86,15 @@ export const loadAllPreloadPlugins = async () => {
   const pluginConfigs = config.plugins.getPlugins();
 
   for (const [pluginId, pluginDef] of Object.entries(await preloadPlugins())) {
-    const config = deepmerge(
+    const pluginConfig = deepmerge(
       pluginDef.config ?? { enable: false },
       pluginConfigs[pluginId] ?? {},
     );
 
-    if (config.enabled) {
+    if (config.plugins.isAllowedPlugin(pluginId) && pluginConfig.enabled) {
       forceLoadPreloadPlugin(pluginId);
-    } else {
-      if (loadedPluginMap[pluginId]) {
-        forceUnloadPreloadPlugin(pluginId);
-      }
+    } else if (loadedPluginMap[pluginId]) {
+      forceUnloadPreloadPlugin(pluginId);
     }
   }
 };
