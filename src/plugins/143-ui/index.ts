@@ -259,6 +259,19 @@ export default createPlugin({
   config: {
     enabled: true,
   },
+  backend: {
+    start({ window }) {
+      // Pear opens DevTools automatically in non-packaged builds. Suppress only
+      // that startup call, then restore openDevTools so F12/Ctrl+Shift+I works.
+      const webContents = window.webContents;
+      const originalOpenDevTools = webContents.openDevTools.bind(webContents);
+
+      webContents.openDevTools = () => {};
+      webContents.once('did-finish-load', () => {
+        webContents.openDevTools = originalOpenDevTools;
+      });
+    },
+  },
   renderer: {
     styleSheet: null as CSSStyleSheet | null,
 
