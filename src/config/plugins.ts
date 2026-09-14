@@ -80,6 +80,8 @@ export function setMenuOptions<T>(
   options: T,
   exclude: string[] = ['enabled'],
 ) {
+  if (!isAllowedPlugin(plugin)) return;
+
   setOptions(plugin, options, exclude);
   if (store.get('options.restartOnConfigChanges')) {
     restart();
