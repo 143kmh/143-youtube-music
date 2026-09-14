@@ -20,6 +20,21 @@ const config: SyncedLyricsPluginConfig = {
   convertChineseCharacter: 'disabled',
 };
 
+type EmbeddedLyricsRenderer = {
+  observerCallback: MutationCallback;
+  observer?: MutationObserver;
+  videoDataChange: () => Promise<void>;
+  updateTimestampInterval?: NodeJS.Timeout | string | number;
+  start: (ctx: RendererContext<SyncedLyricsPluginConfig>) => Promise<void> | void;
+  stop: () => Promise<void> | void;
+  onPlayerApiReady: (api: MusicPlayer) => Promise<void> | void;
+};
+
+// createRenderer's public type is a union because plugins may also use a
+// one-function lifecycle. The synced-lyrics renderer is known to use the object
+// lifecycle above, so narrow it once here instead of leaking casts everywhere.
+const lyricsRenderer = syncedLyricsRenderer as unknown as EmbeddedLyricsRenderer;
+
 let styleSheet: CSSStyleSheet | null = null;
 let started = false;
 let methodsBound = false;
@@ -28,12 +43,13 @@ const bindRendererMethods = () => {
   if (methodsBound) return;
   methodsBound = true;
 
-  for (const [key, value] of Object.entries(syncedLyricsRenderer)) {
-    if (typeof value !== 'function') continue;
-    Object.assign(syncedLyricsRenderer, {
-      [key]: value.bind(syncedLyricsRenderer),
-    });
-  }
+  lyricsRenderer.observerCallback =
+    lyricsRenderer.observerCallback.bind(lyricsRenderer);
+  lyricsRenderer.videoDataChange = lyricsRenderer.videoDataChange.bind(lyricsRenderer);
+  lyricsRenderer.onPlayerApiReady =
+    lyricsRenderer.onPlayerApiReady.bind(lyricsRenderer);
+  lyricsRenderer.start = lyricsRenderer.start.bind(lyricsRenderer);
+  lyricsRenderer.stop = lyricsRenderer.stop.bind(lyricsRenderer);
 };
 
 const karaokeContext = (
@@ -53,7 +69,7 @@ export const startKaraoke = async (ctx: RendererContext<PluginConfig>) => {
   await styleSheet.replace(syncedLyricsStyle);
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, styleSheet];
 
-  await syncedLyricsRenderer.start(karaokeContext(ctx));
+  await lyricsRenderer.start(karaokeContext(ctx));
   // YT Music itself is often plain-text only. LRCLib is the best default for
   // timed lines, while the embedded picker still lets the user change source.
   setLyricsStore('provider', ProviderNames.LRCLib);
@@ -61,16 +77,18 @@ export const startKaraoke = async (ctx: RendererContext<PluginConfig>) => {
 
 export const attachKaraokePlayer = async (api: MusicPlayer) => {
   if (!started) return;
-  await syncedLyricsRenderer.onPlayerApiReady(api);
+  await lyricsRenderer.onPlayerApiReady(api);
 };
 
 export const stopKaraoke = () => {
-  syncedLyricsRenderer.observer?.disconnect();
-  if (syncedLyricsRenderer.updateTimestampInterval) {
-    clearInterval(syncedLyricsRenderer.updateTimestampInterval);
-    syncedLyricsRenderer.updateTimestampInterval = undefined;
+  lyricsRenderer.observer?.disconnect();
+  if (lyricsRenderer.updateTimestampInterval) {
+    clearInterval(
+      lyricsRenderer.updateTimestampInterval as ReturnType<typeof setInterval>,
+    );
+    lyricsRenderer.updateTimestampInterval = undefined;
   }
-  syncedLyricsRenderer.stop();
+  void lyricsRenderer.stop();
 
   if (styleSheet) {
     void styleSheet.replace('');
