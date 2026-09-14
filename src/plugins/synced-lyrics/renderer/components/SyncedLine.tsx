@@ -202,7 +202,6 @@ export const SyncedLine = (props: SyncedLineProps) => {
                     style={{
                       '--lyrics-word-index': `${index()}`,
                       'transition-delay': `${index() * 0.018}s`,
-                      'animation-delay': `${index() * -0.07}s`,
                     }}
                   >
                     <yt-formatted-string
