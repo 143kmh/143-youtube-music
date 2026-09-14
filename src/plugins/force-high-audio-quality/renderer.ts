@@ -26,6 +26,7 @@ type MusicWindow = Window & {
   ytcfg?: { data_?: MusicConfig };
   YT?: unknown;
   ytplayer?: unknown;
+  __PEARD_FORCE_DIRECT_HQ__?: boolean;
 };
 
 type RendererState = {
@@ -60,6 +61,10 @@ export default createRenderer<RendererState, QualityConfig>({
   directPlayback: null,
 
   apply() {
+    const musicWindow = window as MusicWindow;
+    musicWindow.__PEARD_FORCE_DIRECT_HQ__ =
+      this.config.enabled && this.config.quality === 'maximum';
+
     this.syncPlayerProxy();
     this.syncDirectPlayback();
     this.restore?.();
@@ -163,7 +168,9 @@ export default createRenderer<RendererState, QualityConfig>({
     );
     const moviePlayer = document.querySelector('#movie_player');
     const app = document.querySelector('ytmusic-app');
-    const media = document.querySelector('#movie_player video, #movie_player audio, video, audio');
+    const media = document.querySelector(
+      '#movie_player video, #movie_player audio, video, audio',
+    );
     const controllerHost = host as
       | (MusicPlayerHost & {
           polymerController?: unknown;
@@ -172,9 +179,9 @@ export default createRenderer<RendererState, QualityConfig>({
       | null;
     const musicWindow = window as MusicWindow;
 
-    // Search the known page/player object graph plus YouTube's exposed player
-    // namespaces. The patcher is bounded and fails open when private internals
-    // move again.
+    // Keep the old runtime search as a best-effort fallback. The primary fix is
+    // now the source-level base.js patch because the real playback controller
+    // was confirmed to be closure-only in the current player build.
     this.directPlayback.scan([
       this.player,
       moviePlayer,
@@ -205,6 +212,7 @@ export default createRenderer<RendererState, QualityConfig>({
   },
 
   stop({ ipc }) {
+    (window as MusicWindow).__PEARD_FORCE_DIRECT_HQ__ = false;
     if (this.proxyTimer !== null) clearInterval(this.proxyTimer);
     this.proxyTimer = null;
     this.proxy = null;
