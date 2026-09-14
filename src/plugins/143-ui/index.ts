@@ -1,0 +1,280 @@
+import { createPlugin } from '@/utils';
+
+import style from './style.css?inline';
+
+const UI_ROOT_ID = '143-ui-root';
+const UI_ATTR = 'data-143-ui';
+
+type MusicApp = HTMLElement & {
+  navigate?: (page: string) => void;
+};
+
+type IconName =
+  | 'home'
+  | 'search'
+  | 'library'
+  | 'playlist'
+  | 'heart'
+  | 'album'
+  | 'artist'
+  | 'back'
+  | 'forward';
+
+const iconPaths: Record<IconName, string[]> = {
+  home: [
+    'M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5h-5.25a.5.5 0 0 1-.5-.5V15h-5.5v5.5a.5.5 0 0 1-.5.5H3.5a.5.5 0 0 1-.5-.5v-9.7Z',
+  ],
+  search: [
+    'M11 4a7 7 0 1 0 4.9 12l4.55 4.55 1.1-1.1L17 14.9A7 7 0 0 0 11 4Zm0 1.7a5.3 5.3 0 1 1 0 10.6 5.3 5.3 0 0 1 0-10.6Z',
+  ],
+  library: [
+    'M4 3.5h2v17H4v-17Zm5 0h2v17H9v-17Zm5.2.3 1.9-.6 4.7 16.2-1.9.6-4.7-16.2Z',
+  ],
+  playlist: [
+    'M4 6h10v1.8H4V6Zm0 5h10v1.8H4V11Zm0 5h7v1.8H4V16Zm14-5.3V16a3 3 0 1 1-1.8-2.75V9.9l4.8-1.2v1.8l-3 .75Z',
+  ],
+  heart: [
+    'M12 20.6 4.1 13A5.1 5.1 0 0 1 11.3 5.8l.7.72.7-.72A5.1 5.1 0 1 1 19.9 13L12 20.6Z',
+  ],
+  album: [
+    'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 6.1a2.9 2.9 0 1 1 0 5.8 2.9 2.9 0 0 1 0-5.8Zm0 1.8a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z',
+  ],
+  artist: [
+    'M12 3.5a4.2 4.2 0 1 1 0 8.4 4.2 4.2 0 0 1 0-8.4ZM4.5 20.5a7.5 7.5 0 0 1 15 0h-15Z',
+  ],
+  back: ['m14.7 5.3-1.4-1.4L5.2 12l8.1 8.1 1.4-1.4L8 12l6.7-6.7Z'],
+  forward: ['m9.3 5.3 1.4-1.4 8.1 8.1-8.1 8.1-1.4-1.4L16 12 9.3 5.3Z'],
+};
+
+const createIcon = (name: IconName) => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('ui143-icon');
+
+  for (const data of iconPaths[name]) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', data);
+    svg.append(path);
+  }
+
+  return svg;
+};
+
+const getMusicApp = () => document.querySelector<MusicApp>('ytmusic-app');
+
+const navigate = (browseId: string) => {
+  const app = getMusicApp();
+  if (typeof app?.navigate === 'function') {
+    app.navigate(browseId);
+    return;
+  }
+
+  const fallbacks: Record<string, string> = {
+    FEmusic_home: '/',
+    FEmusic_library_landing: '/library',
+    FEmusic_liked_playlists: '/library/playlists',
+    FEmusic_liked_videos: '/library/songs',
+    FEmusic_liked_albums: '/library/albums',
+    FEmusic_library_corpus_track_artists: '/library/artists',
+  };
+  window.location.assign(fallbacks[browseId] ?? '/');
+};
+
+const createNavButton = (
+  label: string,
+  icon: IconName,
+  browseId: string,
+  key: string,
+) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ui143-nav-item';
+  button.dataset.key = key;
+  button.append(createIcon(icon));
+
+  const text = document.createElement('span');
+  text.textContent = label;
+  button.append(text);
+
+  button.addEventListener('click', () => {
+    navigate(browseId);
+    document
+      .querySelectorAll<HTMLElement>('.ui143-nav-item[data-key]')
+      .forEach((item) => item.classList.toggle('is-active', item === button));
+  });
+
+  return button;
+};
+
+const createHistoryButton = (icon: 'back' | 'forward', label: string) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ui143-circle-button';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.append(createIcon(icon));
+  button.addEventListener('click', () => {
+    if (icon === 'back') history.back();
+    else history.forward();
+  });
+  return button;
+};
+
+const createShell = () => {
+  document.getElementById(UI_ROOT_ID)?.remove();
+  document.documentElement.setAttribute(UI_ATTR, '');
+
+  const root = document.createElement('div');
+  root.id = UI_ROOT_ID;
+
+  const sidebar = document.createElement('aside');
+  sidebar.className = 'ui143-sidebar';
+
+  const brand = document.createElement('div');
+  brand.className = 'ui143-brand';
+  const brandMark = document.createElement('span');
+  brandMark.className = 'ui143-brand-mark';
+  brandMark.textContent = '143';
+  const brandName = document.createElement('span');
+  brandName.className = 'ui143-brand-name';
+  brandName.textContent = 'Music';
+  brand.append(brandMark, brandName);
+
+  const primary = document.createElement('nav');
+  primary.className = 'ui143-nav ui143-nav-primary';
+  const home = createNavButton('Home', 'home', 'FEmusic_home', 'home');
+  home.classList.add('is-active');
+
+  const search = document.createElement('button');
+  search.type = 'button';
+  search.className = 'ui143-nav-item';
+  search.dataset.key = 'search';
+  search.append(createIcon('search'));
+  const searchText = document.createElement('span');
+  searchText.textContent = 'Search';
+  search.append(searchText);
+  search.addEventListener('click', () => {
+    document.querySelector<HTMLInputElement>('#143-ui-search')?.focus();
+  });
+
+  primary.append(
+    home,
+    search,
+    createNavButton(
+      'Your Library',
+      'library',
+      'FEmusic_library_landing',
+      'library',
+    ),
+  );
+
+  const divider = document.createElement('div');
+  divider.className = 'ui143-divider';
+
+  const collectionTitle = document.createElement('div');
+  collectionTitle.className = 'ui143-section-title';
+  collectionTitle.textContent = 'Your collection';
+
+  const collection = document.createElement('nav');
+  collection.className = 'ui143-nav ui143-nav-secondary';
+  collection.append(
+    createNavButton(
+      'Playlists',
+      'playlist',
+      'FEmusic_liked_playlists',
+      'playlists',
+    ),
+    createNavButton('Liked songs', 'heart', 'FEmusic_liked_videos', 'songs'),
+    createNavButton('Albums', 'album', 'FEmusic_liked_albums', 'albums'),
+    createNavButton(
+      'Artists',
+      'artist',
+      'FEmusic_library_corpus_track_artists',
+      'artists',
+    ),
+  );
+
+  const footer = document.createElement('div');
+  footer.className = 'ui143-sidebar-footer';
+  footer.textContent = 'YouTube Music engine';
+
+  sidebar.append(
+    brand,
+    primary,
+    divider,
+    collectionTitle,
+    collection,
+    footer,
+  );
+
+  const topbar = document.createElement('header');
+  topbar.className = 'ui143-topbar';
+
+  const historyControls = document.createElement('div');
+  historyControls.className = 'ui143-history';
+  historyControls.append(
+    createHistoryButton('back', 'Back'),
+    createHistoryButton('forward', 'Forward'),
+  );
+
+  const searchForm = document.createElement('form');
+  searchForm.className = 'ui143-search';
+  searchForm.setAttribute('role', 'search');
+  searchForm.append(createIcon('search'));
+  const input = document.createElement('input');
+  input.id = '143-ui-search';
+  input.type = 'search';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.placeholder = 'What do you want to play?';
+  input.setAttribute('aria-label', 'Search YouTube Music');
+  searchForm.append(input);
+  searchForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const query = input.value.trim();
+    if (!query) return;
+    const url = new URL('/search', window.location.origin);
+    url.searchParams.set('q', query);
+    window.location.assign(url.toString());
+  });
+
+  const topbarSpacer = document.createElement('div');
+  topbarSpacer.className = 'ui143-topbar-spacer';
+
+  const product = document.createElement('div');
+  product.className = 'ui143-product';
+  product.textContent = '143 Music';
+
+  topbar.append(historyControls, searchForm, topbarSpacer, product);
+  root.append(sidebar, topbar);
+  document.body.append(root);
+};
+
+export default createPlugin({
+  name: () => '143 Music UI',
+  description: () => 'A compact Spotify-inspired shell for the YouTube Music engine.',
+  restartNeeded: false,
+  config: {
+    enabled: true,
+  },
+  renderer: {
+    styleSheet: null as CSSStyleSheet | null,
+
+    async start() {
+      this.styleSheet = new CSSStyleSheet();
+      await this.styleSheet.replace(style);
+      document.adoptedStyleSheets = [
+        ...document.adoptedStyleSheets,
+        this.styleSheet,
+      ];
+      createShell();
+    },
+
+    async stop() {
+      document.getElementById(UI_ROOT_ID)?.remove();
+      document.documentElement.removeAttribute(UI_ATTR);
+      await this.styleSheet?.replace('');
+    },
+  },
+});
