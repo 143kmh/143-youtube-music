@@ -33,6 +33,8 @@ const icons = {
   playlist:
     'M4 5h10v1.8H4V5Zm0 5h10v1.8H4V10Zm0 5h7v1.8H4V15Zm13-2v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z',
   mic: 'M12 14a3.5 3.5 0 0 0 3.5-3.5v-4a3.5 3.5 0 1 0-7 0v4A3.5 3.5 0 0 0 12 14Zm-6-3.5h2A4 4 0 0 0 12 14.5a4 4 0 0 0 4-4h2a6 6 0 0 1-5 5.92V20h3v2H8v-2h3v-3.58A6 6 0 0 1 6 10.5Z',
+  queue:
+    'M4 5h12v2H4V5Zm0 6h12v2H4v-2Zm0 6h8v2H4v-2Zm14-4.2V17a2.5 2.5 0 1 1-1.6-2.33V12l4.6-1.15v1.9l-3 .75v-.7Z',
 };
 
 type StatefulElement = HTMLElement & {
@@ -214,7 +216,13 @@ export const mountPlayer = () => {
   const artist = document.createElement('div');
   artist.className = 'ui143-player-artist';
   copy.append(title, artist);
-  meta.append(art, copy);
+
+  const like = button('Add to liked songs', 'heart');
+  const playlist = button('Add to playlist', 'playlist');
+  const metaActions = document.createElement('div');
+  metaActions.className = 'ui143-player-meta-actions';
+  metaActions.append(like, playlist);
+  meta.append(art, copy, metaActions);
 
   const center = document.createElement('div');
   center.className = 'ui143-player-center';
@@ -315,11 +323,8 @@ export const mountPlayer = () => {
 
   const utilities = document.createElement('div');
   utilities.className = 'ui143-player-utils';
-  const like = button('Add to liked songs', 'heart');
-  const playlist = button('Add to playlist', 'playlist');
   const karaoke = button('Karaoke', 'mic');
-  const utilityDivider = document.createElement('span');
-  utilityDivider.className = 'ui143-player-utils-divider';
+  const queue = button('Queue', 'queue');
   const volumeButton = button('Mute', 'volume');
   const volume = document.createElement('input');
   volume.className = 'ui143-player-range ui143-player-volume';
@@ -328,7 +333,7 @@ export const mountPlayer = () => {
   volume.max = '100';
   volume.step = '1';
   volume.value = '100';
-  utilities.append(like, playlist, karaoke, utilityDivider, volumeButton, volume);
+  utilities.append(karaoke, queue, volumeButton, volume);
 
   let likedState = false;
   let likeTouched = false;
@@ -354,6 +359,10 @@ export const mountPlayer = () => {
     if (isActive) defaultPlayerTab()?.click();
     else lyrics.click();
     setActive(karaoke, !isActive);
+  });
+
+  queue.addEventListener('click', () => {
+    defaultPlayerTab()?.click();
   });
 
   let scrubbing = false;
@@ -516,6 +525,12 @@ export const mountPlayer = () => {
     karaoke.disabled = !karaokeAvailable;
     karaoke.classList.toggle('is-disabled', !karaokeAvailable);
     setActive(karaoke, lyrics?.getAttribute('aria-selected') === 'true');
+
+    const queueTab = defaultPlayerTab();
+    const queueAvailable = Boolean(queueTab);
+    queue.disabled = !queueAvailable;
+    queue.classList.toggle('is-disabled', !queueAvailable);
+    setActive(queue, queueTab?.getAttribute('aria-selected') === 'true');
   };
 
   let animationFrame = 0;
