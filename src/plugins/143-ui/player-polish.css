@@ -9,6 +9,54 @@
   line-height: inherit;
 }
 
+.ui143-player-artist-link:hover {
+  color: #fff;
+  text-decoration: none !important;
+}
+
+/*
+ * Keep the active lyric alive without the old bounce. The short glow remains
+ * as the entry cue, then every word drifts on a long, slightly offset cycle so
+ * the phrase feels like it is gently floating rather than jumping in place.
+ */
+.current .text-lyrics > span > .lyrics-word {
+  animation:
+    lyrics-glow 650ms ease-out forwards,
+    ui143-lyrics-cloud 6.2s ease-in-out infinite !important;
+  animation-delay:
+    0s,
+    calc(var(--lyrics-word-index, 0) * -0.19s) !important;
+}
+
+.current .text-lyrics > span > .lyrics-word.is-current-word {
+  transform: none !important;
+  text-shadow:
+    0 0 0.38rem rgba(255, 255, 255, 0.22),
+    0 0 0.85rem rgba(255, 255, 255, 0.08) !important;
+}
+
+@keyframes ui143-lyrics-cloud {
+  0%,
+  100% {
+    translate: -0.18px 0.08px;
+  }
+  24% {
+    translate: 0.16px -0.52px;
+  }
+  52% {
+    translate: 0.42px 0.05px;
+  }
+  78% {
+    translate: -0.12px 0.44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .current .text-lyrics > span > .lyrics-word {
+    animation: lyrics-glow 500ms ease-out forwards !important;
+  }
+}
+
 .ui143-playlist-picker-backdrop {
   position: fixed;
   inset: 0;
