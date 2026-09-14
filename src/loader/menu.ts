@@ -38,6 +38,8 @@ const createContext = (
 });
 
 export const forceLoadMenuPlugin = async (id: string, win: BrowserWindow) => {
+  if (!config.plugins.isAllowedPlugin(id)) return;
+
   try {
     const plugin = (await allPlugins())[id];
     if (!plugin) return;
@@ -71,12 +73,14 @@ export const loadAllMenuPlugins = async (win: BrowserWindow) => {
   const pluginConfigs = config.plugins.getPlugins();
 
   for (const [pluginId, pluginDef] of Object.entries(await allPlugins())) {
-    const config = deepmerge(
+    if (!config.plugins.isAllowedPlugin(pluginId)) continue;
+
+    const pluginConfig = deepmerge(
       pluginDef.config ?? { enabled: false },
       pluginConfigs[pluginId] ?? {},
     );
 
-    if (config.enabled) {
+    if (pluginConfig.enabled) {
       await forceLoadMenuPlugin(pluginId, win);
     }
   }
