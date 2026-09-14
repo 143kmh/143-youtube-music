@@ -1,366 +1,265 @@
 html[data-143-ui] {
-  --ui143-player-height: 96px;
+  --ui143-player-height: 104px;
 }
 
-/* Spotify-inspired player: metadata left, transport centered, utility controls right. */
-html[data-143-ui] body ytmusic-player-bar {
-  position: fixed !important;
-  left: 8px !important;
-  right: 8px !important;
-  bottom: 8px !important;
-  width: calc(100% - 16px) !important;
-  height: calc(var(--ui143-player-height) - 8px) !important;
-  min-height: calc(var(--ui143-player-height) - 8px) !important;
-  padding: 0 18px !important;
-  overflow: visible !important;
-  border: 1px solid rgba(255, 255, 255, 0.055) !important;
-  border-radius: 10px !important;
-  background: rgba(18, 18, 18, 0.985) !important;
-  box-shadow: 0 -2px 18px rgba(0, 0, 0, 0.28), 0 8px 28px rgba(0, 0, 0, 0.34) !important;
-  backdrop-filter: blur(22px) saturate(120%) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(120%) !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 32%);
-}
-
-/* Keep all three native groups in a clean, balanced row. */
-html[data-143-ui] body ytmusic-player-bar #left-controls,
-html[data-143-ui] body ytmusic-player-bar .left-controls,
-html[data-143-ui] body ytmusic-player-bar .middle-controls,
-html[data-143-ui] body ytmusic-player-bar #right-controls,
-html[data-143-ui] body ytmusic-player-bar .right-controls {
-  min-width: 0 !important;
-  height: 100% !important;
-  display: flex !important;
-  align-items: center !important;
-  position: relative !important;
-  transform: none !important;
-  z-index: 2 !important;
-}
-
-/* YouTube Music keeps transport on the left and song info in the middle.
-   Reorder visually so it reads like Spotify without replacing native controls. */
-html[data-143-ui] body ytmusic-player-bar .middle-controls {
-  position: absolute !important;
-  left: 18px !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  width: min(34vw, 470px) !important;
-  justify-content: flex-start !important;
-  gap: 12px !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #left-controls,
-html[data-143-ui] body ytmusic-player-bar .left-controls {
-  position: absolute !important;
-  left: 50% !important;
-  top: 6px !important;
-  height: 48px !important;
-  transform: translateX(-50%) !important;
-  justify-content: center !important;
-  gap: 7px !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #right-controls,
-html[data-143-ui] body ytmusic-player-bar .right-controls {
-  position: absolute !important;
-  right: 16px !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  width: min(30vw, 390px) !important;
-  justify-content: flex-end !important;
-  gap: 4px !important;
-}
-
-/* Cover + song info */
-html[data-143-ui] body ytmusic-player-bar .thumbnail-image-wrapper,
-html[data-143-ui] body ytmusic-player-bar .thumbnail,
-html[data-143-ui] body ytmusic-player-bar .image,
-html[data-143-ui] body ytmusic-player-bar img,
-html[data-143-ui] body ytmusic-player-bar yt-img-shadow {
-  width: 60px !important;
-  height: 60px !important;
-  min-width: 60px !important;
-  min-height: 60px !important;
-  border-radius: 6px !important;
-  overflow: hidden !important;
-  object-fit: cover !important;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.26) !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar .content-info-wrapper {
-  min-width: 0 !important;
-  max-width: min(24vw, 320px) !important;
-  margin: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: center !important;
-  gap: 2px !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar .title {
-  max-width: 100% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  color: #fff !important;
-  font-size: 13px !important;
-  line-height: 18px !important;
-  font-weight: 650 !important;
-  letter-spacing: -0.01em !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar .byline,
-html[data-143-ui] body ytmusic-player-bar .byline a,
-html[data-143-ui] body ytmusic-player-bar .subtitle,
-html[data-143-ui] body ytmusic-player-bar .subtitle a {
-  max-width: 100% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  color: #a7a7a7 !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
-  font-weight: 500 !important;
-  text-decoration: none !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar .byline a:hover,
-html[data-143-ui] body ytmusic-player-bar .subtitle a:hover {
-  color: #fff !important;
-  text-decoration: underline !important;
-}
-
-/* Like/dislike/menu buttons live with song metadata: make them quiet until hovered. */
-html[data-143-ui] body ytmusic-player-bar .middle-controls-buttons {
-  display: flex !important;
-  align-items: center !important;
-  gap: 1px !important;
-  margin-left: 2px !important;
-  opacity: 0.72 !important;
-  transition: opacity 120ms ease !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar .middle-controls:hover .middle-controls-buttons {
-  opacity: 1 !important;
-}
-
-/* Transport controls */
-html[data-143-ui] body ytmusic-player-bar #left-controls tp-yt-paper-icon-button,
-html[data-143-ui] body ytmusic-player-bar .left-controls tp-yt-paper-icon-button,
-html[data-143-ui] body ytmusic-player-bar #left-controls yt-icon-button,
-html[data-143-ui] body ytmusic-player-bar .left-controls yt-icon-button {
-  width: 34px !important;
-  height: 34px !important;
-  padding: 5px !important;
-  color: #b3b3b3 !important;
-  --paper-icon-button_-_color: #b3b3b3 !important;
-  transition: color 100ms ease, transform 100ms ease !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #left-controls tp-yt-paper-icon-button:hover,
-html[data-143-ui] body ytmusic-player-bar .left-controls tp-yt-paper-icon-button:hover,
-html[data-143-ui] body ytmusic-player-bar #left-controls yt-icon-button:hover,
-html[data-143-ui] body ytmusic-player-bar .left-controls yt-icon-button:hover {
-  color: #fff !important;
-  --paper-icon-button_-_color: #fff !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #play-pause-button,
-html[data-143-ui] body ytmusic-player-bar .play-pause-button {
-  width: 38px !important;
-  height: 38px !important;
-  min-width: 38px !important;
-  min-height: 38px !important;
-  margin-inline: 3px !important;
-  padding: 7px !important;
-  border-radius: 50% !important;
-  background: #fff !important;
-  color: #0a0a0a !important;
-  --iron-icon-fill-color: #0a0a0a !important;
-  --paper-icon-button_-_color: #0a0a0a !important;
-  box-shadow: 0 2px 9px rgba(0, 0, 0, 0.25) !important;
-  transition: transform 90ms ease, filter 90ms ease !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #play-pause-button:hover,
-html[data-143-ui] body ytmusic-player-bar .play-pause-button:hover {
-  transform: scale(1.055) !important;
-  filter: brightness(1.04) !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #play-pause-button:active,
-html[data-143-ui] body ytmusic-player-bar .play-pause-button:active {
-  transform: scale(0.97) !important;
-}
-
-/* Progress: centered beneath transport controls. */
-html[data-143-ui] body ytmusic-player-bar #progress-bar {
-  position: absolute !important;
-  left: 50% !important;
-  bottom: 10px !important;
-  width: min(42vw, 680px) !important;
-  height: 18px !important;
-  transform: translateX(-50%) !important;
-  margin: 0 !important;
-  overflow: visible !important;
-  z-index: 3 !important;
-  --paper-slider-active-color: #fff !important;
-  --paper-slider-container-color: rgba(255, 255, 255, 0.26) !important;
-  --paper-slider-knob-color: #fff !important;
-  --paper-slider-knob-start-color: #fff !important;
-  --paper-slider-knob-start-border-color: #fff !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #progress-bar:hover,
-html[data-143-ui] body ytmusic-player-bar #progress-bar[focused] {
-  --paper-slider-active-color: var(--ui143-accent-strong) !important;
-  --paper-slider-knob-color: #fff !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #progress-bar .bar-container,
-html[data-143-ui] body ytmusic-player-bar #progress-bar #sliderBar {
-  height: 4px !important;
-  border-radius: 999px !important;
-  overflow: visible !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #progress-bar #sliderKnob,
-html[data-143-ui] body ytmusic-player-bar #progress-bar .slider-knob-inner {
-  transition: transform 90ms ease, opacity 90ms ease !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar #progress-bar:not(:hover):not([focused]) #sliderKnob {
+/* The native YT Music player remains alive as the playback engine, but is not rendered. */
+html[data-143-ui] ytmusic-player-bar {
   opacity: 0 !important;
-}
-
-html[data-143-ui] body ytmusic-player-bar .time-info,
-html[data-143-ui] body ytmusic-player-bar #time-info {
-  position: absolute !important;
-  left: 50% !important;
-  bottom: 7px !important;
-  width: min(50vw, 790px) !important;
-  transform: translateX(-50%) !important;
   pointer-events: none !important;
-  color: #8e8e8e !important;
-  font-size: 10px !important;
-  line-height: 14px !important;
-  z-index: 2 !important;
+  transform: translateY(140%) !important;
 }
 
-/* Right-side utility controls */
-html[data-143-ui] body ytmusic-player-bar #right-controls tp-yt-paper-icon-button,
-html[data-143-ui] body ytmusic-player-bar .right-controls tp-yt-paper-icon-button,
-html[data-143-ui] body ytmusic-player-bar #right-controls yt-icon-button,
-html[data-143-ui] body ytmusic-player-bar .right-controls yt-icon-button {
-  width: 32px !important;
-  height: 32px !important;
-  padding: 6px !important;
-  color: #aaa !important;
-  --paper-icon-button_-_color: #aaa !important;
-  transition: color 100ms ease, transform 100ms ease !important;
+.ui143-player {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 1400;
+  height: 88px;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(360px, 1.35fr) minmax(180px, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(18, 18, 18, 0.985);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  color: #fff;
+  pointer-events: auto;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-app-region: no-drag;
 }
 
-html[data-143-ui] body ytmusic-player-bar #right-controls tp-yt-paper-icon-button:hover,
-html[data-143-ui] body ytmusic-player-bar .right-controls tp-yt-paper-icon-button:hover,
-html[data-143-ui] body ytmusic-player-bar #right-controls yt-icon-button:hover,
-html[data-143-ui] body ytmusic-player-bar .right-controls yt-icon-button:hover {
-  color: #fff !important;
-  --paper-icon-button_-_color: #fff !important;
+.ui143-player-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-html[data-143-ui] body ytmusic-player-bar #volume-slider,
-html[data-143-ui] body ytmusic-player-bar .volume-slider,
-html[data-143-ui] body ytmusic-player-bar .expand-volume-slider {
-  width: 92px !important;
-  max-width: 92px !important;
-  --paper-slider-container-color: rgba(255, 255, 255, 0.28) !important;
-  --paper-slider-active-color: #fff !important;
-  --paper-slider-knob-color: #fff !important;
+.ui143-player-art {
+  width: 60px;
+  height: 60px;
+  flex: 0 0 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #242424;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.3);
 }
 
-html[data-143-ui] body ytmusic-player-bar #volume-slider:hover,
-html[data-143-ui] body ytmusic-player-bar .volume-slider:hover,
-html[data-143-ui] body ytmusic-player-bar .expand-volume-slider:hover {
-  --paper-slider-active-color: var(--ui143-accent-strong) !important;
+.ui143-player-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-/* Compact widths: preserve transport first, then collapse the quieter utilities. */
-@media (max-width: 1050px) {
-  html[data-143-ui] body ytmusic-player-bar .middle-controls {
-    width: 31vw !important;
+.ui143-player-title,
+.ui143-player-artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-player-title {
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.ui143-player-artist {
+  color: #a7a7a7;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.ui143-player-center {
+  min-width: 0;
+  width: 100%;
+  max-width: 720px;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.ui143-player-transport {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+}
+
+.ui143-player-button {
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #a7a7a7;
+  cursor: pointer;
+  transition: color 100ms ease, transform 100ms ease, background 100ms ease;
+}
+
+.ui143-player-button:hover {
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.ui143-player-button:active {
+  transform: scale(0.96);
+}
+
+.ui143-player-icon {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+.ui143-player-play {
+  width: 36px;
+  height: 36px;
+  margin: 0 3px;
+  background: #fff;
+  color: #090909;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.ui143-player-play:hover {
+  background: #f5f5f5;
+  color: #000;
+  transform: scale(1.065);
+}
+
+.ui143-player-play .ui143-player-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.ui143-player-timeline {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 36px minmax(120px, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui143-player-time {
+  color: #8f8f8f;
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui143-player-time:first-child {
+  text-align: right;
+}
+
+.ui143-player-range {
+  --ui143-range-progress: 0%;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  height: 4px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  outline: 0;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    #f3f3f3 0,
+    #f3f3f3 var(--ui143-range-progress),
+    #4d4d4d var(--ui143-range-progress),
+    #4d4d4d 100%
+  );
+}
+
+.ui143-player-range:hover {
+  background: linear-gradient(
+    to right,
+    var(--ui143-accent-strong) 0,
+    var(--ui143-accent-strong) var(--ui143-range-progress),
+    #565656 var(--ui143-range-progress),
+    #565656 100%
+  );
+}
+
+.ui143-player-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 90ms ease;
+}
+
+.ui143-player-range:hover::-webkit-slider-thumb,
+.ui143-player-range:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+.ui143-player-utils {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.ui143-player-utils .ui143-player-button {
+  width: 30px;
+  height: 30px;
+}
+
+.ui143-player-volume {
+  width: min(105px, 8vw);
+}
+
+@media (max-width: 980px) {
+  .ui143-player {
+    grid-template-columns: minmax(190px, 1fr) minmax(300px, 1.3fr) 130px;
+    gap: 10px;
+    padding-inline: 12px;
   }
 
-  html[data-143-ui] body ytmusic-player-bar .content-info-wrapper {
-    max-width: 18vw !important;
+  .ui143-player-art {
+    width: 54px;
+    height: 54px;
+    flex-basis: 54px;
   }
 
-  html[data-143-ui] body ytmusic-player-bar #right-controls,
-  html[data-143-ui] body ytmusic-player-bar .right-controls {
-    width: 25vw !important;
-  }
-
-  html[data-143-ui] body ytmusic-player-bar #volume-slider,
-  html[data-143-ui] body ytmusic-player-bar .volume-slider,
-  html[data-143-ui] body ytmusic-player-bar .expand-volume-slider {
-    width: 68px !important;
-    max-width: 68px !important;
-  }
-
-  html[data-143-ui] body ytmusic-player-bar #progress-bar {
-    width: 38vw !important;
+  .ui143-player-volume {
+    width: 78px;
   }
 }
 
 @media (max-width: 760px) {
-  html[data-143-ui] body ytmusic-player-bar {
-    left: 5px !important;
-    right: 5px !important;
-    bottom: 5px !important;
-    width: calc(100% - 10px) !important;
-    padding-inline: 10px !important;
+  .ui143-player {
+    grid-template-columns: minmax(150px, 1fr) minmax(250px, 1.4fr);
   }
 
-  html[data-143-ui] body ytmusic-player-bar .middle-controls {
-    left: 10px !important;
-    width: 32vw !important;
+  .ui143-player-utils {
+    display: none;
   }
 
-  html[data-143-ui] body ytmusic-player-bar .thumbnail-image-wrapper,
-  html[data-143-ui] body ytmusic-player-bar .thumbnail,
-  html[data-143-ui] body ytmusic-player-bar .image,
-  html[data-143-ui] body ytmusic-player-bar img,
-  html[data-143-ui] body ytmusic-player-bar yt-img-shadow {
-    width: 50px !important;
-    height: 50px !important;
-    min-width: 50px !important;
-    min-height: 50px !important;
-  }
-
-  html[data-143-ui] body ytmusic-player-bar .middle-controls-buttons {
-    display: none !important;
-  }
-
-  html[data-143-ui] body ytmusic-player-bar #right-controls,
-  html[data-143-ui] body ytmusic-player-bar .right-controls {
-    right: 8px !important;
-    width: 24vw !important;
-  }
-
-  html[data-143-ui] body ytmusic-player-bar #volume-slider,
-  html[data-143-ui] body ytmusic-player-bar .volume-slider,
-  html[data-143-ui] body ytmusic-player-bar .expand-volume-slider {
-    display: none !important;
-  }
-
-  html[data-143-ui] body ytmusic-player-bar #progress-bar {
-    width: 34vw !important;
+  .ui143-player-transport {
+    gap: 7px;
   }
 }
