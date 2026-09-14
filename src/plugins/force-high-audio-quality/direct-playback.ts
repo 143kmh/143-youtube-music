@@ -198,7 +198,7 @@ export const createDirectPlaybackPolicyPatcher = (
 
   const inspectPrototypeChain = (value: object) => {
     let current: object | null = value;
-    for (let depth = 0; current && depth < 5; depth++) {
+    for (let depth = 0; current && depth < 6; depth++) {
       patchOwner(current);
       current = safePrototype(current);
     }
@@ -214,11 +214,15 @@ export const createDirectPlaybackPolicyPatcher = (
     }
 
     // The controller is an implementation detail hanging off the public player
-    // graph. Keep the search bounded and getter-free so a YouTube refactor can
-    // only make the hook unavailable, never stall normal playback.
-    const maxNodes = 4000;
-    const maxDepth = 7;
+    // graph. Keep the search bounded. Data properties are preferred; a limited
+    // number of own accessors are also read because current YouTube player
+    // revisions hide parts of the internal controller graph behind getters.
+    // Getter failures are ignored and never affect native playback.
+    const maxNodes = 7000;
+    const maxDepth = 9;
+    const maxAccessorReads = 384;
     let visitedNodes = 0;
+    let accessorReads = 0;
 
     while (queue.length > 0 && visitedNodes < maxNodes) {
       const next = queue.shift();
@@ -235,10 +239,30 @@ export const createDirectPlaybackPolicyPatcher = (
 
       let childCount = 0;
       for (const descriptor of Object.values(descriptors)) {
-        if (childCount >= 250) break;
-        if (!('value' in descriptor) || !isObject(descriptor.value)) continue;
-        childCount++;
-        queue.push({ value: descriptor.value, depth: next.depth + 1 });
+        if (childCount >= 400) break;
+
+        if ('value' in descriptor && isObject(descriptor.value)) {
+          childCount++;
+          queue.push({ value: descriptor.value, depth: next.depth + 1 });
+          continue;
+        }
+
+        if (
+          typeof descriptor.get === 'function' &&
+          accessorReads < maxAccessorReads &&
+          next.depth <= 5
+        ) {
+          accessorReads++;
+          try {
+            const child = Reflect.apply(descriptor.get, next.value, []);
+            if (isObject(child)) {
+              childCount++;
+              queue.push({ value: child, depth: next.depth + 1 });
+            }
+          } catch {
+            // Some browser/player accessors throw outside their expected state.
+          }
+        }
       }
     }
 
