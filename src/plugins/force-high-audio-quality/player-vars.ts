@@ -37,6 +37,7 @@ export const interceptPlayerVars = (
   api: PlayerVarsApi,
   shouldPreferHigh: () => boolean,
   onApplied: (incomingHigh: unknown) => void,
+  shouldPreferAacHigh: () => boolean = () => true,
 ): (() => void) => {
   const restorers: (() => void)[] = [];
   for (const method of methods) {
@@ -56,7 +57,11 @@ export const interceptPlayerVars = (
         typeof vars === 'object' &&
         !Array.isArray(vars)
       ) {
-        input = { ...vars, aac_high: true, prefer_low_quality_audio: false };
+        input = {
+          ...vars,
+          aac_high: shouldPreferAacHigh(),
+          prefer_low_quality_audio: false,
+        };
         onApplied((vars as { aac_high?: unknown }).aac_high);
       }
       // Preserve receiver, extra arguments, return value and native exceptions.
