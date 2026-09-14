@@ -1,3 +1,5 @@
+import type { MusicPlayer } from '@/types/music-player';
+
 const PLAYER_ROOT_ID = 'ui143-player';
 
 const svg = (path: string, viewBox = '0 0 24 24') => {
@@ -44,6 +46,8 @@ type StatefulElement = HTMLElement & {
 
 const nativeBar = () => document.querySelector<HTMLElement>('ytmusic-player-bar');
 const media = () => document.querySelector<HTMLVideoElement>('video');
+const playerApi = () =>
+  document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
 
 const nativeElement = (...selectors: string[]) => {
   const bar = nativeBar();
@@ -91,11 +95,10 @@ const setActive = (el: HTMLButtonElement, active: boolean) => {
 
 const readPressed = (target: HTMLElement | null): boolean | null => {
   if (!target) return null;
-  const candidates = [
+  for (const element of [
     target,
     target.closest<HTMLElement>('[aria-pressed], [aria-checked]'),
-  ];
-  for (const element of candidates) {
+  ]) {
     if (!element) continue;
     const pressed = element.getAttribute('aria-pressed');
     if (pressed === 'true') return true;
@@ -108,14 +111,15 @@ const readPressed = (target: HTMLElement | null): boolean | null => {
 };
 
 const getLikeButton = () => {
-  const bar = nativeBar();
-  const renderer = bar?.querySelector<HTMLElement>('ytmusic-like-button-renderer');
-  if (!renderer) return null;
+  const renderer = nativeBar()?.querySelector<HTMLElement>(
+    'ytmusic-like-button-renderer',
+  );
   return (
-    renderer.querySelector<HTMLElement>('#button-shape-like button') ??
-    renderer.querySelector<HTMLElement>('#like-button button') ??
-    renderer.querySelector<HTMLElement>('button') ??
-    renderer.querySelector<HTMLElement>('tp-yt-paper-icon-button')
+    renderer?.querySelector<HTMLElement>('#button-shape-like button') ??
+    renderer?.querySelector<HTMLElement>('#like-button button') ??
+    renderer?.querySelector<HTMLElement>('button') ??
+    renderer?.querySelector<HTMLElement>('tp-yt-paper-icon-button') ??
+    null
   );
 };
 
@@ -135,67 +139,129 @@ const readLikeState = (): boolean | null => {
   return readPressed(getLikeButton());
 };
 
-const openPlaylistPicker = () => {
-  const bar = nativeBar();
-  const menuButton =
-    bar?.querySelector<HTMLElement>('ytmusic-menu-renderer #button-shape button') ??
-    bar?.querySelector<HTMLElement>('ytmusic-menu-renderer #button') ??
-    bar?.querySelector<HTMLElement>('ytmusic-menu-renderer button') ??
-    bar?.querySelector<HTMLElement>('[aria-label*="More" i]');
-  if (!menuButton) return;
+const currentTitleText = () =>
+  nativeBar()?.querySelector<HTMLElement>('.title.ytmusic-player-bar')?.textContent?.trim() ??
+  nativeBar()?.querySelector<HTMLElement>('.title')?.textContent?.trim() ??
+  '';
 
-  menuButton.click();
+const currentTrackRoots = () => {
+  const title = currentTitleText().toLocaleLowerCase();
+  const preferredSelectors = [
+    'ytmusic-player-queue-item[selected]',
+    'ytmusic-player-queue-item[play-button-state="playing"]',
+    'ytmusic-responsive-list-item-renderer[play-button-state="playing"]',
+  ];
+  const roots = preferredSelectors
+    .flatMap((selector) => Array.from(document.querySelectorAll<HTMLElement>(selector)));
 
-  const clickSaveItem = () => {
-    const items = Array.from(
+  if (title) {
+    const queueItems = Array.from(
       document.querySelectorAll<HTMLElement>(
-        'ytmusic-menu-service-item-renderer, ytmusic-menu-navigation-item-renderer, tp-yt-paper-item, ytd-menu-service-item-renderer',
+        'ytmusic-player-queue-item, ytmusic-responsive-list-item-renderer',
       ),
     );
-    const target = items.find((item) => {
-      const text = item.textContent?.replaceAll(/\s+/g, ' ').trim() ?? '';
-      return /save to playlist|add to playlist|сохранить в плейлист|добавить в плейлист|зберегти в плейлист|додати (до|в) плейлист/i.test(
-        text,
-      );
-    });
-    if (!target) return false;
-    target.click();
-    return true;
-  };
+    const matching = queueItems.find((item) =>
+      (item.textContent ?? '').toLocaleLowerCase().includes(title),
+    );
+    if (matching) roots.unshift(matching);
+  }
+
+  const bar = nativeBar();
+  if (bar) roots.push(bar);
+  return Array.from(new Set(roots));
+};
+
+const isArtistHref = (href: string) =>
+  href.includes('/channel/') || /\/browse\/UC[\w-]+/.test(href);
+
+const getArtistLinks = () => {
+  const result: HTMLAnchorElement[] = [];
+  const seen = new Set<string>();
+
+  for (const root of currentTrackRoots()) {
+    for (const link of Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href]'))) {
+      const href = link.getAttribute('href') ?? '';
+      const text = link.textContent?.replaceAll(/\s+/g, ' ').trim() ?? '';
+      if (!text || !isArtistHref(href)) continue;
+      const key = `${new URL(link.href, location.origin).pathname}|${text.toLocaleLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(link);
+    }
+  }
+
+  return result;
+};
+
+const SAVE_TO_PLAYLIST_RE =
+  /save to playlist|add to playlist|сохранить в плейлист|добавить в плейлист|зберегти (до|в|у) плейлист|додати (до|в|у) плейлист/i;
+
+const findSaveToPlaylistItem = () => {
+  const items = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      'ytmusic-menu-service-item-renderer, ytmusic-menu-navigation-item-renderer, tp-yt-paper-item, ytd-menu-service-item-renderer',
+    ),
+  );
+  return (
+    items.find((item) =>
+      SAVE_TO_PLAYLIST_RE.test(
+        item.textContent?.replaceAll(/\s+/g, ' ').trim() ?? '',
+      ),
+    ) ?? null
+  );
+};
+
+const findCurrentTrackMenuButton = () => {
+  const selectors = [
+    'ytmusic-menu-renderer #button-shape button',
+    'ytmusic-menu-renderer #button',
+    'ytmusic-menu-renderer button',
+    '[aria-label*="More actions" i]',
+    '[aria-label*="More" i]',
+    '[aria-label*="Ещё" i]',
+    '[aria-label*="Додатков" i]',
+  ];
+
+  for (const root of currentTrackRoots()) {
+    for (const selector of selectors) {
+      const button = root.querySelector<HTMLElement>(selector);
+      if (button) return button;
+    }
+  }
+  return null;
+};
+
+const openPlaylistPicker = () => {
+  const alreadyOpen = findSaveToPlaylistItem();
+  if (alreadyOpen) {
+    alreadyOpen.click();
+    return;
+  }
+
+  const menuButton = findCurrentTrackMenuButton();
+  if (!menuButton) return;
+  menuButton.click();
 
   let attempts = 0;
   const retry = () => {
+    const target = findSaveToPlaylistItem();
+    if (target) {
+      target.click();
+      return;
+    }
     attempts += 1;
-    if (clickSaveItem() || attempts >= 8) return;
-    window.setTimeout(retry, 50);
+    if (attempts < 40) window.setTimeout(retry, 50);
   };
-  window.setTimeout(retry, 20);
+  window.setTimeout(retry, 30);
 };
 
-const lyricsTab = () =>
+const tabHeader = (index: number) =>
   document.querySelector<HTMLElement>(
-    '#tabsContent > .tab-header:nth-of-type(2)',
+    `#tabsContent > .tab-header:nth-of-type(${index})`,
   );
-
-const defaultPlayerTab = () =>
-  document.querySelector<HTMLElement>(
-    '#tabsContent > .tab-header:nth-of-type(1)',
-  );
-
-const getArtistLinks = () => {
-  const byline =
-    nativeBar()?.querySelector<HTMLElement>('.byline.ytmusic-player-bar') ??
-    nativeBar()?.querySelector<HTMLElement>('.byline');
-  if (!byline) return [];
-
-  const links = Array.from(byline.querySelectorAll<HTMLAnchorElement>('a[href]'));
-  const artistLinks = links.filter((link) => {
-    const href = link.getAttribute('href') ?? '';
-    return href.includes('/channel/') || /\/browse\/UC[\w-]+/.test(href);
-  });
-
-  return artistLinks.length > 0 ? artistLinks : links.slice(0, 1);
-};
+const queueTab = () => tabHeader(1);
+const lyricsTab = () => tabHeader(2);
+const defaultPlayerTab = () => tabHeader(1);
 
 export const mountPlayer = () => {
   document.getElementById(PLAYER_ROOT_ID)?.remove();
@@ -247,10 +313,16 @@ export const mountPlayer = () => {
     setActive(shuffle, shuffleState);
     nativeClick('#shuffle-button', '.shuffle');
   });
-  previous.addEventListener('click', () =>
-    nativeClick('#previous-button', '.previous-button'),
-  );
-  next.addEventListener('click', () => nativeClick('#next-button', '.next-button'));
+  previous.addEventListener('click', () => {
+    const api = playerApi();
+    if (api) api.previousVideo();
+    else nativeClick('#previous-button', '.previous-button');
+  });
+  next.addEventListener('click', () => {
+    const api = playerApi();
+    if (api) api.nextVideo();
+    else nativeClick('#next-button', '.next-button');
+  });
   repeat.addEventListener('click', () => {
     repeatTouched = true;
     repeatState = (((repeatState + 1) % 3) as 0 | 1 | 2);
@@ -272,23 +344,21 @@ export const mountPlayer = () => {
   };
 
   play.addEventListener('click', () => {
+    const api = playerApi();
     const current = media();
-    if (!current) return;
-
-    const currentlyPlaying = desiredPlaying ?? !current.paused;
+    const actualPlaying = api ? api.getPlayerState() === 1 : Boolean(current && !current.paused);
+    const currentlyPlaying = desiredPlaying ?? actualPlaying;
     desiredPlaying = !currentlyPlaying;
     renderPlayState(desiredPlaying);
 
-    if (desiredPlaying) {
-      void current.play().catch(() => {
-        if (desiredPlaying === true) {
-          desiredPlaying = null;
-          renderPlayState(!current.paused);
-        }
-      });
-    } else {
-      current.pause();
+    if (api) {
+      if (desiredPlaying) api.playVideo();
+      else api.pauseVideo();
+      return;
     }
+    if (!current) return;
+    if (desiredPlaying) void current.play();
+    else current.pause();
   });
 
   transport.append(shuffle, previous, play, next, repeat);
@@ -298,7 +368,6 @@ export const mountPlayer = () => {
   const elapsed = document.createElement('span');
   elapsed.className = 'ui143-player-time';
   elapsed.textContent = '0:00';
-
   const progressWrap = document.createElement('div');
   progressWrap.className = 'ui143-player-progress-wrap';
   const progressVisual = document.createElement('div');
@@ -314,7 +383,6 @@ export const mountPlayer = () => {
   progress.step = '1';
   progress.value = '0';
   progressWrap.append(progressVisual, progress);
-
   const duration = document.createElement('span');
   duration.className = 'ui143-player-time';
   duration.textContent = '0:00';
@@ -349,7 +417,6 @@ export const mountPlayer = () => {
     like.title = likedState ? 'Remove from liked songs' : 'Add to liked songs';
     nativeLike.click();
   });
-
   playlist.addEventListener('click', openPlaylistPicker);
 
   karaoke.addEventListener('click', () => {
@@ -360,14 +427,14 @@ export const mountPlayer = () => {
     else lyrics.click();
     setActive(karaoke, !isActive);
   });
-
   queue.addEventListener('click', () => {
-    defaultPlayerTab()?.click();
+    const target = queueTab();
+    if (!target) return;
+    target.click();
   });
 
   let scrubbing = false;
   let previewTime = 0;
-  let seekFrame = 0;
 
   const setProgressVisual = (ratio: number) => {
     const clamped = Math.max(0, Math.min(1, ratio));
@@ -375,55 +442,99 @@ export const mountPlayer = () => {
     progressFill.style.width = `${clamped * 100}%`;
   };
 
-  const previewSeek = () => {
-    const current = media();
-    if (!current || !Number.isFinite(current.duration) || current.duration <= 0) return;
+  const durationSeconds = () => {
+    const api = playerApi();
+    const value = api?.getDuration() ?? media()?.duration ?? 0;
+    return Number.isFinite(value) ? value : 0;
+  };
+
+  const updateSeekPreview = () => {
+    const total = durationSeconds();
+    if (total <= 0) return;
     const ratio = Number(progress.value) / 1000;
-    previewTime = ratio * current.duration;
+    previewTime = ratio * total;
     setProgressVisual(ratio);
     elapsed.textContent = formatTime(previewTime);
+  };
 
-    window.cancelAnimationFrame(seekFrame);
-    seekFrame = window.requestAnimationFrame(() => {
-      const activeMedia = media();
-      if (activeMedia && Number.isFinite(activeMedia.duration)) {
-        activeMedia.currentTime = previewTime;
-      }
-    });
+  const commitSeek = () => {
+    updateSeekPreview();
+    const api = playerApi();
+    if (api) api.seekTo(previewTime);
+    else {
+      const current = media();
+      if (current) current.currentTime = previewTime;
+    }
+    scrubbing = false;
+    progressWrap.classList.remove('is-scrubbing');
   };
 
   progress.addEventListener('pointerdown', () => {
     scrubbing = true;
     progressWrap.classList.add('is-scrubbing');
   });
-  progress.addEventListener('input', previewSeek);
-  progress.addEventListener('change', () => {
-    previewSeek();
-    scrubbing = false;
-    progressWrap.classList.remove('is-scrubbing');
-  });
+  // Preview only while dragging. A single seek is committed on release/change,
+  // avoiding dozens of decoder flushes and the torn audio they caused.
+  progress.addEventListener('input', updateSeekPreview);
+  progress.addEventListener('change', commitSeek);
 
   const finishScrub = () => {
     if (!scrubbing) return;
-    scrubbing = false;
-    progressWrap.classList.remove('is-scrubbing');
+    commitSeek();
   };
   window.addEventListener('pointerup', finishScrub);
   window.addEventListener('pointercancel', finishScrub);
 
-  volume.addEventListener('input', () => {
-    const current = media();
-    if (!current) return;
-    const value = Number(volume.value) / 100;
-    current.volume = value;
-    current.muted = value === 0;
-    volume.style.setProperty('--ui143-range-progress', `${value * 100}%`);
+  let volumeDragging = false;
+  let lastNonZeroVolume = 100;
+
+  const applyVolume = (value: number) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(value)));
+    const api = playerApi();
+    if (api) {
+      if (clamped === 0) {
+        api.mute();
+      } else {
+        api.setVolume(clamped);
+        api.unMute();
+        lastNonZeroVolume = clamped;
+      }
+    } else {
+      const current = media();
+      if (current) {
+        current.volume = clamped / 100;
+        current.muted = clamped === 0;
+      }
+    }
+    volume.value = String(clamped);
+    volume.style.setProperty('--ui143-range-progress', `${clamped}%`);
+    setIcon(volumeButton, clamped === 0 ? 'mute' : 'volume');
+  };
+
+  volume.addEventListener('pointerdown', () => {
+    volumeDragging = true;
   });
+  volume.addEventListener('input', () => applyVolume(Number(volume.value)));
+  const finishVolume = () => {
+    volumeDragging = false;
+  };
+  volume.addEventListener('change', finishVolume);
+  window.addEventListener('pointerup', finishVolume);
 
   volumeButton.addEventListener('click', () => {
+    const api = playerApi();
+    if (api) {
+      if (api.isMuted() || api.getVolume() === 0) {
+        api.setVolume(lastNonZeroVolume || 100);
+        api.unMute();
+      } else {
+        lastNonZeroVolume = api.getVolume();
+        api.mute();
+      }
+      return;
+    }
     const current = media();
-    if (!current) return;
-    current.muted = !current.muted;
+    if (current) current.muted = !current.muted;
   });
 
   root.append(meta, center, utilities);
@@ -435,10 +546,7 @@ export const mountPlayer = () => {
     const bar = nativeBar();
     let titleText = '';
     if (bar) {
-      titleText =
-        bar.querySelector<HTMLElement>('.title.ytmusic-player-bar')?.textContent?.trim() ??
-        bar.querySelector<HTMLElement>('.title')?.textContent?.trim() ??
-        '';
+      titleText = currentTitleText();
       const artistText =
         bar.querySelector<HTMLElement>('.byline.ytmusic-player-bar')?.textContent?.trim() ??
         bar.querySelector<HTMLElement>('.byline')?.textContent?.trim() ??
@@ -455,10 +563,9 @@ export const mountPlayer = () => {
       const artistKey = artistLinks
         .map((link) => `${link.textContent?.trim() ?? ''}|${link.href}`)
         .join('::');
-      if (artistKey !== lastArtistKey) {
+      if (artistKey !== lastArtistKey || artist.childElementCount === 0) {
         lastArtistKey = artistKey;
         artist.replaceChildren();
-
         if (artistLinks.length > 0) {
           artistLinks.forEach((link, index) => {
             if (index > 0) {
@@ -471,7 +578,6 @@ export const mountPlayer = () => {
             anchor.href = link.href;
             anchor.textContent = link.textContent?.trim() ?? '';
             anchor.className = 'ui143-player-artist-link';
-            anchor.addEventListener('click', (event) => event.stopPropagation());
             artist.append(anchor);
           });
         } else {
@@ -481,27 +587,22 @@ export const mountPlayer = () => {
     }
 
     if (!shuffleTouched) {
-      const detectedShuffle = readPressed(
-        nativeElement('#shuffle-button', '.shuffle'),
-      );
-      if (detectedShuffle !== null) shuffleState = detectedShuffle;
+      const detected = readPressed(nativeElement('#shuffle-button', '.shuffle'));
+      if (detected !== null) shuffleState = detected;
     }
     setActive(shuffle, shuffleState);
 
     if (!repeatTouched) {
-      const nativeRepeat = nativeElement(
-        '#repeat-button',
-        '.repeat',
-      ) as StatefulElement | null;
-      const repeatMode = nativeRepeat?.repeatMode;
-      if (repeatMode !== undefined && repeatMode !== null) {
-        const raw = String(repeatMode).toLowerCase();
+      const nativeRepeat = nativeElement('#repeat-button', '.repeat') as StatefulElement | null;
+      const rawMode = nativeRepeat?.repeatMode;
+      if (rawMode !== undefined && rawMode !== null) {
+        const raw = String(rawMode).toLowerCase();
         if (raw === '2' || raw.includes('one')) repeatState = 2;
         else if (raw === '1' || raw.includes('all')) repeatState = 1;
         else repeatState = 0;
       } else {
-        const detectedRepeat = readPressed(nativeRepeat);
-        if (detectedRepeat !== null) repeatState = detectedRepeat ? 1 : 0;
+        const detected = readPressed(nativeRepeat);
+        if (detected !== null) repeatState = detected ? 1 : 0;
       }
     }
     setActive(repeat, repeatState !== 0);
@@ -511,9 +612,8 @@ export const mountPlayer = () => {
     if (songKey !== activeSongKey) {
       activeSongKey = songKey;
       likeTouched = false;
-      const detectedLike = readLikeState();
-      if (detectedLike !== null) likedState = detectedLike;
-    } else if (!likeTouched) {
+    }
+    if (!likeTouched) {
       const detectedLike = readLikeState();
       if (detectedLike !== null) likedState = detectedLike;
     }
@@ -521,57 +621,60 @@ export const mountPlayer = () => {
     setIcon(like, likedState ? 'heartFilled' : 'heart');
 
     const lyrics = lyricsTab();
-    const karaokeAvailable = Boolean(lyrics);
-    karaoke.disabled = !karaokeAvailable;
-    karaoke.classList.toggle('is-disabled', !karaokeAvailable);
+    karaoke.disabled = !lyrics;
+    karaoke.classList.toggle('is-disabled', !lyrics);
     setActive(karaoke, lyrics?.getAttribute('aria-selected') === 'true');
-
-    const queueTab = defaultPlayerTab();
-    const queueAvailable = Boolean(queueTab);
-    queue.disabled = !queueAvailable;
-    queue.classList.toggle('is-disabled', !queueAvailable);
-    setActive(queue, queueTab?.getAttribute('aria-selected') === 'true');
+    setActive(queue, queueTab()?.getAttribute('aria-selected') === 'true');
   };
 
   let animationFrame = 0;
   const syncFrame = () => {
+    const api = playerApi();
     const current = media();
-    if (current) {
-      const currentDuration = Number.isFinite(current.duration) ? current.duration : 0;
-      const currentTime = Number.isFinite(current.currentTime) ? current.currentTime : 0;
+    const totalRaw = api?.getDuration() ?? current?.duration ?? 0;
+    const timeRaw = api?.getCurrentTime() ?? current?.currentTime ?? 0;
+    const total = Number.isFinite(totalRaw) ? totalRaw : 0;
+    const now = Number.isFinite(timeRaw) ? timeRaw : 0;
 
-      if (!scrubbing) {
-        setProgressVisual(currentDuration > 0 ? currentTime / currentDuration : 0);
-        elapsed.textContent = formatTime(currentTime);
+    if (!scrubbing) {
+      setProgressVisual(total > 0 ? now / total : 0);
+      elapsed.textContent = formatTime(now);
+    }
+    duration.textContent = formatTime(total);
+
+    const actualPlaying = api ? api.getPlayerState() === 1 : Boolean(current && !current.paused);
+    if (desiredPlaying !== null && actualPlaying === desiredPlaying) desiredPlaying = null;
+    const shownPlaying = desiredPlaying ?? actualPlaying;
+    renderPlayState(shownPlaying);
+    progressWrap.classList.toggle('is-playing', shownPlaying);
+
+    if (!volumeDragging) {
+      let shownVolume = 100;
+      if (api) {
+        const logicalVolume = api.getVolume();
+        if (logicalVolume > 0) lastNonZeroVolume = logicalVolume;
+        shownVolume = api.isMuted() ? 0 : logicalVolume;
+      } else if (current) {
+        shownVolume = current.muted ? 0 : Math.round(current.volume * 100);
       }
-      duration.textContent = formatTime(currentDuration);
-
-      const actualPlaying = !current.paused;
-      if (desiredPlaying !== null && actualPlaying === desiredPlaying) {
-        desiredPlaying = null;
-      }
-      renderPlayState(desiredPlaying ?? actualPlaying);
-      progressWrap.classList.toggle('is-playing', desiredPlaying ?? actualPlaying);
-
-      const volumeValue = current.muted ? 0 : Math.round(current.volume * 100);
-      volume.value = String(volumeValue);
-      volume.style.setProperty('--ui143-range-progress', `${volumeValue}%`);
-      setIcon(volumeButton, volumeValue === 0 ? 'mute' : 'volume');
+      volume.value = String(shownVolume);
+      volume.style.setProperty('--ui143-range-progress', `${shownVolume}%`);
+      setIcon(volumeButton, shownVolume === 0 ? 'mute' : 'volume');
     }
 
     animationFrame = window.requestAnimationFrame(syncFrame);
   };
 
-  const metadataInterval = window.setInterval(syncMetadata, 200);
+  const metadataInterval = window.setInterval(syncMetadata, 250);
   syncMetadata();
   syncFrame();
 
   return () => {
     window.clearInterval(metadataInterval);
     window.cancelAnimationFrame(animationFrame);
-    window.cancelAnimationFrame(seekFrame);
     window.removeEventListener('pointerup', finishScrub);
     window.removeEventListener('pointercancel', finishScrub);
+    window.removeEventListener('pointerup', finishVolume);
     root.remove();
   };
 };
