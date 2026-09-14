@@ -1,6 +1,7 @@
 import { createPlugin } from '@/utils';
 
 import playerStyle from './player.css?inline';
+import { mountPlayer } from './player';
 import style from './style.css?inline';
 
 const UI_ROOT_ID = 'ui143-root';
@@ -276,6 +277,7 @@ export default createPlugin({
   renderer: {
     styleSheet: null as CSSStyleSheet | null,
     playerStyleSheet: null as CSSStyleSheet | null,
+    playerCleanup: null as (() => void) | null,
 
     async start() {
       this.styleSheet = new CSSStyleSheet();
@@ -290,9 +292,13 @@ export default createPlugin({
         this.playerStyleSheet,
       ];
       createShell();
+      this.playerCleanup?.();
+      this.playerCleanup = mountPlayer();
     },
 
     async stop() {
+      this.playerCleanup?.();
+      this.playerCleanup = null;
       document.getElementById(UI_ROOT_ID)?.remove();
       document.documentElement.removeAttribute(UI_ATTR);
       await Promise.all([
