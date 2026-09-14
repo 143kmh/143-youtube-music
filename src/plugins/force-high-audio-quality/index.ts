@@ -4,6 +4,10 @@ import { t } from '@/i18n';
 import { createPlugin } from '@/utils';
 
 import renderer from './renderer';
+import {
+  installPlayerScriptPatch,
+  type PlayerScriptPatchStatus,
+} from './player-script-patch';
 
 import type { AudioDiagnostics, PlaybackDetails } from './diagnostics';
 import type { DirectPlaybackStatus } from './direct-playback';
@@ -34,7 +38,16 @@ export default createPlugin({
   },
 
   backend: {
-    start({ ipc, window }) {
+    scriptPatchStatus: null as PlayerScriptPatchStatus | null,
+    restoreScriptPatch: null as (() => Promise<void>) | null,
+
+    async start({ ipc, window }) {
+      const scriptPatch = await installPlayerScriptPatch(
+        window.webContents.session,
+      );
+      this.scriptPatchStatus = scriptPatch.status;
+      this.restoreScriptPatch = scriptPatch.restore;
+
       ipc.handle(
         'peard:force-high-audio-quality:show',
         (
@@ -62,11 +75,19 @@ export default createPlugin({
             ),
           });
           const direct = stats.directPlayback;
-          const directDetail = [
-            `Direct playback hook: ${direct.hookFound ? 'found' : 'not found'}`,
-            `Server-ABR policy key: ${direct.policyKey ?? 'unknown'}`,
-            `Direct-path applications: ${direct.applications}`,
-            `Last server-ABR policy: ${direct.lastBefore ?? 'unknown'} -> ${direct.lastAfter ?? 'unknown'}`,
+          const runtimeDetail = [
+            `Runtime object hook: ${direct.hookFound ? 'found' : 'not found'}`,
+            `Runtime policy key: ${direct.policyKey ?? 'unknown'}`,
+            `Runtime applications: ${direct.applications}`,
+            `Last runtime policy: ${direct.lastBefore ?? 'unknown'} -> ${direct.lastAfter ?? 'unknown'}`,
+          ].join('\n');
+          const script = this.scriptPatchStatus;
+          const scriptDetail = [
+            `Player script interceptor: ${script?.installed ? 'installed' : 'not installed'}`,
+            `base.js requests seen: ${script?.matchedRequests ?? 0}`,
+            `base.js responses patched: ${script?.patchedRequests ?? 0}`,
+            `Detected source policy key: ${script?.detectedPolicyKey ?? 'unknown'}`,
+            `Script patch error: ${script?.lastError ?? 'none'}`,
           ].join('\n');
 
           return dialog.showMessageBox(window, {
@@ -80,13 +101,16 @@ export default createPlugin({
                   ? unknown
                   : `~${stats.approximateKbps} kbps`,
             }),
-            detail: `${translatedDetail}\n\n${directDetail}`,
+            detail: `${translatedDetail}\n\n${scriptDetail}\n\n${runtimeDetail}`,
           });
         },
       );
     },
-    stop({ ipc }) {
+    async stop({ ipc }) {
       ipc.removeHandler('peard:force-high-audio-quality:show');
+      await this.restoreScriptPatch?.();
+      this.restoreScriptPatch = null;
+      this.scriptPatchStatus = null;
     },
   },
 
