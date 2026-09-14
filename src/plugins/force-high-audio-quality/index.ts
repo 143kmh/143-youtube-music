@@ -10,7 +10,6 @@ import {
 } from './player-script-patch';
 
 import type { AudioDiagnostics, PlaybackDetails } from './diagnostics';
-import type { DirectPlaybackStatus } from './direct-playback';
 import type { QualityConfig } from './preference';
 
 export default createPlugin({
@@ -58,7 +57,6 @@ export default createPlugin({
               patchedLoads: number;
               proxyFound: boolean;
               incomingHigh: string;
-              directPlayback: DirectPlaybackStatus;
             },
         ) => {
           const unknown = t('plugins.force-high-audio-quality.unknown');
@@ -74,13 +72,6 @@ export default createPlugin({
               `plugins.force-high-audio-quality.${stats.preferenceActive ? 'maximum' : stats.maximumRequested ? 'unavailable' : 'default'}`,
             ),
           });
-          const direct = stats.directPlayback;
-          const runtimeDetail = [
-            `Runtime object hook: ${direct.hookFound ? 'found' : 'not found'}`,
-            `Runtime policy key: ${direct.policyKey ?? 'unknown'}`,
-            `Runtime applications: ${direct.applications}`,
-            `Last runtime policy: ${direct.lastBefore ?? 'unknown'} -> ${direct.lastAfter ?? 'unknown'}`,
-          ].join('\n');
           const script = this.scriptPatchStatus;
           const scriptDetail = [
             `Player script interceptor: ${script?.installed ? 'installed' : 'not installed'}`,
@@ -101,7 +92,7 @@ export default createPlugin({
                   ? unknown
                   : `~${stats.approximateKbps} kbps`,
             }),
-            detail: `${translatedDetail}\n\n${scriptDetail}\n\n${runtimeDetail}`,
+            detail: `${translatedDetail}\n\n${scriptDetail}`,
           });
         },
       );
