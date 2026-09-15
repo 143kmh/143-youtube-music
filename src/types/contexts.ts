@@ -1,4 +1,4 @@
-import type { PluginConfig } from '@/types/plugins';
+import type { FeatureConfig } from '@/types/plugins';
 import type {
   IpcMain,
   IpcRenderer,
@@ -6,13 +6,13 @@ import type {
   BrowserWindow,
 } from 'electron';
 
-export interface BaseContext<Config extends PluginConfig> {
+export interface BaseContext<Config extends FeatureConfig> {
   getConfig: () => Promise<Config> | Config;
   setConfig: (conf: Partial<Omit<Config, 'enabled'>>) => Promise<void> | void;
 }
 
 export interface BackendContext<
-  Config extends PluginConfig,
+  Config extends FeatureConfig,
 > extends BaseContext<Config> {
   ipc: {
     send: WebContents['send'];
@@ -25,7 +25,7 @@ export interface BackendContext<
 }
 
 export interface MenuContext<
-  Config extends PluginConfig,
+  Config extends FeatureConfig,
 > extends BaseContext<Config> {
   window: BrowserWindow;
   refresh: () => Promise<void> | void;
@@ -33,12 +33,12 @@ export interface MenuContext<
 
 /* oxlint-disable typescript/no-empty-object-type */
 export interface PreloadContext<
-  Config extends PluginConfig,
+  Config extends FeatureConfig,
 > extends BaseContext<Config> {}
 /* oxlint-enable typescript/no-empty-object-type */
 
 export interface RendererContext<
-  Config extends PluginConfig,
+  Config extends FeatureConfig,
 > extends BaseContext<Config> {
   ipc: {
     send: IpcRenderer['send'];
