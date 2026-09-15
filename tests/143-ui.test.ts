@@ -69,7 +69,12 @@ test.beforeEach(() => {
   Object.assign(document.querySelector('#movie_player')!, {
     getVideoData: () => track,
     getPlayerResponse: () => ({
-      videoDetails: { author: track.author, channelId: 'UCprimary' },
+      videoDetails: {
+        videoId: track.video_id,
+        lengthSeconds: '200',
+        author: track.author,
+        channelId: 'UCprimary',
+      },
     }),
     getPlayerState: () => playing,
     getDuration: () => 200,
@@ -174,9 +179,7 @@ test('search catalog enriches an artist and opens its browse id directly', async
             thumbnail: {
               musicThumbnailRenderer: {
                 thumbnail: {
-                  thumbnails: [
-                    { url: 'banner', width: 1920, height: 720 },
-                  ],
+                  thumbnails: [{ url: 'banner', width: 1920, height: 720 }],
                 },
               },
             },
@@ -202,7 +205,10 @@ test('search catalog enriches an artist and opens its browse id directly', async
     subscribers: '2.1M subscribers',
     monthlyListeners: '2.5M monthly listeners',
   });
-  expect(requests.map((request) => request.path)).toEqual(['/search', '/browse']);
+  expect(requests.map((request) => request.path)).toEqual([
+    '/search',
+    '/browse',
+  ]);
   expect(engine.openSearchResult(result.topResult!)).toBe(true);
   expect(routes.at(-1)).toBe('UCartist');
 });
@@ -365,18 +371,23 @@ test('one seek per pointer gesture and keyboard change; player remount has one o
 });
 
 test('playlist picker captures the intended video and ignores closed requests', async () => {
-  fetchResponse = async () => ({
-    musicTwoRowItemRenderer: {
-      title: {
-        runs: [
-          {
-            text: 'My playlist',
-            navigationEndpoint: { browseEndpoint: { browseId: 'VLPLmine' } },
+  fetchResponse = async (path) =>
+    path === '/browse/edit_playlist'
+      ? { data: { status: 'STATUS_SUCCEEDED' } }
+      : {
+          musicTwoRowItemRenderer: {
+            title: {
+              runs: [
+                {
+                  text: 'My playlist',
+                  navigationEndpoint: {
+                    browseEndpoint: { browseId: 'VLPLmine' },
+                  },
+                },
+              ],
+            },
           },
-        ],
-      },
-    },
-  });
+        };
   const picker = mountPlaylistPicker(engine);
   cleanup = picker.dispose;
   await picker.open();
@@ -387,10 +398,16 @@ test('playlist picker captures the intended video and ignores closed requests', 
     .click();
   await new Promise((done) => setImmediate(done));
   expect(
-    requests.find((request) => request.path === '/playlist/edit')?.data,
+    requests.find((request) => request.path === '/browse/edit_playlist')?.data,
   ).toEqual({
     playlistId: 'PLmine',
-    actions: [{ action: 'ACTION_ADD_VIDEO', addedVideoId: 'first' }],
+    actions: [
+      {
+        action: 'ACTION_ADD_VIDEO',
+        addedVideoId: 'first',
+        dedupeOption: 'DEDUPE_OPTION_SKIP',
+      },
+    ],
   });
   let resolve!: (value: unknown) => void;
   fetchResponse = () =>
@@ -404,7 +421,7 @@ test('playlist picker captures the intended video and ignores closed requests', 
   expect(document.querySelector('#ui143-playlist-picker')).toBeNull();
 });
 
-test('lyrics and queue commands reflect native tabs', () => {
+test('lyrics without prepared native state retain the current page', async () => {
   const tabs = Array.from(document.querySelectorAll('.tab-header'));
   tabs.forEach((tab) =>
     tab.addEventListener('click', () =>
@@ -413,8 +430,8 @@ test('lyrics and queue commands reflect native tabs', () => {
       ),
     ),
   );
-  engine.toggleLyrics();
-  expect(engine.getState().lyricsActive).toBe(true);
+  expect(await engine.toggleLyrics()).toBe(false);
+  expect(engine.getState().lyricsActive).toBe(false);
   engine.openQueue();
   expect(engine.getState().queueActive).toBe(true);
   tabs[1].setAttribute('disabled', '');
@@ -433,7 +450,8 @@ test('adapter handles missing and late engine nodes, start/dispose are idempoten
   const bar = document.createElement('ytmusic-player-bar');
   bar.innerHTML = '<span class="title ytmusic-player-bar">Late song</span>';
   document.body.append(bar);
-  await expect.poll(() => engine.getState().track.title).toBe('Late song');
+  engine.refresh();
+  expect(engine.getState().track.title).toBe('');
   engine.dispose();
   engine.dispose();
 });

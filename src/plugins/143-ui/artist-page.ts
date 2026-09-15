@@ -1,6 +1,6 @@
+import type { PlaybackContextAdapter } from './playback-context';
 import type { SearchArtistProfile, SearchResultItem } from './youtube-music';
 import type { ArtistCatalog } from './youtube-music-catalog';
-import type { PlaybackContextAdapter } from './playback-context';
 
 const ROOT_ID = 'ui143-artist-page';
 
@@ -107,7 +107,7 @@ export const mountArtistPage = (
 
   const openResult = (item: SearchResultItem) => {
     if (item.kind === 'artist' && item.browseId) {
-      void openInternal(
+      openInternal(
         { name: item.title, browseId: item.browseId },
         { pushHistory: true },
       );
@@ -202,7 +202,12 @@ export const mountArtistPage = (
       const nowPlaying = document.createElement('span');
       nowPlaying.className = 'ui143-artist-now-playing';
       nowPlaying.textContent = 'Now playing';
-      row.append(number, image(item, 'ui143-artist-track-art'), copy, nowPlaying);
+      row.append(
+        number,
+        image(item, 'ui143-artist-track-art'),
+        copy,
+        nowPlaying,
+      );
       list.append(row);
     }
     section.append(title, list);
@@ -229,19 +234,6 @@ export const mountArtistPage = (
       card.append(art, name, subtitle(item));
       shelf.append(card);
     }
-    // Normal wheel movement belongs to the page. Shift+wheel is the explicit
-    // mouse fallback for horizontal album/release shelves; trackpads still use
-    // their native horizontal delta without trapping vertical scrolling.
-    shelf.addEventListener(
-      'wheel',
-      (event) => {
-        if (!event.shiftKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-        if (shelf.scrollWidth <= shelf.clientWidth) return;
-        event.preventDefault();
-        shelf.scrollLeft += event.deltaY;
-      },
-      { passive: false },
-    );
     section.append(title, shelf);
     return section;
   };
@@ -257,7 +249,11 @@ export const mountArtistPage = (
       content.append(renderShelf('Latest', catalog.releases));
     if (catalog.relatedArtists.length)
       content.append(
-        renderShelf('Related artists', catalog.relatedArtists.slice(0, 16), true),
+        renderShelf(
+          'Related artists',
+          catalog.relatedArtists.slice(0, 16),
+          true,
+        ),
       );
     syncNowPlaying();
   };
@@ -277,13 +273,19 @@ export const mountArtistPage = (
     message('Loading artist…');
 
     try {
-      const catalog = await engine.getArtistCatalog(artist.browseId, artist.name);
+      const catalog = await engine.getArtistCatalog(
+        artist.browseId,
+        artist.name,
+      );
       if (currentRequest !== request) return;
       render(artist, catalog);
     } catch (error) {
       if (currentRequest !== request) return;
       console.error('[143 Music] Artist page failed', error);
-      message('Artist unavailable', 'YouTube Music did not return artist data.');
+      message(
+        'Artist unavailable',
+        'YouTube Music did not return artist data.',
+      );
     }
   };
 
@@ -301,7 +303,7 @@ export const mountArtistPage = (
       if (root.hidden) return false;
       const previous = history.pop();
       if (previous) {
-        void openInternal(previous, { pushHistory: false });
+        openInternal(previous, { pushHistory: false });
         return true;
       }
       ++request;

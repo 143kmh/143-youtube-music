@@ -1,3 +1,10 @@
+import {
+  createNativeSurface,
+  nativeStore,
+  playlistEditPayload,
+  validatePlaylistEdit,
+} from './native-player';
+
 import type { MusicPlayer } from '@/types/music-player';
 import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
 import type { QueueElement } from '@/types/queue';
@@ -131,11 +138,11 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     if (!input) return false;
 
     input.focus();
-    const valueSetter = Object.getOwnPropertyDescriptor(
+    const valueDescriptor = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
-    if (valueSetter) valueSetter.call(input, query);
+    );
+    if (valueDescriptor?.set) valueDescriptor.set.call(input, query);
     else input.value = query;
 
     input.dispatchEvent(
@@ -215,8 +222,19 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     if (result.length > 0) return result;
 
     const response = playerApi()?.getPlayerResponse?.() as unknown as
-      | { videoDetails?: { author?: string; channelId?: string } }
+      | {
+          videoDetails?: {
+            videoId?: string;
+            author?: string;
+            channelId?: string;
+          };
+        }
       | undefined;
+    if (
+      response?.videoDetails?.videoId !==
+      playerApi()?.getVideoData?.()?.video_id
+    )
+      return [];
     const name = response?.videoDetails?.author?.trim();
     const browseId = response?.videoDetails?.channelId;
     if (name && browseId) return [{ name, browseId }];
@@ -238,13 +256,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   const currentTrackTitle = () => {
     const data = playerApi()?.getVideoData?.();
     if (data?.title?.trim()) return data.title.trim();
-    return (
-      document
-        .querySelector<HTMLElement>(
-          'ytmusic-player-bar .title.ytmusic-player-bar',
-        )
-        ?.textContent?.trim() ?? ''
-    );
+    return '';
   };
 
   const featuredArtistNames = (title: string) => {
@@ -301,7 +313,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       if (!isRecord(value)) return;
       for (const key of keys) {
         if (isRecord(value[key])) {
-          found = value[key] as UnknownRecord;
+          found = value[key];
           return;
         }
       }
@@ -552,7 +564,8 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       if (!isRecord(value)) return;
       if (Array.isArray(value.thumbnails)) {
         for (const thumbnail of value.thumbnails) {
-          if (!isRecord(thumbnail) || typeof thumbnail.url !== 'string') continue;
+          if (!isRecord(thumbnail) || typeof thumbnail.url !== 'string')
+            continue;
           result.push({
             url: thumbnail.url,
             width: typeof thumbnail.width === 'number' ? thumbnail.width : 0,
@@ -600,7 +613,9 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   ): SearchResultItem | null => {
     const titleRuns = readRuns(candidate.title);
     const flexGroups = flexRunGroups(candidate);
-    const effectiveTitleRuns = titleRuns.length ? titleRuns : (flexGroups[0] ?? []);
+    const effectiveTitleRuns = titleRuns.length
+      ? titleRuns
+      : (flexGroups[0] ?? []);
     const title =
       textFromRuns(effectiveTitleRuns) ||
       textFromRuns(candidateRuns(candidate));
@@ -610,14 +625,12 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     const subtitleGroups = titleRuns.length ? flexGroups : flexGroups.slice(1);
     const subtitle =
       explicitSubtitle ||
-      subtitleGroups
-        .map(textFromRuns)
-        .filter(Boolean)
-        .join(' • ');
+      subtitleGroups.map(textFromRuns).filter(Boolean).join(' • ');
 
-    const runEndpoint = effectiveTitleRuns
-      .map((run) => run.navigationEndpoint ?? null)
-      .find(Boolean) ?? null;
+    const runEndpoint =
+      effectiveTitleRuns
+        .map((run) => run.navigationEndpoint ?? null)
+        .find(Boolean) ?? null;
     const candidateEndpoint =
       endpointFrom(candidate.navigationEndpoint) ??
       endpointFrom(candidate.onTap) ??
@@ -629,7 +642,9 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       : null;
     const videoId =
       candidateEndpoint?.watchEndpoint?.videoId ??
-      (typeof playlistData?.videoId === 'string' ? playlistData.videoId : undefined);
+      (typeof playlistData?.videoId === 'string'
+        ? playlistData.videoId
+        : undefined);
     const browseId = candidateEndpoint?.browseEndpoint?.browseId;
     const pageType = endpointPageType(candidateEndpoint);
     const videoType = endpointVideoType(candidateEndpoint);
@@ -655,7 +670,10 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     };
   };
 
-  const collectSearchCatalog = (root: unknown, query: string): SearchCatalog => {
+  const collectSearchCatalog = (
+    root: unknown,
+    query: string,
+  ): SearchCatalog => {
     let topResult: SearchResultItem | null = null;
     const songs: SearchResultItem[] = [];
     const artists: SearchResultItem[] = [];
@@ -733,11 +751,14 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
         'subscriberCountText',
         'subscriberCount',
       ]) ||
-      headerTexts.find((text) => /subscriber|подписчик|підписник/i.test(text)) ||
+      headerTexts.find((text) =>
+        /subscriber|подписчик|підписник/i.test(text),
+      ) ||
       '';
     const monthlyListeners =
-      headerTexts.find((text) => /monthly|listener|слушател|слухач/i.test(text)) ||
-      metricFromSubtitle(fallback.subtitle);
+      headerTexts.find((text) =>
+        /monthly|listener|слушател|слухач/i.test(text),
+      ) || metricFromSubtitle(fallback.subtitle);
     const title =
       textFromValue(header.title) ||
       textFromValue(header.name) ||
@@ -842,9 +863,10 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   const isNowPlayingRoute = () => window.location.pathname === '/watch';
   const lyricsActuallyActive = () =>
     Boolean(
-      isNowPlayingRoute() &&
-        lyricsRenderer() &&
-        lyricsTab()?.getAttribute('aria-selected') === 'true',
+      (isNowPlayingRoute() ||
+        nativeStore()?.getState().navigation?.playerPageInfo?.open) &&
+      lyricsRenderer() &&
+      lyricsTab()?.getAttribute('aria-selected') === 'true',
     );
 
   let disposed = false;
@@ -852,9 +874,11 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   let lastNonZeroVolume = 100;
   let sourceKey = '';
   let generation = 0;
-  let lyricsRequest = 0;
   let resolvedArtists: ArtistEntry[] = [];
   const artworkByVideoId = new Map<string, string>();
+  const surface = createNativeSurface(() =>
+    disposed ? '' : (playerApi()?.getVideoData?.()?.video_id ?? ''),
+  );
   const listeners = new Set<(state: MusicState) => void>();
   let state: MusicState = {
     track: { id: '', title: '', byline: '', artwork: '', artists: [] },
@@ -893,7 +917,6 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     const api = playerApi();
     const video = media();
     const data = api?.getVideoData?.();
-    const bar = nativeBar();
     const title = currentTrackTitle();
     const id = data?.video_id ?? '';
     const baseArtists = currentArtists();
@@ -943,6 +966,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       | {
           videoDetails?: {
             videoId?: string;
+            lengthSeconds?: string;
             thumbnail?: unknown;
           };
         }
@@ -952,12 +976,9 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
         ? bestThumbnail(playerResponse.videoDetails.thumbnail)
         : '';
     const queueArtwork = bestThumbnail(currentQueueRenderer() as unknown);
-    const barArtwork =
-      bar?.querySelector<HTMLImageElement>(
-        '.thumbnail-image-wrapper img, yt-img-shadow img, img',
-      )?.src ?? '';
     const artwork =
-      responseArtwork || queueArtwork || artworkByVideoId.get(id) || barArtwork;
+      responseArtwork || queueArtwork || artworkByVideoId.get(id) || '';
+    const matchingResponse = playerResponse?.videoDetails?.videoId === id;
     const volume = Math.min(
       100,
       finite(api?.getVolume?.() ?? (video ? video.volume * 100 : 100), 100),
@@ -972,10 +993,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       track: {
         id,
         title,
-        byline:
-          data?.author ??
-          bar?.querySelector('.byline')?.textContent?.trim() ??
-          '',
+        byline: data?.author ?? '',
         artwork,
         artists: resolvedArtists,
       },
@@ -983,7 +1001,9 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
         ? api.getPlayerState() === 1
         : Boolean(video && !video.paused),
       time: finite(api?.getCurrentTime?.() ?? video?.currentTime),
-      duration: finite(api?.getDuration?.() ?? video?.duration),
+      duration: matchingResponse
+        ? finite(Number(playerResponse?.videoDetails?.lengthSeconds))
+        : 0,
       volume,
       muted: api?.isMuted?.() ?? video?.muted ?? false,
       liked: likeStatus ? String(likeStatus) === 'LIKE' : readLikeState(),
@@ -1003,6 +1023,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   };
   const navigate = (destination: string) => {
     if (disposed) return false;
+    surface.cancel();
     const routes: Record<string, string> = {
       FEmusic_home: '/',
       FEmusic_library_landing: '/library',
@@ -1023,6 +1044,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   };
   const navigateBrowseId = (browseId: string) => {
     if (disposed || !browseId) return false;
+    surface.cancel();
     const musicApp = app();
     if (typeof musicApp?.navigate !== 'function') return false;
     musicApp.navigate(browseId);
@@ -1079,7 +1101,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       if (disposed) return;
       disposed = true;
       ++generation;
-      ++lyricsRequest;
+      surface.cancel();
       window.clearInterval(timer);
       timer = undefined;
       listeners.clear();
@@ -1121,7 +1143,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       const artistCandidate =
         catalog.topResult?.kind === 'artist'
           ? catalog.topResult
-          : catalog.artists[0] ?? null;
+          : (catalog.artists[0] ?? null);
       if (!artistCandidate?.browseId) return catalog;
 
       let profile: SearchArtistProfile = artistProfileFromBrowse(
@@ -1150,7 +1172,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
             if (oldest) artworkByVideoId.delete(oldest);
           }
         }
-        ++lyricsRequest;
+        surface.cancel();
         api.loadVideoById(item.videoId, 0, 'default');
         window.setTimeout(refresh, 0);
         return true;
@@ -1227,43 +1249,29 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     },
     openQueue() {
       if (!disposed) {
-        ++lyricsRequest;
         queueTab()?.click();
         refresh();
       }
     },
-    toggleLyrics() {
-      if (disposed || !state.track.id) return;
+    async toggleLyrics() {
+      if (disposed) return false;
       refresh();
       if (state.lyricsActive) {
-        ++lyricsRequest;
+        surface.cancel();
         defaultPlayerTab()?.click();
+        nativeStore()?.dispatch({
+          type: 'SET_PLAYER_PAGE_TAB_SELECTED_INDEX',
+          payload: 0,
+        });
         refresh();
-        return;
+        return true;
       }
-
-      const request = ++lyricsRequest;
-      if (!isNowPlayingRoute() || !lyricsRenderer())
-        nativeClick('.thumbnail-image-wrapper', '#thumbnail', '.thumbnail');
-
-      const selectLyrics = (attempt = 0) => {
-        if (disposed || request !== lyricsRequest) return;
-        const tab = lyricsTab();
-        if (tab) {
-          tab.removeAttribute('disabled');
-          tab.removeAttribute('aria-disabled');
-          tab.click();
-          refresh();
-          if (lyricsActuallyActive()) return;
-        }
-        if (attempt < 30)
-          window.setTimeout(() => selectLyrics(attempt + 1), 50);
-      };
-      window.setTimeout(selectLyrics, 0);
+      const opened = await surface.open(true);
+      refresh();
+      return opened;
     },
     openNowPlaying() {
-      if (!disposed)
-        nativeClick('.thumbnail-image-wrapper', '#thumbnail', '.thumbnail');
+      return surface.open(false);
     },
     handleTrackClick(event: MouseEvent) {
       if (disposed || !(event.target instanceof Element)) return;
@@ -1295,25 +1303,11 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       return collectPlaylists(response);
     },
     async addToPlaylist(playlistId: string, videoId: string) {
-      if (!playlistId || !videoId)
-        throw new Error('A playlist and track are required');
-      const response = await requireApp().networkManager.fetch<
-        unknown,
-        {
-          playlistId: string;
-          actions: { action: string; addedVideoId: string }[];
-        }
-      >('/playlist/edit', {
-        playlistId,
-        actions: [{ action: 'ACTION_ADD_VIDEO', addedVideoId: videoId }],
-      });
-      if (
-        isRecord(response) &&
-        (response.error ||
-          (typeof response.status === 'string' &&
-            response.status !== 'STATUS_SUCCEEDED'))
-      )
-        throw new Error('Playlist edit failed');
+      const response = await requireApp().networkManager.fetch(
+        '/browse/edit_playlist',
+        playlistEditPayload(playlistId, videoId),
+      );
+      validatePlaylistEdit(response);
     },
   };
 };

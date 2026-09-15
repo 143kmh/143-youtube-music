@@ -1,7 +1,11 @@
 import type { YouTubeMusicAdapter } from './youtube-music';
 
 const NATIVE_POLISH_STYLE_ID = 'ui143-native-polish';
-const PAGE_IDS = ['ui143-search-page', 'ui143-artist-page', 'ui143-album-page'] as const;
+const PAGE_IDS = [
+  'ui143-search-page',
+  'ui143-artist-page',
+  'ui143-album-page',
+] as const;
 
 const mountNativePolish = () => {
   document.getElementById(NATIVE_POLISH_STYLE_ID)?.remove();
@@ -61,9 +65,7 @@ const hideCustomPages = () => {
 };
 
 const shelfFromTarget = (target: Element) => {
-  const card = target.closest('.ui143-artist-card, .ui143-search-card');
-  if (!card) return null;
-  return card.closest<HTMLElement>(
+  return target.closest<HTMLElement>(
     '.ui143-artist-shelf-row, .ui143-search-albums .ui143-search-card-grid',
   );
 };
@@ -96,7 +98,14 @@ const mountShelfGestures = () => {
     if (!canMove) return;
 
     event.preventDefault();
-    shelf.scrollLeft = Math.max(0, Math.min(max, shelf.scrollLeft + event.deltaY));
+    const delta =
+      event.deltaY *
+      (event.deltaMode === 1
+        ? 16
+        : event.deltaMode === 2
+          ? shelf.clientWidth
+          : 1);
+    shelf.scrollLeft = Math.max(0, Math.min(max, shelf.scrollLeft + delta));
   };
 
   const onPointerDown = (event: PointerEvent) => {
@@ -165,9 +174,15 @@ const mountShelfGestures = () => {
     return true;
   };
 
-  document.addEventListener('wheel', onWheel, { capture: true, passive: false });
+  document.addEventListener('wheel', onWheel, {
+    capture: true,
+    passive: false,
+  });
   document.addEventListener('pointerdown', onPointerDown, true);
-  document.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
+  document.addEventListener('pointermove', onPointerMove, {
+    capture: true,
+    passive: false,
+  });
   document.addEventListener('pointerup', finishDrag, true);
   document.addEventListener('pointercancel', finishDrag, true);
 
@@ -193,16 +208,14 @@ export const mountInteractions = (engine: YouTubeMusicAdapter) => {
   // ytmusic-app.navigate('/watch?...') may produce an empty page. The hidden
   // native player-bar thumbnail already owns the correct transition and keeps
   // the current playback session intact.
-  const openNowPlayingSurface = () => {
+  const openNowPlayingSurface = async () => {
     if (!engine.getState().track.id) return;
-    hideCustomPages();
-    engine.openNowPlaying();
+    if (await engine.openNowPlaying()) hideCustomPages();
   };
 
-  const openLyricsFromAnywhere = () => {
+  const openLyricsFromAnywhere = async () => {
     if (!engine.getState().track.id) return;
-    hideCustomPages();
-    engine.toggleLyrics();
+    if (await engine.toggleLyrics()) hideCustomPages();
   };
 
   const onClick = (event: MouseEvent) => {
