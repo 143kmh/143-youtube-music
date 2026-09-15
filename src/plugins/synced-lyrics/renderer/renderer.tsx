@@ -21,11 +21,11 @@ import { reactiveOwner } from './reactive-root';
 import { currentLyrics } from './store';
 import { selectors } from './utils';
 
-import type { LineLyrics, SyncedLyricsPluginConfig } from '../types';
+import type { LineLyrics, SyncedLyricsFeatureConfig } from '../types';
 
 export const [isVisible, setIsVisible] = createSignal<boolean>(false);
 export const [config, setConfig] =
-  createSignal<SyncedLyricsPluginConfig | null>(null);
+  createSignal<SyncedLyricsFeatureConfig | null>(null);
 
 runWithOwner(reactiveOwner, () => {
   createEffect(() => {
