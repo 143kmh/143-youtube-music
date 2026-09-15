@@ -26,8 +26,8 @@ import { parse } from 'node-html-parser';
 import { languageResources } from 'virtual:i18n';
 
 import * as config from '@/config';
+import { loadMainFeatures } from '@/core/main-features';
 import { APPLICATION_NAME, loadI18n, setLanguage, t } from '@/i18n';
-import { loadAllMainPlugins } from '@/loader/main';
 import { refreshMenu, setApplicationMenu } from '@/menu';
 import musicPlayerCss from '@/music-player.css?inline';
 import { fileExists, injectCSS, injectCSSAsFile } from '@/plugins/utils/main';
@@ -191,7 +191,7 @@ async function createMainWindow() {
   const win = new BrowserWindow(electronWindowSettings);
 
   initTheme(win);
-  await loadAllMainPlugins(win);
+  await loadMainFeatures(win);
 
   if (windowPosition) {
     const { x: windowX, y: windowY } = windowPosition;
