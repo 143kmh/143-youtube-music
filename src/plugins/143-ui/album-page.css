@@ -96,6 +96,7 @@
 
 .ui143-album-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 22px;
 }
@@ -109,7 +110,7 @@
   font-size: 12px;
   font-weight: 720;
   cursor: pointer;
-  transition: transform 100ms ease, background 100ms ease, opacity 100ms ease;
+  transition: transform 100ms ease, background 100ms ease, opacity 100ms ease, border-color 100ms ease, color 100ms ease;
 }
 
 .ui143-album-actions button:active {
@@ -139,6 +140,16 @@
 
 .ui143-album-secondary-action:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.075);
+}
+
+.ui143-album-library-action.is-saved {
+  border-color: color-mix(in srgb, var(--ui143-accent-strong) 48%, transparent);
+  background: color-mix(in srgb, var(--ui143-accent) 19%, transparent);
+  color: var(--ui143-accent-strong);
+}
+
+.ui143-album-library-action.is-saved:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui143-accent) 27%, transparent);
 }
 
 .ui143-album-tracks {
