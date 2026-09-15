@@ -51,9 +51,90 @@
   }
 }
 
+/*
+ * A very restrained Rolls-Royce-style starlight layer behind Karaoke. It is
+ * intentionally closer to texture than "space": tiny points, almost no glow,
+ * and a glacial drift that should disappear from attention once you read.
+ */
+html[data-143-ui]
+  #tab-renderer[page-type='MUSIC_PAGE_TYPE_TRACK_LYRICS'] {
+  position: relative !important;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 78% 18%,
+      rgba(117, 103, 184, 0.055),
+      transparent 42%
+    ),
+    #101010 !important;
+}
+
+html[data-143-ui]
+  #tab-renderer[page-type='MUSIC_PAGE_TYPE_TRACK_LYRICS']::before {
+  content: '';
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.52;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.2) 0 0.55px, transparent 0.85px),
+    radial-gradient(circle, rgba(214, 208, 255, 0.15) 0 0.65px, transparent 0.95px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.1) 0 0.45px, transparent 0.78px),
+    radial-gradient(circle, rgba(176, 165, 235, 0.1) 0 0.6px, transparent 0.9px);
+  background-size:
+    83px 97px,
+    137px 151px,
+    191px 173px,
+    229px 211px;
+  background-position:
+    7px 13px,
+    41px 71px,
+    109px 31px,
+    19px 127px;
+  filter: blur(0.08px);
+  transform: translate3d(0, 0, 0);
+  animation: ui143-starlight-drift 34s ease-in-out infinite alternate;
+}
+
+html[data-143-ui]
+  #tab-renderer[page-type='MUSIC_PAGE_TYPE_TRACK_LYRICS']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 76% 36%, rgba(255, 255, 255, 0.028), transparent 22%),
+    radial-gradient(circle at 62% 72%, rgba(117, 103, 184, 0.035), transparent 28%),
+    linear-gradient(90deg, rgba(16, 16, 16, 0.42), rgba(16, 16, 16, 0.06) 68%);
+}
+
+html[data-143-ui]
+  #tab-renderer[page-type='MUSIC_PAGE_TYPE_TRACK_LYRICS']
+  > #synced-lyrics-container {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes ui143-starlight-drift {
+  0% {
+    transform: translate3d(-0.35%, -0.2%, 0) scale(1.002);
+  }
+  100% {
+    transform: translate3d(0.45%, 0.3%, 0) scale(1.006);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .current .text-lyrics > span > .lyrics-word {
     animation: lyrics-glow 500ms ease-out forwards !important;
+  }
+
+  html[data-143-ui]
+    #tab-renderer[page-type='MUSIC_PAGE_TYPE_TRACK_LYRICS']::before {
+    animation: none;
   }
 }
 
