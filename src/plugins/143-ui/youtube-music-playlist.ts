@@ -35,6 +35,7 @@ export type PlaylistCatalogAdapter = CatalogYouTubeMusicAdapter & {
     browseId: string,
     fallbackTitle?: string,
   ) => Promise<PlaylistCatalog>;
+  getAutoplayItems: (videoId: string) => Promise<readonly SearchResultItem[]>;
 };
 
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -200,13 +201,17 @@ const trackFromCandidate = (candidate: UnknownRecord): SearchResultItem | null =
   const playlistData = isRecord(candidate.playlistItemData)
     ? candidate.playlistItemData
     : null;
+  const directVideoId =
+    typeof candidate.videoId === 'string' ? candidate.videoId : undefined;
   const videoId =
+    directVideoId ??
     endpoint?.watchEndpoint?.videoId ??
     (typeof playlistData?.videoId === 'string' ? playlistData.videoId : undefined);
   if (!videoId) return null;
   const videoType =
     endpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig
-      ?.musicVideoType ?? '';
+      ?.musicVideoType ??
+    (typeof candidate.videoType === 'string' ? candidate.videoType : '');
   if (isEpisodeLike(title, subtitle, videoType)) return null;
 
   return {
@@ -247,24 +252,86 @@ const collectTracks = (root: unknown) => {
   return tracks;
 };
 
+const watchTrackFromCandidate = (
+  candidate: UnknownRecord,
+): SearchResultItem | null => {
+  const videoId = typeof candidate.videoId === 'string' ? candidate.videoId : '';
+  const title = textFromValue(candidate.title);
+  if (!videoId || !title) return null;
+
+  const endpoint =
+    endpointFrom(candidate.navigationEndpoint) ?? deepEndpoint(candidate);
+  const videoType =
+    endpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig
+      ?.musicVideoType ??
+    (typeof candidate.videoType === 'string' ? candidate.videoType : '');
+  if (/PODCAST|EPISODE|OMV|UGC/iu.test(videoType)) return null;
+
+  const byline =
+    textFromValue(candidate.longBylineText) ||
+    textFromValue(candidate.shortBylineText) ||
+    textFromValue(candidate.subtitle);
+  const length = textFromValue(candidate.lengthText);
+  const subtitle = [byline, length]
+    .filter(Boolean)
+    .filter((value, index, all) => all.indexOf(value) === index)
+    .join(' • ');
+  if (isEpisodeLike(title, subtitle, videoType)) return null;
+
+  return {
+    kind: 'song',
+    title,
+    subtitle,
+    artwork: bestSquareThumbnail(candidate.thumbnail ?? candidate),
+    videoId,
+  };
+};
+
+const collectAutoplayTracks = (root: unknown) => {
+  const result: SearchResultItem[] = [];
+  const seen = new Set<string>();
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!isRecord(value)) return;
+    const candidate = value.playlistPanelVideoRenderer;
+    if (isRecord(candidate)) {
+      const track = watchTrackFromCandidate(candidate);
+      if (track?.videoId && !seen.has(track.videoId)) {
+        seen.add(track.videoId);
+        result.push(track);
+      }
+      return;
+    }
+    Object.values(value).forEach(visit);
+  };
+  visit(root);
+  return result;
+};
+
 export const installPlaylistCatalog = (
   engine: CatalogYouTubeMusicAdapter,
 ): PlaylistCatalogAdapter => {
   const app = () => document.querySelector<MusicPlayerAppElement>('ytmusic-app');
+  const requireApp = () => {
+    const musicApp = app();
+    if (!musicApp?.networkManager?.fetch)
+      throw new Error('YouTube Music is not ready');
+    return musicApp;
+  };
 
   const getPlaylistCatalog = async (
     browseId: string,
     fallbackTitle = '',
   ): Promise<PlaylistCatalog> => {
     if (!browseId) throw new Error('Playlist browse id is required');
-    const musicApp = app();
-    if (!musicApp?.networkManager?.fetch)
-      throw new Error('YouTube Music is not ready');
 
-    const response = await musicApp.networkManager.fetch<unknown, { browseId: string }>(
-      '/browse',
-      { browseId },
-    );
+    const response = await requireApp().networkManager.fetch<
+      unknown,
+      { browseId: string }
+    >('/browse', { browseId });
     const outerHeader =
       findRecordByKey(response, [
         'musicEditablePlaylistDetailHeaderRenderer',
@@ -292,5 +359,77 @@ export const installPlaylistCatalog = (
     };
   };
 
-  return Object.assign(engine, { getPlaylistCatalog });
+  const getAutoplayItems = async (videoId: string) => {
+    if (!videoId) return [];
+    const response = await requireApp().networkManager.fetch<
+      unknown,
+      {
+        enablePersistentPlaylistPanel: boolean;
+        isAudioOnly: boolean;
+        tunerSettingValue: string;
+        videoId: string;
+        playlistId: string;
+        watchEndpointMusicSupportedConfigs: {
+          watchEndpointMusicConfig: {
+            hasPersistentPlaylistPanel: boolean;
+            musicVideoType: string;
+          };
+        };
+      }
+    >('/next', {
+      enablePersistentPlaylistPanel: true,
+      isAudioOnly: true,
+      tunerSettingValue: 'AUTOMIX_SETTING_NORMAL',
+      videoId,
+      playlistId: `RDAMVM${videoId}`,
+      watchEndpointMusicSupportedConfigs: {
+        watchEndpointMusicConfig: {
+          hasPersistentPlaylistPanel: true,
+          musicVideoType: 'MUSIC_VIDEO_TYPE_ATV',
+        },
+      },
+    });
+    return collectAutoplayTracks(response).filter(
+      (item) => item.videoId && item.videoId !== videoId,
+    );
+  };
+
+  const addToPlaylist = async (playlistId: string, videoId: string) => {
+    if (!playlistId || !videoId)
+      throw new Error('A playlist and track are required');
+    const normalizedPlaylistId = playlistId.startsWith('VL')
+      ? playlistId.slice(2)
+      : playlistId;
+    const response = await requireApp().networkManager.fetch<
+      unknown,
+      {
+        playlistId: string;
+        actions: {
+          action: string;
+          addedVideoId: string;
+          dedupeOption: string;
+        }[];
+      }
+    >('/browse/edit_playlist', {
+      playlistId: normalizedPlaylistId,
+      actions: [
+        {
+          action: 'ACTION_ADD_VIDEO',
+          addedVideoId: videoId,
+          dedupeOption: 'DEDUPE_OPTION_SKIP',
+        },
+      ],
+    });
+
+    if (!isRecord(response)) return;
+    const status = typeof response.status === 'string' ? response.status : '';
+    if (response.error || (status && !status.includes('SUCCEEDED')))
+      throw new Error(`Playlist edit failed${status ? `: ${status}` : ''}`);
+  };
+
+  return Object.assign(engine, {
+    getPlaylistCatalog,
+    getAutoplayItems,
+    addToPlaylist,
+  });
 };
