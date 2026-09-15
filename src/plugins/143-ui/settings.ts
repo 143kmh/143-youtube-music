@@ -4,6 +4,13 @@ import type { PluginConfig } from '@/types/plugins';
 type Settings = {
   quality: 'default' | 'maximum' | 'opus';
   enabled: boolean;
+  discordEnabled: boolean;
+  discordAutoReconnect: boolean;
+  discordShowDuration: boolean;
+  discordClearOnPause: boolean;
+  discordPauseTimeoutMinutes: number;
+  discordPlayButton: boolean;
+  discordShowGitHubButton: boolean;
   alwaysOnTop: boolean;
   resumeOnStart: boolean;
   customFrame: boolean;
@@ -12,6 +19,17 @@ type Settings = {
 };
 
 type BackendSettings = Omit<Settings, 'accent'>;
+
+type BooleanSettingKey =
+  | 'enabled'
+  | 'discordEnabled'
+  | 'discordAutoReconnect'
+  | 'discordShowDuration'
+  | 'discordClearOnPause'
+  | 'discordPlayButton'
+  | 'discordShowGitHubButton'
+  | 'alwaysOnTop'
+  | 'resumeOnStart';
 
 const ACCENT_STORAGE_KEY = 'ui143-accent';
 const DEFAULT_ACCENT = '#60519B';
@@ -136,6 +154,35 @@ const installBrandTheme = () => {
       text-transform: uppercase;
     }
 
+    .ui143-settings-note {
+      margin: -2px 0 9px;
+      color: #777;
+      font-size: 10.5px;
+      line-height: 1.45;
+    }
+
+    .ui143-settings-inline {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 86px;
+      align-items: center;
+      gap: 12px !important;
+    }
+
+    .ui143-settings-inline input[type="number"] {
+      width: 86px;
+      min-width: 0;
+      padding: 7px 9px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 7px;
+      background: #202020;
+      color: #eee;
+      font: inherit;
+    }
+
+    .ui143-settings-inline input[type="number"]:disabled {
+      opacity: .45;
+    }
+
     .ui143-accent-picker {
       display: flex;
       flex-wrap: wrap;
@@ -255,10 +302,7 @@ export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
       if (!disposed && dialog.open) render({ ...settings, accent });
     };
 
-    const checkbox = (
-      label: string,
-      key: 'enabled' | 'alwaysOnTop' | 'resumeOnStart',
-    ) => {
+    const checkbox = (label: string, key: BooleanSettingKey) => {
       const row = document.createElement('label');
       const input = document.createElement('input');
       input.type = 'checkbox';
@@ -323,6 +367,35 @@ export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
     });
     qualityLabel.append(quality);
 
+    const discordTitle = document.createElement('div');
+    discordTitle.className = 'ui143-settings-section-title';
+    discordTitle.textContent = 'Discord';
+    const discordNote = document.createElement('p');
+    discordNote.className = 'ui143-settings-note';
+    discordNote.textContent =
+      'Shows the current track, artist, artwork and playback progress in Discord.';
+    const timeoutLabel = document.createElement('label');
+    timeoutLabel.className = 'ui143-settings-inline';
+    const timeoutText = document.createElement('span');
+    timeoutText.textContent = 'Clear after pause (minutes)';
+    const timeout = document.createElement('input');
+    timeout.type = 'number';
+    timeout.min = '0';
+    timeout.max = '1440';
+    timeout.step = '1';
+    timeout.value = String(settings.discordPauseTimeoutMinutes);
+    timeout.disabled = !settings.discordClearOnPause;
+    timeout.addEventListener('change', () => {
+      const minutes = Number(timeout.value);
+      if (!Number.isFinite(minutes)) return;
+      return save(
+        'discordPauseTimeoutMinutes',
+        Math.max(0, Math.min(1440, Math.round(minutes))),
+        timeout,
+      );
+    });
+    timeoutLabel.append(timeoutText, timeout);
+
     const appTitle = document.createElement('div');
     appTitle.className = 'ui143-settings-section-title';
     appTitle.textContent = 'App';
@@ -335,6 +408,14 @@ export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
       audioTitle,
       checkbox('Enable Premium HQ audio', 'enabled'),
       qualityLabel,
+      discordTitle,
+      discordNote,
+      checkbox('Enable Discord Rich Presence', 'discordEnabled'),
+      checkbox('Auto reconnect to Discord', 'discordAutoReconnect'),
+      checkbox('Show remaining track time', 'discordShowDuration'),
+      checkbox('Clear presence when paused', 'discordClearOnPause'),
+      timeoutLabel,
+      checkbox('Show “Play on YouTube Music” button', 'discordPlayButton'),
       appTitle,
       checkbox('Always on top', 'alwaysOnTop'),
       checkbox('Resume on start', 'resumeOnStart'),
