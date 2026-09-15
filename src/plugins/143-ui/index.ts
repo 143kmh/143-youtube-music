@@ -229,7 +229,7 @@ export default createPlugin({
   name: () => '143 Music UI',
   description: () =>
     'A compact Spotify-inspired shell for the YouTube Music engine.',
-  restartNeeded: false,
+  restartNeeded: true,
   config: {
     enabled: true,
   },

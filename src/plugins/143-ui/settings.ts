@@ -6,6 +6,8 @@ type Settings = {
   enabled: boolean;
   alwaysOnTop: boolean;
   resumeOnStart: boolean;
+  customFrame: boolean;
+  maximized: boolean;
 };
 
 export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
@@ -129,9 +131,38 @@ export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
         dialog.close();
     }
   });
+  const controls = document.createElement('div');
+  controls.className = 'ui143-window-controls';
+  // The frame mode is selected before BrowserWindow creation, independently of renderer timing.
+  if (!navigator.userAgent.includes('Macintosh')) {
+    for (const [label, symbol, action] of [
+      ['Minimize', '−', 'minimize'],
+      ['Maximize or restore', '□', 'maximize'],
+      ['Close window', '×', 'close'],
+    ]) {
+      const control = button(symbol, () => {
+        return ipc.invoke('143:window', action);
+      });
+      control.title = label;
+      control.setAttribute('aria-label', label);
+      controls.append(control);
+    }
+    topbar?.append(controls);
+  }
+  const doubleClick = (event: MouseEvent) => {
+    if (
+      event.target === topbar ||
+      (event.target instanceof Element &&
+        event.target.matches('.ui143-topbar-spacer, .ui143-product'))
+    )
+      ipc.invoke('143:window', 'maximize');
+  };
+  topbar?.addEventListener('dblclick', doubleClick);
   return () => {
     disposed = true;
     dialog.remove();
     gear.remove();
+    controls.remove();
+    topbar?.removeEventListener('dblclick', doubleClick);
   };
 };

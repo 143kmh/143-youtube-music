@@ -604,8 +604,15 @@ html[data-143-ui] tp-yt-paper-listbox {
   }
 }
 
+/* The 143 shell owns window chrome; controls stay outside the drag region. */
+html[data-143-ui] #ytmd-title-bar-main-panel { display: none !important; }
+.ui143-topbar { -webkit-app-region: drag; }
 .ui143-topbar button, .ui143-topbar input, .ui143-topbar form { -webkit-app-region: no-drag; }
 .ui143-settings-button { font-size: 24px; flex-shrink: 0; }
+.ui143-window-controls { display: flex; align-items: center; -webkit-app-region: no-drag; }
+.ui143-window-controls button { width: 34px; height: 32px; border: 0; background: transparent; color: #b3b3b3; font-size: 21px; cursor: pointer; }
+.ui143-window-controls button:hover { background: #242424; color: white; }
+.ui143-window-controls button:last-child:hover { background: #b32632; }
 .ui143-settings { width: min(420px, 90vw); padding: 28px; border: 1px solid #333; border-radius: 12px; background: #181818; color: #fff; font: 14px Inter, sans-serif; }
 .ui143-settings::backdrop { background: #0009; }
 .ui143-settings h2 { margin: 0 0 24px; font-size: 22px; }

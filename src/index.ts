@@ -334,6 +334,7 @@ async function createMainWindow() {
   const windowMaximized = config.get('window-maximized');
   const windowPosition: Electron.Point = config.get('window-position');
   const useInlineMenu = await config.plugins.isEnabled('in-app-menu');
+  const use143Frame = !is.macOS() && await config.plugins.isEnabled('143-ui');
 
   const defaultTitleBarOverlayOptions: Electron.TitleBarOverlay = {
     color: '#00000000',
@@ -355,6 +356,12 @@ async function createMainWindow() {
   // Note: on linux, for some weird reason, having these extra properties with 'frame: false' does not work
   if (is.linux() && useInlineMenu) {
     delete decorations.titleBarOverlay;
+    delete decorations.titleBarStyle;
+  }
+
+  if (use143Frame) {
+    decorations.frame = false;
+    decorations.titleBarOverlay = false;
     delete decorations.titleBarStyle;
   }
 
