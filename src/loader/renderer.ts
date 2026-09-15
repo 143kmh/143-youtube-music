@@ -1,14 +1,13 @@
 import { deepmerge } from 'deepmerge-ts';
-import { rendererPlugins } from 'virtual:plugins';
 
-import { t } from '@/i18n';
+import { coreFeatures } from '@/core/features';
 import { LoggerPrefix, startPlugin, stopPlugin } from '@/utils';
 
 import type { RendererContext } from '@/types/contexts';
 import type { PluginConfig, PluginDef } from '@/types/plugins';
 
 const unregisterStyleMap: Record<string, (() => void)[]> = {};
-const loadedPluginMap: Record<
+const loadedFeatureMap: Record<
   string,
   PluginDef<unknown, unknown, unknown>
 > = {};
@@ -17,9 +16,9 @@ export const createContext = <Config extends PluginConfig>(
   id: string,
 ): RendererContext<Config> => ({
   getConfig: () =>
-    window.ipcRenderer.invoke('peard:get-config', id) as Promise<Config>,
+    window.ipcRenderer.invoke('app:get-feature-config', id) as Promise<Config>,
   setConfig: async (newConfig) => {
-    await window.ipcRenderer.invoke('peard:set-config', id, newConfig);
+    await window.ipcRenderer.invoke('app:set-feature-config', id, newConfig);
   },
   ipc: {
     send: (event: string, ...args: unknown[]) => {
@@ -29,7 +28,6 @@ export const createContext = <Config extends PluginConfig>(
       window.ipcRenderer.invoke(event, ...args),
     on: (event: string, listener: CallableFunction) => {
       window.ipcRenderer.on(event, (_, ...args: unknown[]) => {
-        // oxlint-disable-next-line typescript/no-unsafe-call
         listener(...args);
       });
     },
@@ -41,58 +39,48 @@ export const createContext = <Config extends PluginConfig>(
 
 export const forceUnloadRendererPlugin = async (id: string) => {
   unregisterStyleMap[id]?.forEach((unregister) => unregister());
-
   delete unregisterStyleMap[id];
-  delete loadedPluginMap[id];
 
-  const plugin = (await rendererPlugins())[id];
-  if (!plugin) return;
+  const feature = loadedFeatureMap[id];
+  if (!feature) return;
 
-  const hasStopped = await stopPlugin(id, plugin, {
+  const hasStopped = await stopPlugin(id, feature, {
     ctx: 'renderer',
     context: createContext(id),
   });
-  if (plugin?.stylesheets) {
-    document.querySelector(`style#plugin-${id}`)?.remove();
+
+  if (feature.stylesheets) {
+    document.querySelector(`style#feature-${id}`)?.remove();
   }
-  if (hasStopped || (hasStopped === null && plugin?.renderer)) {
-    console.log(
-      LoggerPrefix,
-      t('common.console.plugins.unloaded', { pluginName: id }),
-    );
-  } else {
-    console.error(
-      LoggerPrefix,
-      t('common.console.plugins.unload-failed', { pluginName: id }),
-    );
+
+  if (hasStopped || (hasStopped === null && feature.renderer)) {
+    delete loadedFeatureMap[id];
+    console.log(LoggerPrefix, `Core feature ${id} stopped`);
   }
 };
 
 export const forceLoadRendererPlugin = async (id: string) => {
-  if (!window.mainConfig.plugins.isAllowedPlugin(id)) return;
+  const feature = coreFeatures[id];
+  if (!feature?.renderer) return;
 
-  const plugin = (await rendererPlugins())[id];
-  if (!plugin) return;
-
-  const hasEvaled = await startPlugin(id, plugin, {
+  const hasStarted = await startPlugin(id, feature, {
     ctx: 'renderer',
     context: createContext(id),
   });
 
   if (
-    hasEvaled ||
-    plugin?.stylesheets ||
-    (hasEvaled === null &&
-      typeof plugin?.renderer !== 'function' &&
-      plugin?.renderer)
+    hasStarted ||
+    feature.stylesheets ||
+    (hasStarted === null &&
+      typeof feature.renderer !== 'function' &&
+      feature.renderer)
   ) {
-    loadedPluginMap[id] = plugin;
+    loadedFeatureMap[id] = feature;
 
-    if (plugin?.stylesheets) {
-      const styleSheetList = plugin.stylesheets.map((style) => {
+    if (feature.stylesheets) {
+      const styleSheetList = feature.stylesheets.map((style) => {
         const styleSheet = new CSSStyleSheet();
         styleSheet.replaceSync(style);
-
         return styleSheet;
       });
 
@@ -102,44 +90,35 @@ export const forceLoadRendererPlugin = async (id: string) => {
       ];
     }
 
-    console.log(
-      LoggerPrefix,
-      t('common.console.plugins.loaded', { pluginName: id }),
-    );
-  } else {
-    console.log(
-      LoggerPrefix,
-      t('common.console.plugins.initialize-failed', { pluginName: id }),
-    );
+    console.log(LoggerPrefix, `Core feature ${id} loaded`);
   }
 };
 
 export const loadAllRendererPlugins = async () => {
-  const pluginConfigs = window.mainConfig.plugins.getPlugins();
+  const featureConfigs = window.mainConfig.plugins.getPlugins();
 
-  for (const [pluginId, pluginDef] of Object.entries(await rendererPlugins())) {
-    const config = deepmerge(pluginDef.config, pluginConfigs[pluginId] ?? {});
+  for (const [id, feature] of Object.entries(coreFeatures)) {
+    const featureConfig = deepmerge(
+      feature.config ?? { enabled: false },
+      featureConfigs[id] ?? {},
+    );
 
-    if (window.mainConfig.plugins.isAllowedPlugin(pluginId) && config.enabled) {
-      await forceLoadRendererPlugin(pluginId);
-    } else if (loadedPluginMap[pluginId]) {
-      await forceUnloadRendererPlugin(pluginId);
+    if (featureConfig.enabled && feature.renderer) {
+      await forceLoadRendererPlugin(id);
+    } else if (loadedFeatureMap[id]) {
+      await forceUnloadRendererPlugin(id);
     }
   }
 };
 
 export const unloadAllRendererPlugins = async () => {
-  for (const id of Object.keys(loadedPluginMap)) {
+  for (const id of Object.keys(loadedFeatureMap)) {
     await forceUnloadRendererPlugin(id);
   }
 };
 
 export const getLoadedRendererPlugin = (
   id: string,
-): PluginDef<unknown, unknown, unknown> | undefined => {
-  return loadedPluginMap[id];
-};
+): PluginDef<unknown, unknown, unknown> | undefined => loadedFeatureMap[id];
 
-export const getAllLoadedRendererPlugins = () => {
-  return loadedPluginMap;
-};
+export const getAllLoadedRendererPlugins = () => loadedFeatureMap;
