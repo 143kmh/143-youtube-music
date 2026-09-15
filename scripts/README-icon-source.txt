@@ -1,0 +1,1 @@
+Temporary helper file; will be removed once binary icon source is committed.
