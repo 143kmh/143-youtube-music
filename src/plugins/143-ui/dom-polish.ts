@@ -51,6 +51,12 @@ const mountStyle = () => {
     .ui143-search-featured-artist-card:hover .ui143-search-artist-avatar {
       border-color: #1a1a1a !important;
     }
+    #ui143-library-collections .ui143-library-detail-track-art img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
   `;
   document.head.append(style);
   return () => style.remove();
