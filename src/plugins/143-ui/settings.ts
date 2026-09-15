@@ -1,5 +1,5 @@
 import type { RendererContext } from '@/types/contexts';
-import type { PluginConfig } from '@/types/plugins';
+import type { FeatureConfig } from '@/types/features';
 
 type Settings = {
   quality: 'default' | 'maximum' | 'opus';
@@ -257,7 +257,7 @@ const installBrandTheme = () => {
   return () => style.remove();
 };
 
-export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
+export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
   let disposed = false;
   const removeBrandTheme = installBrandTheme();
   applyAccent(storedAccent());
