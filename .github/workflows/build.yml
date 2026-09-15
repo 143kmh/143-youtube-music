@@ -1,8 +1,10 @@
 name: Build Pear Desktop
 
+# This is the upstream Pear cross-platform compatibility workflow. It is
+# intentionally manual in 143 Music: running three hosted OS jobs on every
+# direct-to-master UI iteration burns the private-repository Actions quota.
 on:
-  push:
-    branches: [ master ]
+  workflow_dispatch:
 
 permissions: {}
 
@@ -13,7 +15,6 @@ jobs:
   build:
     permissions:
       contents: write
-    if: github.event.pull_request.draft == false
     name: Build Pear Desktop
     runs-on: ${{ matrix.os }}
     strategy:
@@ -88,7 +89,6 @@ jobs:
         with:
           run: pnpm test:debug
 
-
   release:
     permissions:
       contents: write
@@ -125,7 +125,7 @@ jobs:
 
       - name: Get version
         run: |
-          echo "VERSION_TAG=v$(node -pe "require('./package.json').version")" >> $GITHUB_ENV
+          echo "VERSION_TAG=v$(node -pe \"require('./package.json').version\")" >> $GITHUB_ENV
 
       - name: Check if version already exists in tags
         run: |
