@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { Menu, nativeImage } from 'electron';
+import { Menu, app, nativeImage } from 'electron';
 
 import * as config from '@/config';
 
@@ -103,7 +103,6 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     } else if (key === 'discordEnabled' && typeof value === 'boolean') {
       updateDiscordSettings({ enabled: value });
     } else if (key === 'discordApplicationId' && typeof value === 'string') {
-      // Compatibility with older renderer builds. The app identity is bundled.
       updateDiscordSettings({ applicationId: DISCORD_APPLICATION_ID });
     } else if (
       key === 'discordAutoReconnect' &&
@@ -170,10 +169,20 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
 
   if (process.platform === 'win32') {
     try {
+      // The upstream main process assigns Pear's AppUserModelID. Override it
+      // before this hidden window reaches ready-to-show so Windows does not
+      // group the dev process under electron.exe / Pear.
+      app.setAppUserModelId(WINDOWS_APP_ID);
+
       const iconPath = path.resolve('assets/generated/icons/win/icon.png');
       const icon = nativeImage.createFromPath(iconPath);
       if (!icon.isEmpty()) window.setIcon(icon);
-      window.setAppDetails({ appId: WINDOWS_APP_ID });
+
+      window.setAppDetails({
+        appId: WINDOWS_APP_ID,
+        relaunchCommand: process.execPath,
+        relaunchDisplayName: 'YouTube Music',
+      });
     } catch (error) {
       console.warn('[143 Music] Could not apply Windows window icon', error);
     }
