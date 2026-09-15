@@ -27,7 +27,7 @@ const mountStyle = () => {
       .ui143-playlist-track
     ) {
       transform: none !important;
-      transition: background-color 90ms ease, color 90ms ease, opacity 90ms ease !important;
+      transition: none !important;
       isolation: isolate;
     }
     :where(
@@ -63,7 +63,7 @@ const routeLikedSystemCard = (event: MouseEvent) => {
   const title = normalize(card.querySelector<HTMLElement>('strong')?.textContent ?? '');
   const systemLiked =
     /^(liked songs|liked music|your likes)$/u.test(title) ||
-    /(?:понравив|вподобан|улюблен)/u.test(title);
+    /(?:понравив|вподобан|улюблен|сподоб)/u.test(title);
   if (!systemLiked) return;
 
   const nav = document.querySelector<HTMLButtonElement>(
@@ -86,8 +86,7 @@ const labelArtistMetrics = () => {
         span.dataset.ui143Labeled = 'true';
         continue;
       }
-      const label =
-        index === 0 ? 'Subscribers' : 'Monthly listeners';
+      const label = index === 0 ? 'Subscribers' : 'Monthly listeners';
       span.textContent = `${label} · ${value}`;
       span.dataset.ui143Labeled = 'true';
     }
