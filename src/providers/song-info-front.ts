@@ -16,20 +16,19 @@ const DATAUPDATED_FALLBACK_TIMEOUT_MS = 1500;
 let songInfo: SongInfo = {} as SongInfo;
 export const getSongInfo = () => songInfo;
 
-window.ipcRenderer.on(
-  'peard:update-song-info',
-  (_, extractedSongInfo: SongInfo) => {
-    songInfo = extractedSongInfo;
-  },
-);
+window.ipcRenderer.on('app:song:info', (_, extractedSongInfo: SongInfo) => {
+  songInfo = extractedSongInfo;
+});
 
-// Used because 'loadeddata' or 'loadedmetadata' weren't firing on song start for some users (https://github.com/pear-devs/pear-desktop/issues/473)
-const srcChangedEvent = new CustomEvent('peard:src-changed');
+const srcChangedEvent = new CustomEvent('app:song:src-changed');
 
 export const setupSeekedListener = singleton(() => {
-  document.querySelector('video')?.addEventListener('seeked', (v) => {
-    if (v.target instanceof HTMLVideoElement) {
-      window.ipcRenderer.send('peard:seeked', v.target.currentTime);
+  document.querySelector('video')?.addEventListener('seeked', (event) => {
+    if (event.target instanceof HTMLVideoElement) {
+      window.ipcRenderer.send(
+        'app:song:seeked',
+        event.target.currentTime,
+      );
     }
   });
 });
@@ -39,7 +38,7 @@ export const setupTimeChangedListener = singleton(() => {
     for (const mutation of mutations) {
       const target = mutation.target as Node & { value: string };
       const numberValue = Number(target.value);
-      window.ipcRenderer.send('peard:time-changed', numberValue);
+      window.ipcRenderer.send('app:song:time-changed', numberValue);
       songInfo.elapsedSeconds = numberValue;
     }
   });
@@ -51,14 +50,11 @@ export const setupTimeChangedListener = singleton(() => {
 
 export const setupRepeatChangedListener = singleton(() => {
   const repeatObserver = new MutationObserver((mutations) => {
-    // provided by App
     window.ipcRenderer.send(
-      'peard:repeat-changed',
+      'app:song:repeat-changed',
       (
         mutations[0].target as Node & {
-          __dataHost: {
-            getState: () => GetState;
-          };
+          __dataHost: { getState: () => GetState };
         }
       ).__dataHost.getState().queue.repeatMode,
     );
@@ -67,16 +63,12 @@ export const setupRepeatChangedListener = singleton(() => {
     attributeFilter: ['title'],
   });
 
-  // Emit the initial value as well; as it's persistent between launches.
-  // provided by App
   window.ipcRenderer.send(
-    'peard:repeat-changed',
+    'app:song:repeat-changed',
     document
-      .querySelector<
-        HTMLElement & {
-          getState: () => GetState;
-        }
-      >('ytmusic-player-bar')
+      .querySelector<HTMLElement & { getState: () => GetState }>(
+        'ytmusic-player-bar',
+      )
       ?.getState().queue.repeatMode,
   );
 });
@@ -91,7 +83,7 @@ const LIKE_STATUS_ATTRIBUTE = 'like-status';
 export const setupLikeChangedListener = singleton(() => {
   const likeDislikeObserver = new MutationObserver((mutations) => {
     window.ipcRenderer.send(
-      'peard:like-changed',
+      'app:song:like-changed',
       mapLikeStatus(
         (mutations[0].target as HTMLElement)?.getAttribute?.(
           LIKE_STATUS_ATTRIBUTE,
@@ -105,10 +97,8 @@ export const setupLikeChangedListener = singleton(() => {
       attributes: true,
       attributeFilter: [LIKE_STATUS_ATTRIBUTE],
     });
-
-    // Emit the initial value as well; as it's persistent between launches.
     window.ipcRenderer.send(
-      'peard:like-changed',
+      'app:song:like-changed',
       mapLikeStatus(likeButtonRenderer.getAttribute?.(LIKE_STATUS_ATTRIBUTE)),
     );
   }
@@ -116,14 +106,13 @@ export const setupLikeChangedListener = singleton(() => {
 
 export const setupVolumeChangedListener = singleton((api: MusicPlayer) => {
   document.querySelector('video')?.addEventListener('volumechange', () => {
-    window.ipcRenderer.send('peard:volume-changed', {
+    window.ipcRenderer.send('app:song:volume-changed', {
       state: api.getVolume(),
       isMuted: api.isMuted(),
     });
   });
 
-  // Emit the initial value as well; as it's persistent between launches.
-  window.ipcRenderer.send('peard:volume-changed', {
+  window.ipcRenderer.send('app:song:volume-changed', {
     state: api.getVolume(),
     isMuted: api.isMuted(),
   });
@@ -131,19 +120,17 @@ export const setupVolumeChangedListener = singleton((api: MusicPlayer) => {
 
 export const setupShuffleChangedListener = singleton(() => {
   const playerBar = document.querySelector('ytmusic-player-bar');
-
   if (!playerBar) {
-    window.ipcRenderer.send('peard:shuffle-changed-supported', false);
+    window.ipcRenderer.send('app:song:shuffle-changed-supported', false);
     return;
   }
 
   const observer = new MutationObserver(() => {
     window.ipcRenderer.send(
-      'peard:shuffle-changed',
-      (playerBar?.attributes.getNamedItem('shuffle-on') ?? null) !== null,
+      'app:song:shuffle-changed',
+      (playerBar.attributes.getNamedItem('shuffle-on') ?? null) !== null,
     );
   });
-
   observer.observe(playerBar, {
     attributes: true,
     attributeFilter: ['shuffle-on'],
@@ -154,20 +141,17 @@ export const setupShuffleChangedListener = singleton(() => {
 
 export const setupFullScreenChangedListener = singleton(() => {
   const playerBar = document.querySelector('ytmusic-player-bar');
-
   if (!playerBar) {
-    window.ipcRenderer.send('peard:fullscreen-changed-supported', false);
+    window.ipcRenderer.send('app:song:fullscreen-changed-supported', false);
     return;
   }
 
   const observer = new MutationObserver(() => {
     window.ipcRenderer.send(
-      'peard:fullscreen-changed',
-      (playerBar?.attributes.getNamedItem('player-fullscreened') ?? null) !==
-        null,
+      'app:song:fullscreen-changed',
+      (playerBar.attributes.getNamedItem('player-fullscreened') ?? null) !== null,
     );
   });
-
   observer.observe(playerBar, {
     attributes: true,
     attributeFilter: ['player-fullscreened'],
@@ -180,11 +164,9 @@ export const setupAutoPlayChangedListener = singleton(() => {
   const autoplaySlider = document.querySelector<HTMLInputElement>(
     '.autoplay > tp-yt-paper-toggle-button',
   );
-
   const observer = new MutationObserver(() => {
-    window.ipcRenderer.send('peard:autoplay-changed');
+    window.ipcRenderer.send('app:song:autoplay-changed');
   });
-
   observer.observe(autoplaySlider!, {
     attributes: true,
     childList: false,
@@ -193,59 +175,51 @@ export const setupAutoPlayChangedListener = singleton(() => {
 });
 
 export const setupSongInfo = (api: MusicPlayer) => {
-  window.ipcRenderer.on('peard:setup-time-changed-listener', () => {
+  window.ipcRenderer.on('app:song:setup-time-changed-listener', () => {
     setupTimeChangedListener();
   });
-
-  window.ipcRenderer.on('peard:setup-like-changed-listener', () => {
+  window.ipcRenderer.on('app:song:setup-like-changed-listener', () => {
     setupLikeChangedListener();
   });
-
-  window.ipcRenderer.on('peard:setup-repeat-changed-listener', () => {
+  window.ipcRenderer.on('app:song:setup-repeat-changed-listener', () => {
     setupRepeatChangedListener();
   });
-
-  window.ipcRenderer.on('peard:setup-volume-changed-listener', () => {
+  window.ipcRenderer.on('app:song:setup-volume-changed-listener', () => {
     setupVolumeChangedListener(api);
   });
-
-  window.ipcRenderer.on('peard:setup-shuffle-changed-listener', () => {
+  window.ipcRenderer.on('app:song:setup-shuffle-changed-listener', () => {
     setupShuffleChangedListener();
   });
-
-  window.ipcRenderer.on('peard:setup-fullscreen-changed-listener', () => {
+  window.ipcRenderer.on('app:song:setup-fullscreen-changed-listener', () => {
     setupFullScreenChangedListener();
   });
-
-  window.ipcRenderer.on('peard:setup-autoplay-changed-listener', () => {
+  window.ipcRenderer.on('app:song:setup-autoplay-changed-listener', () => {
     setupAutoPlayChangedListener();
   });
-
-  window.ipcRenderer.on('peard:setup-seeked-listener', () => {
+  window.ipcRenderer.on('app:song:setup-seeked-listener', () => {
     setupSeekedListener();
   });
 
-  const playPausedHandler = (e: Event, status: string) => {
+  const playPausedHandler = (event: Event, status: string) => {
     if (
-      e.target instanceof HTMLVideoElement &&
-      Math.round(e.target.currentTime) > 0
+      event.target instanceof HTMLVideoElement &&
+      Math.round(event.target.currentTime) > 0
     ) {
-      window.ipcRenderer.send('peard:play-or-paused', {
+      window.ipcRenderer.send('app:song:play-or-paused', {
         isPaused: status === 'pause',
-        elapsedSeconds: Math.floor(e.target.currentTime),
+        elapsedSeconds: Math.floor(event.target.currentTime),
       });
     }
   };
 
   const playPausedHandlers = {
-    playing: (e: Event) => playPausedHandler(e, 'playing'),
-    pause: (e: Event) => playPausedHandler(e, 'pause'),
+    playing: (event: Event) => playPausedHandler(event, 'playing'),
+    pause: (event: Event) => playPausedHandler(event, 'pause'),
   };
 
-  const videoEventDispatcher = async (
+  const videoEventDispatcher = (
     name: string,
     videoData: VideoDataChangeValue,
-    // oxlint-disable-next-line typescript/require-await
   ) =>
     document.dispatchEvent(
       new CustomEvent<VideoDataChanged>('videodatachange', {
@@ -258,15 +232,12 @@ export const setupSongInfo = (api: MusicPlayer) => {
 
   const clearVideoTimeout = (videoId: string) => {
     const timeoutId = waitingTimeouts.get(videoId);
-
     if (timeoutId) {
       clearTimeout(timeoutId);
       waitingTimeouts.delete(videoId);
     }
   };
 
-  // Name = "dataloaded" and abit later "dataupdated"
-  // Sometimes "dataupdated" is not fired, so we need to fallback to "dataloaded"
   api.addEventListener('videodatachange', (name, videoData) => {
     videoEventDispatcher(name, videoData);
 
@@ -279,13 +250,11 @@ export const setupSongInfo = (api: MusicPlayer) => {
       video?.dispatchEvent(srcChangedEvent);
 
       for (const status of ['playing', 'pause'] as const) {
-        // for fix issue that pause event not fired
         video?.addEventListener(status, playPausedHandlers[status]);
       }
 
       clearVideoTimeout(videoData.videoId);
       waitingEvent.add(videoData.videoId);
-
       const timeoutId = setTimeout(() => {
         if (waitingEvent.has(videoData.videoId)) {
           waitingEvent.delete(videoData.videoId);
@@ -293,13 +262,11 @@ export const setupSongInfo = (api: MusicPlayer) => {
           sendSongInfo(videoData);
         }
       }, DATAUPDATED_FALLBACK_TIMEOUT_MS);
-
       waitingTimeouts.set(videoData.videoId, timeoutId);
     }
   });
 
   const video = document.querySelector('video');
-
   if (video) {
     for (const status of ['playing', 'pause'] as const) {
       video.addEventListener(status, playPausedHandlers[status]);
@@ -312,19 +279,15 @@ export const setupSongInfo = (api: MusicPlayer) => {
         video_id: videoId,
         list: playlistId,
       } = api.getVideoData();
-
       const watchNextResponse = api.getWatchNextResponse();
-
       sendSongInfo({
         title,
         author,
         videoId,
         playlistId,
-
         isUpcoming: false,
         lengthSeconds: video.duration,
         loading: true,
-
         ['\u0079\u0074\u006d\u0064WatchNextResponse']: watchNextResponse,
       } satisfies VideoDataChangeValue);
     }
@@ -334,7 +297,6 @@ export const setupSongInfo = (api: MusicPlayer) => {
     const data = api.getPlayerResponse();
 
     let playerOverlay: PlayerOverlays | undefined;
-
     if (!videoData['\u0079\u0074\u006d\u0064WatchNextResponse']) {
       playerOverlay = (
         Object.entries(videoData).find(
@@ -345,6 +307,7 @@ export const setupSongInfo = (api: MusicPlayer) => {
       playerOverlay =
         videoData['\u0079\u0074\u006d\u0064WatchNextResponse']?.playerOverlays;
     }
+
     data.videoDetails.album =
       playerOverlay?.playerOverlayRenderer?.browserMediaSession?.browserMediaSessionRenderer?.album?.runs?.at(
         0,
@@ -352,6 +315,6 @@ export const setupSongInfo = (api: MusicPlayer) => {
     data.videoDetails.elapsedSeconds = 0;
     data.videoDetails.isPaused = false;
 
-    window.ipcRenderer.send('peard:video-src-changed', data);
+    window.ipcRenderer.send('app:song:video-src-changed', data);
   }
 };
