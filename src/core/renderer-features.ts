@@ -2,7 +2,7 @@ import { coreFeatures } from '@/core/features';
 import { LoggerPrefix, startFeature, stopFeature } from '@/utils';
 
 import type { RendererContext } from '@/types/contexts';
-import type { FeatureConfig, FeatureDef } from '@/types/plugins';
+import type { FeatureConfig, FeatureDef } from '@/types/features';
 
 const loadedFeatureMap: Record<
   string,
