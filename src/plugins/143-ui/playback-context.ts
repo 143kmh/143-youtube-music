@@ -204,16 +204,20 @@ export const installPlaybackContext = (
             playable.findIndex((item) => item.videoId === selected.videoId),
           )
         : 0;
+      const state = engine.getState();
+      const shuffle = options.shuffle ?? state.shuffle === true;
+      const repeat = state.repeat ?? 0;
       history.length = 0;
       context = {
         source,
         items: playable,
         index,
-        shuffle: options.shuffle === true,
-        repeat: 0,
+        shuffle,
+        repeat,
         queueOpen: false,
       };
       emit();
+      if (options.shuffle === true && state.shuffle !== true) originalToggleShuffle();
       return loadIndex(index, false);
     },
     playContextIndex(index: number) {
@@ -238,10 +242,18 @@ export const installPlaybackContext = (
       return originalOpenSearchResult(item);
     },
     next() {
-      if (!context || !advance(false)) originalNext();
+      if (context) {
+        advance(false);
+        return;
+      }
+      originalNext();
     },
     previous() {
-      if (!context || !rewind()) originalPrevious();
+      if (context) {
+        rewind();
+        return;
+      }
+      originalPrevious();
     },
     toggleShuffle() {
       if (!context) {
