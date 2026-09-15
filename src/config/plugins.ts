@@ -6,7 +6,9 @@ import { store } from './store';
 
 import type { PluginConfig } from '@/types/plugins';
 
-const featureDefaults: Record<string, PluginConfig> = {
+type FeatureConfig = PluginConfig & Record<string, unknown>;
+
+const featureDefaults: Record<string, FeatureConfig> = {
   '143-ui': { enabled: true },
   'force-high-audio-quality': { enabled: false, quality: 'maximum' },
 };
@@ -18,7 +20,7 @@ export function isAllowedPlugin(feature: string) {
 }
 
 export function getPlugins() {
-  return store.get('plugins') as Record<string, PluginConfig>;
+  return store.get('plugins') as Record<string, FeatureConfig>;
 }
 
 export async function isEnabled(feature: string) {
@@ -26,7 +28,7 @@ export async function isEnabled(feature: string) {
 
   const featureConfig = deepmerge(
     featureDefaults[feature],
-    (store.get('plugins') as Record<string, PluginConfig>)[feature] ?? {},
+    (store.get('plugins') as Record<string, FeatureConfig>)[feature] ?? {},
   );
   return featureConfig.enabled;
 }
@@ -36,8 +38,8 @@ export async function isEnabled(feature: string) {
  * 143-owned modules are the only entries that remain for legacy compatibility.
  */
 export async function enforceAllowedPlugins() {
-  const stored = store.get('plugins') as Record<string, PluginConfig>;
-  const next: Record<string, PluginConfig> = {};
+  const stored = store.get('plugins') as Record<string, FeatureConfig>;
+  const next: Record<string, FeatureConfig> = {};
 
   for (const id of featureIds) {
     next[id] = deepmerge(featureDefaults[id], stored[id] ?? {});
@@ -82,8 +84,7 @@ export function setMenuOptions<T>(
 }
 
 export function getOptions<T>(feature: string): T {
-  const stored = (store.get('plugins') as Record<string, T>)[feature];
-  return stored;
+  return (store.get('plugins') as Record<string, T>)[feature];
 }
 
 export function enable(feature: string) {
