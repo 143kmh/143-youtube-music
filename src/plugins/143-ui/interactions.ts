@@ -1,3 +1,4 @@
+import { mountLibraryCollections } from './library-collections';
 import { mountLibraryPage } from './library-page';
 
 import type { PlaybackContextAdapter } from './playback-context';
@@ -8,6 +9,7 @@ const PAGE_IDS = [
   'ui143-artist-page',
   'ui143-album-page',
   'ui143-library-page',
+  'ui143-library-collections',
 ] as const;
 
 const mountNativePolish = () => {
@@ -65,6 +67,7 @@ const hideCustomPages = () => {
     'ui143-artist-open',
     'ui143-album-open',
     'ui143-library-open',
+    'ui143-library-collections-open',
   );
 };
 
@@ -213,12 +216,8 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   const removeNativePolish = mountNativePolish();
   const shelfGestures = mountShelfGestures();
   const libraryPage = mountLibraryPage(engine);
+  const collectionsPage = mountLibraryCollections(engine);
 
-  // Do not synthesize /watch navigation ourselves. loadVideoById() can play a
-  // track without creating all of YouTube Music's watch-page state, so asking
-  // ytmusic-app.navigate('/watch?...') may produce an empty page. The hidden
-  // native player-bar thumbnail already owns the correct transition and keeps
-  // the current playback session intact.
   const openNowPlayingSurface = async () => {
     if (!engine.getState().track.id) return;
     if (await engine.openNowPlaying()) hideCustomPages();
@@ -234,6 +233,20 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
 
+    const historyBack = target.closest<HTMLElement>(
+      '.ui143-history button[aria-label="Back"]',
+    );
+    if (historyBack && collectionsPage.isOpen()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const result = collectionsPage.back();
+      if (result === 'library') {
+        setActiveNav('library');
+        void libraryPage.open('landing');
+      }
+      return;
+    }
+
     const nav = target.closest<HTMLElement>('.ui143-nav-item[data-key]');
     const navKey = nav?.dataset.key ?? '';
     const libraryMode =
@@ -244,15 +257,31 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
           : navKey === 'songs'
             ? 'songs'
             : null;
+    const collectionMode =
+      navKey === 'albums' ? 'albums' : navKey === 'artists' ? 'artists' : null;
+
     if (libraryMode) {
       event.preventDefault();
       event.stopImmediatePropagation();
       hideCustomPages();
+      collectionsPage.close();
       setActiveNav(navKey);
       void libraryPage.open(libraryMode);
       return;
     }
-    if (nav && libraryPage.isOpen()) libraryPage.close();
+    if (collectionMode) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      hideCustomPages();
+      libraryPage.close();
+      setActiveNav(navKey);
+      void collectionsPage.open(collectionMode);
+      return;
+    }
+    if (nav) {
+      if (libraryPage.isOpen()) libraryPage.close();
+      if (collectionsPage.isOpen()) collectionsPage.close();
+    }
 
     const karaoke = target.closest(
       '.ui143-player-utils button[aria-label="Karaoke"]',
@@ -277,11 +306,12 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
 
   const onSubmit = (event: SubmitEvent) => {
     if (
-      libraryPage.isOpen() &&
       event.target instanceof Element &&
       event.target.matches('.ui143-search')
-    )
-      libraryPage.close();
+    ) {
+      if (libraryPage.isOpen()) libraryPage.close();
+      if (collectionsPage.isOpen()) collectionsPage.close();
+    }
   };
 
   document.addEventListener('click', onClick, true);
@@ -289,6 +319,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   return () => {
     document.removeEventListener('click', onClick, true);
     document.removeEventListener('submit', onSubmit, true);
+    collectionsPage.dispose();
     libraryPage.dispose();
     shelfGestures.dispose();
     removeNativePolish();
