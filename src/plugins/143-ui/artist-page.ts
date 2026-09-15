@@ -1,9 +1,5 @@
-import type {
-  SearchArtistProfile,
-  SearchCatalog,
-  SearchResultItem,
-  YouTubeMusicAdapter,
-} from './youtube-music';
+import type { SearchArtistProfile, SearchResultItem } from './youtube-music';
+import type { CatalogYouTubeMusicAdapter } from './youtube-music-catalog';
 
 const ROOT_ID = 'ui143-artist-page';
 
@@ -17,98 +13,11 @@ type OpenOptions = Readonly<{
   pushHistory?: boolean;
 }>;
 
-const normalize = (value: string) =>
-  value
-    .normalize('NFKC')
-    .toLocaleLowerCase()
-    .replace(/[\p{P}\p{S}]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-const isEpisodeLike = (item: SearchResultItem) => {
-  const value = `${item.title} ${item.subtitle}`;
-  return (
-    /\b(?:podcast|episode|interview)\b/iu.test(value) ||
-    /(?:^|[\s•·—–-])(?:подкаст|эпизод|епізод|выпуск|випуск|интервью)(?=$|[\s•·—–-])/iu.test(
-      value,
-    )
-  );
-};
-
-const playCount = (item: SearchResultItem) => {
-  const text = item.subtitle.toLocaleLowerCase().replaceAll('\u00a0', ' ');
-  const pattern =
-    /(\d+(?:[.,]\d+)?)\s*(млрд|млн|тыс\.?|b|m|k)?\s*(?:прослушиван\p{L}*|прослуховуван\p{L}*|plays?|views?)/giu;
-  let best = -1;
-  for (const match of text.matchAll(pattern)) {
-    const amount = Number(match[1]?.replace(',', '.'));
-    if (!Number.isFinite(amount)) continue;
-    const suffix = match[2]?.replace('.', '').toLocaleLowerCase() ?? '';
-    const multiplier =
-      suffix === 'млрд' || suffix === 'b'
-        ? 1_000_000_000
-        : suffix === 'млн' || suffix === 'm'
-          ? 1_000_000
-          : suffix === 'тыс' || suffix === 'k'
-            ? 1_000
-            : 1;
-    best = Math.max(best, amount * multiplier);
-  }
-  return best;
-};
-
-const rankTracks = (items: readonly SearchResultItem[]) =>
-  [...items]
-    .filter((item) => item.kind === 'song' && !isEpisodeLike(item))
-    .map((item, index) => ({ item, index, plays: playCount(item) }))
-    .sort((left, right) => right.plays - left.plays || left.index - right.index)
-    .map(({ item }) => item);
-
-const releaseYear = (item: SearchResultItem) => {
-  const years = `${item.subtitle} ${item.title}`
-    .match(/(?:19|20)\d{2}/gu)
-    ?.map(Number)
-    .filter((year) => year >= 1900 && year <= 2100);
-  return years?.length ? Math.max(...years) : -1;
-};
-
-const rankReleases = (items: readonly SearchResultItem[]) =>
-  [...items]
-    .map((item, index) => ({ item, index, year: releaseYear(item) }))
-    .sort((left, right) => right.year - left.year || left.index - right.index)
-    .map(({ item }) => item);
-
-const belongsToArtist = (item: SearchResultItem, artist: string) => {
-  const key = normalize(artist);
-  if (!key) return true;
-  return normalize(item.subtitle).includes(key);
-};
-
-const isSingleLike = (item: SearchResultItem) =>
-  /\b(?:single|ep)\b|сингл|мини[ -]?альбом|релиз|реліз/iu.test(
-    item.subtitle,
-  );
-
-const mergeItems = (
-  kind: SearchResultItem['kind'],
-  artist: string,
-  groups: readonly (readonly SearchResultItem[])[],
-) => {
-  const seen = new Set<string>();
-  const result: SearchResultItem[] = [];
-  for (const group of groups) {
-    for (const item of group) {
-      if (item.kind !== kind || isEpisodeLike(item)) continue;
-      if ((kind === 'album' || kind === 'song') && !belongsToArtist(item, artist))
-        continue;
-      const key = `${kind}:${item.videoId ?? item.browseId ?? `${item.title}\u0000${item.subtitle}`}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push(item);
-    }
-  }
-  return result;
-};
+export type AlbumOpenHandler = (
+  title: string,
+  browseId: string,
+  restoreArtist: boolean,
+) => void;
 
 const image = (item: SearchResultItem, className: string) => {
   const wrapper = document.createElement('div');
@@ -136,7 +45,10 @@ const subtitle = (item: SearchResultItem) => {
 
 export type ArtistPageController = ReturnType<typeof mountArtistPage>;
 
-export const mountArtistPage = (engine: YouTubeMusicAdapter) => {
+export const mountArtistPage = (
+  engine: CatalogYouTubeMusicAdapter,
+  onOpenAlbum?: AlbumOpenHandler,
+) => {
   document.getElementById(ROOT_ID)?.remove();
 
   const root = document.createElement('main');
@@ -200,8 +112,12 @@ export const mountArtistPage = (engine: YouTubeMusicAdapter) => {
       );
       return;
     }
-    if (!engine.openSearchResult(item)) return;
-    if (!item.videoId) setVisible(false);
+    if (item.kind === 'album' && item.browseId && onOpenAlbum) {
+      setVisible(false);
+      onOpenAlbum(item.title, item.browseId, true);
+      return;
+    }
+    engine.openSearchResult(item);
   };
 
   const resultButton = (item: SearchResultItem, className: string) => {
@@ -315,54 +231,20 @@ export const mountArtistPage = (engine: YouTubeMusicAdapter) => {
     return section;
   };
 
-  const render = (
-    artist: ArtistRef,
-    base: SearchCatalog,
-    albumSearch: SearchCatalog | null,
-    singleSearch: SearchCatalog | null,
-  ) => {
+  const render = async (artist: ArtistRef) => {
+    const catalog = await engine.getArtistCatalog(artist.browseId, artist.name);
     content.replaceChildren();
-    const profile =
-      base.featuredArtist &&
-      (!base.featuredArtist.browseId ||
-        base.featuredArtist.browseId === artist.browseId ||
-        normalize(base.featuredArtist.title) === normalize(artist.name))
-        ? base.featuredArtist
-        : {
-            title: artist.name,
-            browseId: artist.browseId,
-            avatar: '',
-            banner: '',
-            subscribers: '',
-            monthlyListeners: '',
-          };
-
-    const songs = rankTracks(
-      mergeItems('song', artist.name, [
-        base.songs,
-        singleSearch?.songs ?? [],
-      ]),
-    );
-    const releases = rankReleases(
-      mergeItems('album', artist.name, [
-        base.albums,
-        albumSearch?.albums ?? [],
-        singleSearch?.albums ?? [],
-      ]),
-    );
-    const albums = releases.filter((item) => !isSingleLike(item));
-    const related = mergeItems('artist', '', [base.artists]).filter(
-      (item) =>
-        item.browseId !== artist.browseId &&
-        normalize(item.title) !== normalize(artist.name),
-    );
-
-    content.append(renderHero(profile, artist.name));
-    if (songs.length) content.append(renderTopTracks(songs));
-    if (albums.length) content.append(renderShelf('Albums', albums));
-    if (releases.length) content.append(renderShelf('Latest', releases));
-    if (related.length)
-      content.append(renderShelf('Related artists', related.slice(0, 16), true));
+    content.append(renderHero(catalog.profile, artist.name));
+    if (catalog.topTracks.length)
+      content.append(renderTopTracks(catalog.topTracks));
+    if (catalog.albums.length)
+      content.append(renderShelf('Albums', catalog.albums));
+    if (catalog.releases.length)
+      content.append(renderShelf('Latest', catalog.releases));
+    if (catalog.relatedArtists.length)
+      content.append(
+        renderShelf('Related artists', catalog.relatedArtists.slice(0, 16), true),
+      );
     syncNowPlaying();
   };
 
@@ -374,26 +256,16 @@ export const mountArtistPage = (engine: YouTubeMusicAdapter) => {
       (current.browseId !== artist.browseId || current.name !== artist.name)
     )
       history.push(current);
-    if (root.hidden) restoreSearch = options.restoreSearch === true;
+    if (root.hidden && options.restoreSearch !== undefined)
+      restoreSearch = options.restoreSearch;
     current = artist;
     const currentRequest = ++request;
     setVisible(true);
     message('Loading artist…');
 
     try {
-      const base = await engine.searchCatalog(artist.name);
+      await render(artist);
       if (currentRequest !== request) return;
-      const [albumsResult, singlesResult] = await Promise.allSettled([
-        engine.searchCatalog(`${artist.name} album`),
-        engine.searchCatalog(`${artist.name} single`),
-      ]);
-      if (currentRequest !== request) return;
-      render(
-        artist,
-        base,
-        albumsResult.status === 'fulfilled' ? albumsResult.value : null,
-        singlesResult.status === 'fulfilled' ? singlesResult.value : null,
-      );
     } catch (error) {
       if (currentRequest !== request) return;
       console.error('[143 Music] Artist page failed', error);
@@ -404,6 +276,12 @@ export const mountArtistPage = (engine: YouTubeMusicAdapter) => {
   return {
     open(name: string, browseId: string, options: OpenOptions = {}) {
       return openInternal({ name, browseId }, options);
+    },
+    hide() {
+      setVisible(false);
+    },
+    show() {
+      if (current) setVisible(true);
     },
     back() {
       if (root.hidden) return false;
