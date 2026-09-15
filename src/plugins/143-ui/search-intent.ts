@@ -154,27 +154,27 @@ const pickArtistItem = (
 ) => {
   const candidates = artistCandidates(catalog);
   if (!candidates.length) return null;
-
   const subtitle = normalize(song.subtitle);
   const q = normalize(query);
-  const ranked = candidates
-    .map((item, index) => {
-      const name = normalize(item.title);
-      const subtitleIndex = name ? subtitle.indexOf(name) : -1;
-      const queryIndex = name ? q.indexOf(name) : -1;
-      const relationScore =
-        subtitleIndex >= 0
-          ? 300 - subtitleIndex
-          : queryIndex >= 0
-            ? 200 - queryIndex
-            : scoreItem(query, item);
-      return { item, index, relationScore };
-    })
-    .sort(
-      (left, right) =>
-        right.relationScore - left.relationScore || left.index - right.index,
-    );
-  return ranked[0]?.item ?? null;
+  return (
+    candidates
+      .map((item, index) => {
+        const name = normalize(item.title);
+        const subtitleIndex = name ? subtitle.indexOf(name) : -1;
+        const queryIndex = name ? q.indexOf(name) : -1;
+        const relationScore =
+          subtitleIndex >= 0
+            ? 300 - subtitleIndex
+            : queryIndex >= 0
+              ? 200 - queryIndex
+              : scoreItem(query, item);
+        return { item, index, relationScore };
+      })
+      .sort(
+        (left, right) =>
+          right.relationScore - left.relationScore || left.index - right.index,
+      )[0]?.item ?? null
+  );
 };
 
 const artistRemainder = (query: string, title: string) => {
@@ -250,6 +250,44 @@ const catalogMatchesArtist = (catalog: AlbumCatalog, artist: string) => {
   });
 };
 
+const rankAlbumCandidates = (
+  query: string,
+  artist: SearchArtistProfile | null,
+  items: readonly SearchResultItem[],
+) => {
+  const artistKey = normalize(artist?.title ?? '');
+  return unique(items)
+    .filter((item) => item.browseId && isFullAlbumCandidate(item))
+    .sort((left, right) => {
+      const leftArtist = artistKey && normalize(left.subtitle).includes(artistKey) ? 1 : 0;
+      const rightArtist = artistKey && normalize(right.subtitle).includes(artistKey) ? 1 : 0;
+      if (leftArtist !== rightArtist) return rightArtist - leftArtist;
+      return scoreItem(query, right) - scoreItem(query, left);
+    });
+};
+
+const verifyAlbumCandidates = async (
+  engine: CatalogYouTubeMusicAdapter,
+  candidates: readonly SearchResultItem[],
+  song: SearchResultItem,
+  explicitArtist: string,
+): Promise<ResolvedSongAlbum | null> => {
+  const shortlist = candidates.slice(0, 3);
+  const settled = await Promise.allSettled(
+    shortlist.map((candidate) =>
+      engine.getAlbumCatalog(candidate.browseId ?? '', candidate.title),
+    ),
+  );
+  for (const [index, result] of settled.entries()) {
+    if (result.status !== 'fulfilled') continue;
+    const catalog = result.value;
+    if (!catalogContainsSong(catalog, song)) continue;
+    if (explicitArtist && !catalogMatchesArtist(catalog, explicitArtist)) continue;
+    return { item: albumItemFromCatalog(catalog), catalog };
+  }
+  return null;
+};
+
 const resolveSongAlbum = async (
   engine: CatalogYouTubeMusicAdapter,
   query: string,
@@ -257,57 +295,33 @@ const resolveSongAlbum = async (
   artist: SearchArtistProfile | null,
   initial: SearchCatalog,
 ): Promise<ResolvedSongAlbum | null> => {
-  const albumCandidates = [...candidatesForKind(initial, 'album')];
-  const searchQueries = unique(
-    [
-      artist?.title ? `${artist.title} ${song.title}` : '',
-      artist?.title ? `${artist.title} ${song.title} album` : '',
-      artist?.title ? `${artist.title} ${song.title} альбом` : '',
-      `${song.title} album`,
-    ]
-      .filter(Boolean)
-      .map((title) => ({
-        kind: 'album' as const,
-        title,
-        subtitle: '',
-        artwork: '',
-      })),
-  ).map((item) => item.title);
-
-  const settled = await Promise.allSettled(
-    searchQueries.map((searchQuery) => engine.searchCatalog(searchQuery)),
-  );
-  for (const entry of settled) {
-    if (entry.status !== 'fulfilled') continue;
-    albumCandidates.push(...entry.value.albums);
-    if (entry.value.topResult?.kind === 'album')
-      albumCandidates.push(entry.value.topResult);
-  }
-
-  const candidates = unique(albumCandidates).filter(
-    (item) => item.browseId && isFullAlbumCandidate(item),
-  );
-  const artistKey = normalize(artist?.title ?? '');
-  candidates.sort((left, right) => {
-    const leftArtist = artistKey && normalize(left.subtitle).includes(artistKey) ? 1 : 0;
-    const rightArtist = artistKey && normalize(right.subtitle).includes(artistKey) ? 1 : 0;
-    if (leftArtist !== rightArtist) return rightArtist - leftArtist;
-    return scoreItem(query, right) - scoreItem(query, left);
-  });
-
   const explicitArtist = artistRemainder(query, song.title) ? artist?.title ?? '' : '';
-  for (const candidate of candidates.slice(0, 10)) {
-    if (!candidate.browseId) continue;
-    try {
-      const album = await engine.getAlbumCatalog(candidate.browseId, candidate.title);
-      if (!catalogContainsSong(album, song)) continue;
-      if (explicitArtist && !catalogMatchesArtist(album, explicitArtist)) continue;
-      return { item: albumItemFromCatalog(album), catalog: album };
-    } catch {
-      // One bad candidate must not kill search.
-    }
+  const initialCandidates = rankAlbumCandidates(
+    query,
+    artist,
+    candidatesForKind(initial, 'album'),
+  );
+  const initialMatch = await verifyAlbumCandidates(
+    engine,
+    initialCandidates,
+    song,
+    explicitArtist,
+  );
+  if (initialMatch) return initialMatch;
+
+  const lookup = artist?.title
+    ? `${artist.title} ${song.title} album`
+    : `${song.title} album`;
+  try {
+    const extra = await engine.searchCatalog(lookup);
+    const candidates = rankAlbumCandidates(query, artist, [
+      ...(extra.topResult?.kind === 'album' ? [extra.topResult] : []),
+      ...extra.albums,
+    ]);
+    return verifyAlbumCandidates(engine, candidates, song, explicitArtist);
+  } catch {
+    return null;
   }
-  return null;
 };
 
 const resolveSongArtist = async (
@@ -316,25 +330,21 @@ const resolveSongArtist = async (
   song: SearchResultItem,
   catalog: SearchCatalog,
 ) => {
+  const directItem = pickArtistItem(query, song, catalog);
+  const direct = await loadArtistProfile(engine, directItem, catalog.featuredArtist);
+  if (direct) return direct;
+
   const remainder = artistRemainder(query, song.title);
-
-  if (remainder) {
-    try {
-      const artistSearch = await engine.searchCatalog(remainder);
-      const anchored = artistAnchoredToQuery(remainder, artistSearch);
-      const scored = bestForKind(remainder, artistSearch, 'artist');
-      const artistItem = anchored ?? (scored && scored.score >= 76 ? scored.item : null);
-      if (artistItem?.browseId) {
-        const profile = await loadArtistProfile(engine, artistItem, null);
-        if (profile) return profile;
-      }
-    } catch {
-      // Fall through to the artist relation from the original response.
-    }
+  if (!remainder) return catalog.featuredArtist;
+  try {
+    const artistSearch = await engine.searchCatalog(remainder);
+    const anchored = artistAnchoredToQuery(remainder, artistSearch);
+    const scored = bestForKind(remainder, artistSearch, 'artist');
+    const item = anchored ?? (scored && scored.score >= 76 ? scored.item : null);
+    return loadArtistProfile(engine, item, catalog.featuredArtist);
+  } catch {
+    return catalog.featuredArtist;
   }
-
-  const artistItem = pickArtistItem(query, song, catalog);
-  return loadArtistProfile(engine, artistItem, catalog.featuredArtist);
 };
 
 const artistFromAlbum = async (
@@ -379,11 +389,7 @@ export const resolveSearchFocus = async (
   engine: CatalogYouTubeMusicAdapter,
   catalog: SearchCatalog,
 ): Promise<SearchFocus> => {
-  // Variant queries should remain literal YouTube-style searches. Collapsing
-  // “artist + sped up/slowed/reverb” into an artist/album focus defeats one of
-  // YouTube Music's main advantages: community and alternate video versions.
   if (isVariantVideoQuery(catalog.query)) return null;
-
   const intent = detectSearchIntent(catalog);
   if (!intent || intent.kind === 'artist') return null;
 
