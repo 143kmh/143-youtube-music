@@ -7,6 +7,12 @@ import type {
 
 const ROOT_ID = 'ui143-search-page';
 
+export type ArtistOpenHandler = (
+  name: string,
+  browseId: string,
+  restoreSearch: boolean,
+) => void;
+
 const image = (item: SearchResultItem, className: string) => {
   const wrapper = document.createElement('div');
   wrapper.className = className;
@@ -116,7 +122,10 @@ const mergeAlbums = (
 
 export type SearchPageController = ReturnType<typeof mountSearchPage>;
 
-export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
+export const mountSearchPage = (
+  engine: YouTubeMusicAdapter,
+  onOpenArtist?: ArtistOpenHandler,
+) => {
   document.getElementById(ROOT_ID)?.remove();
 
   const root = document.createElement('main');
@@ -176,6 +185,11 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
   };
 
   const openItem = (item: SearchResultItem) => {
+    if (item.kind === 'artist' && item.browseId && onOpenArtist) {
+      setVisible(false);
+      onOpenArtist(item.title, item.browseId, true);
+      return;
+    }
     if (!engine.openSearchResult(item)) return;
     if (!item.videoId) setVisible(false);
   };
