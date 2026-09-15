@@ -14,7 +14,7 @@ import viteResolve from 'vite-plugin-resolve';
 import solidPlugin from 'vite-plugin-solid';
 
 import { i18nImporter } from './vite-plugins/i18n-importer.mjs';
-import pluginLoader from './vite-plugins/plugin-loader.mjs';
+import featureContextSplitter from './vite-plugins/feature-context-splitter.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
   ];
   const mainConfig: MainViteConfig = {
     plugins: [
-      pluginLoader('backend'),
+      featureContextSplitter('backend'),
       viteResolve({
         'virtual:i18n': i18nImporter(),
       }),
@@ -102,7 +102,7 @@ export default defineConfig(({ mode }) => {
   const rendererExcludes = ['electron', ...builtinModules];
   const rendererConfig: RendererViteConfig = {
     plugins: [
-      pluginLoader('renderer'),
+      featureContextSplitter('renderer'),
       viteResolve({
         'virtual:i18n': i18nImporter(),
       }),
