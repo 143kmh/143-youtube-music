@@ -47,7 +47,15 @@ const createSingleImageIco = (png: Buffer, width: number, height: number) => {
 };
 
 const ensureWindowsTaskbarIcon = () => {
-  const sourcePath = path.resolve('assets/generated/icons/win/icon.png');
+  const candidates = [
+    path.resolve('assets/143-music-icon.png'),
+    path.resolve(process.resourcesPath, 'assets/143-music-icon.png'),
+  ];
+  const sourcePath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!sourcePath) {
+    throw new Error(`Could not find Windows icon in: ${candidates.join(', ')}`);
+  }
+
   const source = nativeImage.createFromPath(sourcePath);
   if (source.isEmpty()) throw new Error(`Could not load ${sourcePath}`);
 
