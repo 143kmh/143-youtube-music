@@ -20,7 +20,7 @@ import {
 type MusicWindow = Window & {
   yt?: { config_?: MusicConfig };
   ytcfg?: { data_?: MusicConfig };
-  __PEARD_FORCE_DIRECT_HQ__?: boolean;
+  __YT143_FORCE_DIRECT_HQ__?: boolean;
 };
 
 type RendererState = {
@@ -35,6 +35,8 @@ type RendererState = {
   proxyTimer: ReturnType<typeof setInterval> | null;
   syncPlayerProxy: () => void;
 };
+
+const FEATURE_ID = 'force-high-audio-quality';
 
 const getMusicConfig = () => {
   const musicWindow = window as MusicWindow;
@@ -56,7 +58,7 @@ export default createRenderer<RendererState, QualityConfig>({
 
   apply() {
     const musicWindow = window as MusicWindow;
-    musicWindow.__PEARD_FORCE_DIRECT_HQ__ = isHighMode(this.config);
+    musicWindow.__YT143_FORCE_DIRECT_HQ__ = isHighMode(this.config);
 
     this.syncPlayerProxy();
     this.restore?.();
@@ -73,14 +75,16 @@ export default createRenderer<RendererState, QualityConfig>({
     this.config = await getConfig();
     this.apply();
 
-    // Music can replace the shared PlayerProxy after navigation. Keep only the
-    // lightweight public proxy hook synchronized; the direct HQ switch itself
-    // is injected into base.js before that player code executes.
     this.proxyTimer = setInterval(() => this.syncPlayerProxy(), 1000);
 
-    ipc.on('peard:force-high-audio-quality:inspect', () =>
+    ipc.on('app:feature-config-changed', (id: string, config: QualityConfig) => {
+      if (id !== FEATURE_ID) return;
+      this.onConfigChange?.(config);
+    });
+
+    ipc.on('app:audio:inspect', () =>
       ipc
-        .invoke('peard:force-high-audio-quality:show', {
+        .invoke('app:audio:show', {
           ...readAudioDiagnostics(this.player),
           ...readPlaybackDetails(this.player, getMusicConfig()),
           preferenceActive: this.restore !== null,
@@ -91,7 +95,7 @@ export default createRenderer<RendererState, QualityConfig>({
           incomingHigh: this.incomingHigh,
         })
         .catch(() => {
-          // The backend may already have stopped if the plugin was just disabled.
+          // The main process may already be shutting down.
         }),
     );
   },
@@ -129,7 +133,6 @@ export default createRenderer<RendererState, QualityConfig>({
 
   onPlayerApiReady(api) {
     this.player = api;
-    // Retry here if the runtime config wasn't initialized when start ran.
     this.apply();
   },
 
@@ -139,7 +142,7 @@ export default createRenderer<RendererState, QualityConfig>({
   },
 
   stop({ ipc }) {
-    (window as MusicWindow).__PEARD_FORCE_DIRECT_HQ__ = false;
+    (window as MusicWindow).__YT143_FORCE_DIRECT_HQ__ = false;
     if (this.proxyTimer !== null) clearInterval(this.proxyTimer);
     this.proxyTimer = null;
     this.proxy = null;
@@ -148,6 +151,7 @@ export default createRenderer<RendererState, QualityConfig>({
     this.restore?.();
     this.restore = null;
     this.player = null;
-    ipc.removeAllListeners('peard:force-high-audio-quality:inspect');
+    ipc.removeAllListeners('app:feature-config-changed');
+    ipc.removeAllListeners('app:audio:inspect');
   },
 });
