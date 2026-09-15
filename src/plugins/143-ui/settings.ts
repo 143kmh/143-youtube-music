@@ -5,12 +5,18 @@ type Settings = {
   quality: 'default' | 'maximum' | 'opus';
   enabled: boolean;
   discordEnabled: boolean;
+  discordApplicationId: string;
   discordAutoReconnect: boolean;
   discordShowDuration: boolean;
   discordClearOnPause: boolean;
   discordPauseTimeoutMinutes: number;
   discordPlayButton: boolean;
-  discordShowGitHubButton: boolean;
+  discordStatus:
+    | 'disabled'
+    | 'needs-application-id'
+    | 'connecting'
+    | 'connected'
+    | 'disconnected';
   alwaysOnTop: boolean;
   resumeOnStart: boolean;
   customFrame: boolean;
@@ -27,7 +33,6 @@ type BooleanSettingKey =
   | 'discordShowDuration'
   | 'discordClearOnPause'
   | 'discordPlayButton'
-  | 'discordShowGitHubButton'
   | 'alwaysOnTop'
   | 'resumeOnStart';
 
@@ -161,6 +166,11 @@ const installBrandTheme = () => {
       line-height: 1.45;
     }
 
+    .ui143-settings-discord-status {
+      margin-top: 0;
+      color: #aaa;
+    }
+
     .ui143-settings-inline {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) 86px;
@@ -181,6 +191,19 @@ const installBrandTheme = () => {
 
     .ui143-settings-inline input[type="number"]:disabled {
       opacity: .45;
+    }
+
+    .ui143-settings-app-id input[type="text"] {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      margin-top: 6px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 7px;
+      background: #202020;
+      color: #eee;
+      font: inherit;
     }
 
     .ui143-accent-picker {
@@ -373,7 +396,33 @@ export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
     const discordNote = document.createElement('p');
     discordNote.className = 'ui143-settings-note';
     discordNote.textContent =
-      'Shows the current track, artist, artwork and playback progress in Discord.';
+      '143 Music connects to Discord directly. Create a Discord application named “143 Music” and paste its Application ID below.';
+    const discordStatus = document.createElement('p');
+    discordStatus.className = 'ui143-settings-note ui143-settings-discord-status';
+    discordStatus.textContent = `Status: ${
+      {
+        disabled: 'disabled',
+        'needs-application-id': 'Application ID required',
+        connecting: 'connecting…',
+        connected: 'connected',
+        disconnected: 'Discord unavailable',
+      }[settings.discordStatus]
+    }`;
+    const applicationIdLabel = document.createElement('label');
+    applicationIdLabel.className = 'ui143-settings-app-id';
+    applicationIdLabel.append(document.createTextNode('Discord Application ID'));
+    const applicationId = document.createElement('input');
+    applicationId.type = 'text';
+    applicationId.inputMode = 'numeric';
+    applicationId.autocomplete = 'off';
+    applicationId.spellcheck = false;
+    applicationId.placeholder = 'e.g. 1234567890123456789';
+    applicationId.value = settings.discordApplicationId;
+    applicationId.addEventListener('change', () =>
+      save('discordApplicationId', applicationId.value.trim(), applicationId),
+    );
+    applicationIdLabel.append(applicationId);
+
     const timeoutLabel = document.createElement('label');
     timeoutLabel.className = 'ui143-settings-inline';
     const timeoutText = document.createElement('span');
@@ -410,6 +459,8 @@ export const mountSettings = (ipc: RendererContext<PluginConfig>['ipc']) => {
       qualityLabel,
       discordTitle,
       discordNote,
+      discordStatus,
+      applicationIdLabel,
       checkbox('Enable Discord Rich Presence', 'discordEnabled'),
       checkbox('Auto reconnect to Discord', 'discordAutoReconnect'),
       checkbox('Show remaining track time', 'discordShowDuration'),
