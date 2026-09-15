@@ -70,7 +70,10 @@ const setActive = (el: HTMLButtonElement, active: boolean) => {
   el.setAttribute('aria-pressed', String(active));
 };
 
-export const mountPlayer = (engine: YouTubeMusicAdapter) => {
+export const mountPlayer = (
+  engine: YouTubeMusicAdapter,
+  onOpenArtist?: (name: string, browseId: string) => void,
+) => {
   const picker = mountPlaylistPicker(engine);
   document.getElementById(PLAYER_ROOT_ID)?.remove();
 
@@ -275,9 +278,10 @@ export const mountPlayer = (engine: YouTubeMusicAdapter) => {
         link.className = 'ui143-player-artist-link ui143-player-artist-button';
         link.textContent = entry.name;
         link.title = 'Open ' + entry.name;
-        link.addEventListener('click', () =>
-          engine.navigateArtist(entry.browseId),
-        );
+        link.addEventListener('click', () => {
+          if (onOpenArtist) onOpenArtist(entry.name, entry.browseId);
+          else engine.navigateArtist(entry.browseId);
+        });
         artist.append(link);
       });
     }
