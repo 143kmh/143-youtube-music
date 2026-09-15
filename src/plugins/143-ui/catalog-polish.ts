@@ -76,6 +76,30 @@ const exactArtistInSubtitle = (item: SearchResultItem, artist: string) => {
     .some((part) => part === key);
 };
 
+const creditedArtistInSubtitle = (item: SearchResultItem, artist: string) => {
+  const key = normalize(artist);
+  if (!key) return true;
+
+  const metadataParts = item.subtitle
+    .split(/\s*[•·]\s*/u)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter(
+      (part) =>
+        !/(?:^|\s)(?:композиция|song|video|видео|album|альбом)(?:\s|$)/iu.test(part) &&
+        !/(?:прослушиван|прослуховуван|views?|plays?)/iu.test(part) &&
+        !/^\d{1,2}:\d{2}$/u.test(part),
+    );
+
+  for (const part of metadataParts) {
+    const credits = part.split(
+      /\s*(?:,|&|\+|;|\bx\b|\bи\b|\band\b|\bfeat(?:uring)?\.?\b|\bft\.?\b)\s*/iu,
+    );
+    if (credits.some((credit) => normalize(credit) === key)) return true;
+  }
+  return false;
+};
+
 const looseArtistInSubtitle = (item: SearchResultItem, artist: string) => {
   const key = normalize(artist);
   return !key || normalize(item.subtitle).includes(key);
@@ -160,27 +184,34 @@ const literalScore = (query: string, item: SearchResultItem, index: number) => {
   return score - index / 1000;
 };
 
-const variantCatalog = (catalog: SearchCatalog): SearchCatalog => {
-  const videos = cleanVideos(catalog);
-  const rawSongs = uniqueItems([
-    ...(catalog.topResult?.kind === 'song' ? [catalog.topResult] : []),
-    ...catalog.songs,
-  ]).filter((item) => item.kind === 'song' && item.videoId && !isEpisodeLike(item));
+const variantCatalog = (
+  query: string,
+  catalogs: readonly SearchCatalog[],
+): SearchCatalog => {
+  const base = catalogs[0];
+  if (!base) throw new Error('Variant search requires a base catalog');
+
+  const videos = uniqueItems(catalogs.flatMap(cleanVideos));
+  const rawSongs = uniqueItems(
+    catalogs.flatMap((catalog) => [
+      ...(catalog.topResult?.kind === 'song' ? [catalog.topResult] : []),
+      ...catalog.songs,
+    ]),
+  ).filter((item) => item.kind === 'song' && item.videoId && !isEpisodeLike(item));
   const candidates = uniqueItems([
     ...videos.map(playableVideo),
     ...rawSongs.map(literalSong),
   ]);
-  const strict = candidates.filter((item) => requestedVariantMatches(catalog.query, item));
+  const strict = candidates.filter((item) => requestedVariantMatches(query, item));
   const pool = strict.length ? strict : candidates;
   const songs = pool
-    .map((item, index) => ({ item, score: literalScore(catalog.query, item, index) }))
+    .map((item, index) => ({ item, score: literalScore(query, item, index) }))
     .sort((left, right) => right.score - left.score)
     .map(({ item }) => item);
 
   return {
-    ...catalog,
-    // Variant searches are literal media searches. Keep only playable results
-    // that match the requested version instead of falling back to an artist page.
+    ...base,
+    query,
     topResult: null,
     featuredArtist: null,
     songs,
@@ -191,7 +222,38 @@ const variantCatalog = (catalog: SearchCatalog): SearchCatalog => {
   };
 };
 
-const cleanCatalog = (catalog: SearchCatalog, artist: string): SearchCatalog => ({
+const variantQueries = (query: string) => {
+  const original = query.trim();
+  const normalized = normalize(original);
+  const variants = new Set<string>([original]);
+
+  const replaceVariant = (pattern: RegExp, replacements: readonly string[]) => {
+    if (!pattern.test(normalized)) return;
+    for (const replacement of replacements) {
+      const next = original.replace(pattern, replacement).replace(/\s+/g, ' ').trim();
+      if (next) variants.add(next);
+    }
+  };
+
+  replaceVariant(/sped\s*up|speed\s*up|speedup/iu, [
+    'sped up',
+    'speed up',
+    'speedup',
+    'sped up reverb',
+  ]);
+  replaceVariant(/slowed/iu, ['slowed', 'slowed reverb', 'slowed + reverb']);
+  replaceVariant(/reverb/iu, ['reverb', 'slowed reverb']);
+  replaceVariant(/nightcore/iu, ['nightcore', 'nightcore sped up']);
+  replaceVariant(/lyrics?|lyric\s+video/iu, ['lyrics', 'lyric video']);
+
+  return [...variants].slice(0, 5);
+};
+
+const cleanCatalog = (
+  catalog: SearchCatalog,
+  artist: string,
+  strictArtist = false,
+): SearchCatalog => ({
   ...catalog,
   topResult:
     catalog.topResult && !isEpisodeLike(catalog.topResult)
@@ -199,7 +261,12 @@ const cleanCatalog = (catalog: SearchCatalog, artist: string): SearchCatalog => 
       : null,
   songs: uniqueItems(
     catalog.songs
-      .filter((item) => item.kind === 'song' && !isEpisodeLike(item))
+      .filter(
+        (item) =>
+          item.kind === 'song' &&
+          !isEpisodeLike(item) &&
+          (!strictArtist || creditedArtistInSubtitle(item, artist)),
+      )
       .map((item) => withArtistHint(item, artist)),
   ),
   albums: uniqueItems(
@@ -229,12 +296,18 @@ const mergeCatalogs = (
   base: SearchCatalog,
   artist: string,
   extras: readonly SearchCatalog[],
+  strictArtist = false,
 ): SearchCatalog => {
   const songs = uniqueItems([
     ...base.songs,
     ...extras.flatMap((catalog) => catalog.songs),
   ])
-    .filter((item) => item.kind === 'song' && !isEpisodeLike(item))
+    .filter(
+      (item) =>
+        item.kind === 'song' &&
+        !isEpisodeLike(item) &&
+        (!strictArtist || creditedArtistInSubtitle(item, artist)),
+    )
     .map((item) => withArtistHint(item, artist));
   const albums = uniqueItems([
     ...base.albums,
@@ -264,17 +337,29 @@ export const installCatalogPolish = (engine: YouTubeMusicAdapter) => {
 
   engine.searchCatalog = async (query: string) => {
     const raw = await rawSearchCatalog(query);
-    if (isVariantVideoQuery(query)) return variantCatalog(raw);
+    if (isVariantVideoQuery(query)) {
+      const queries = variantQueries(query).filter(
+        (candidate) => normalize(candidate) !== normalize(query),
+      );
+      const settled = await Promise.allSettled(
+        queries.map((candidate) => rawSearchCatalog(candidate)),
+      );
+      const extras = settled.flatMap((entry) =>
+        entry.status === 'fulfilled' ? [entry.value] : [],
+      );
+      return variantCatalog(query, [raw, ...extras]);
+    }
 
     const explicitHint = queryArtistHint(query);
     const artist =
       explicitHint ||
       raw.featuredArtist?.title?.trim() ||
       (raw.topResult?.kind === 'artist' ? raw.topResult.title.trim() : '');
-    const cleaned = cleanCatalog(raw, artist);
+    const strictArtist = Boolean(
+      artist && raw.featuredArtist && raw.topResult?.kind === 'artist',
+    );
+    const cleaned = cleanCatalog(raw, artist, strictArtist);
 
-    // Auxiliary requests are already narrow queries. Do not recursively enrich
-    // them; just return the strict music result.
     if (explicitHint || !artist || !raw.featuredArtist) return cleaned;
 
     const requests = [
@@ -288,10 +373,10 @@ export const installCatalogPolish = (engine: YouTubeMusicAdapter) => {
     );
     const extras = settled.flatMap((entry) =>
       entry.status === 'fulfilled'
-        ? [cleanCatalog(entry.value, artist)]
+        ? [cleanCatalog(entry.value, artist, strictArtist)]
         : [],
     );
 
-    return mergeCatalogs(cleaned, artist, extras);
+    return mergeCatalogs(cleaned, artist, extras, strictArtist);
   };
 };
