@@ -1,6 +1,7 @@
 import { mountLibraryCollections } from './library-collections';
 import { mountLibraryPage } from './library-page';
 import { mountPlaylistWorkspace } from './playlist-workspace';
+import { installUxFixes } from './ux-fixes';
 
 import type { PlaybackContextAdapter } from './playback-context';
 
@@ -216,6 +217,7 @@ const mountShelfGestures = () => {
 };
 
 export const mountInteractions = (engine: PlaybackContextAdapter) => {
+  const removeUxFixes = installUxFixes(engine);
   const removeNativePolish = mountNativePolish();
   const shelfGestures = mountShelfGestures();
   const libraryPage = mountLibraryPage(engine);
@@ -337,6 +339,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
     collectionsPage.dispose();
     libraryPage.dispose();
     shelfGestures.dispose();
+    removeUxFixes();
     removeNativePolish();
   };
 };
