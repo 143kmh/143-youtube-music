@@ -603,3 +603,14 @@ html[data-143-ui] tp-yt-paper-listbox {
     width: 100%;
   }
 }
+
+.ui143-topbar button, .ui143-topbar input, .ui143-topbar form { -webkit-app-region: no-drag; }
+.ui143-settings-button { font-size: 24px; flex-shrink: 0; }
+.ui143-settings { width: min(420px, 90vw); padding: 28px; border: 1px solid #333; border-radius: 12px; background: #181818; color: #fff; font: 14px Inter, sans-serif; }
+.ui143-settings::backdrop { background: #0009; }
+.ui143-settings h2 { margin: 0 0 24px; font-size: 22px; }
+.ui143-settings label { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
+.ui143-settings select { min-width: 0; flex: 1; }
+.ui143-settings select, .ui143-settings button { padding: 9px 12px; border: 1px solid #444; border-radius: 6px; background: #242424; color: #fff; }
+.ui143-settings button { margin: 4px 8px 0 0; cursor: pointer; }
+.ui143-settings input { accent-color: #8a7bd1; }

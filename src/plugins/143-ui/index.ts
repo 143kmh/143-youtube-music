@@ -2,12 +2,14 @@ import { net } from 'electron';
 
 import { createPlugin } from '@/utils';
 
+import { startDesktop } from './desktop';
 import { mountInteractions } from './interactions';
 import interactionStyle from './interactions.css?inline';
 import { attachKaraokePlayer, startKaraoke, stopKaraoke } from './karaoke';
 import { mountPlayer } from './player';
 import playerPolishStyle from './player-polish.css?inline';
 import playerStyle from './player.css?inline';
+import { mountSettings } from './settings';
 import style from './style.css?inline';
 import {
   createYouTubeMusicAdapter,
@@ -232,7 +234,10 @@ export default createPlugin({
     enabled: true,
   },
   backend: {
-    start({ window, ipc }) {
+    desktopCleanup: null as (() => void) | null,
+    start(ctx) {
+      const { window, ipc } = ctx;
+      this.desktopCleanup = startDesktop(ctx);
       const webContents = window.webContents;
       const originalOpenDevTools = webContents.openDevTools.bind(webContents);
 
@@ -257,6 +262,8 @@ export default createPlugin({
     },
     stop({ ipc }) {
       ipc.removeHandler('synced-lyrics:fetch');
+      this.desktopCleanup?.();
+      this.desktopCleanup = null;
     },
   },
   renderer: {
@@ -264,6 +271,7 @@ export default createPlugin({
     playerStyleSheet: null as CSSStyleSheet | null,
     playerPolishStyleSheet: null as CSSStyleSheet | null,
     interactionStyleSheet: null as CSSStyleSheet | null,
+    settingsCleanup: null as (() => void) | null,
     playerCleanup: null as (() => void) | null,
     engine: null as YouTubeMusicAdapter | null,
     interactionCleanup: null as (() => void) | null,
@@ -297,6 +305,8 @@ export default createPlugin({
       this.engine = engine;
       engine.start();
       createShell(engine);
+      this.settingsCleanup?.();
+      this.settingsCleanup = mountSettings(ctx.ipc);
       this.playerCleanup = mountPlayer(engine);
       this.interactionCleanup = mountInteractions(engine);
     },
@@ -307,6 +317,8 @@ export default createPlugin({
 
     async stop() {
       stopKaraoke();
+      this.settingsCleanup?.();
+      this.settingsCleanup = null;
       this.interactionCleanup?.();
       this.interactionCleanup = null;
       this.engine?.dispose();
