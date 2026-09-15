@@ -35,7 +35,7 @@ const getPropertyName = (prop: Node): string | null => {
 };
 
 const isFeatureFactoryCall = (expression: string) =>
-  expression === 'createPlugin' || expression === 'createFeature';
+  expression === 'createFeature';
 
 export default function (
   mode: 'backend' | 'preload' | 'renderer' | 'none',
@@ -44,7 +44,7 @@ export default function (
     name: 'ytm-feature-context-splitter',
     load: {
       filter: {
-        id: /(?:\/plugins\/[^/]+\/index\.(?:js|ts|jsx|tsx)|\/plugins\/[^/]+\.(?:js|ts|jsx|tsx))$/,
+        id: /(?:\/(?:plugins|features)\/[^/]+\/index\.(?:js|ts|jsx|tsx)|\/(?:plugins|features)\/[^/]+\.(?:js|ts|jsx|tsx))$/,
       },
       handler(id) {
         const fileContent = readFileSync(id, 'utf8');
@@ -129,8 +129,6 @@ export default function (
           if (propMap.has(ctx)) propMap.get(ctx)?.remove();
         }
 
-        // Keep the inherited export name until the remaining feature entrypoints
-        // stop depending on the build-time compatibility stub.
         const varStmt = src.addVariableStatement({
           isExported: true,
           declarationKind: VariableDeclarationKind.Const,
