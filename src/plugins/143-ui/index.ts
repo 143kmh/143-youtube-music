@@ -1,6 +1,6 @@
 import { net } from 'electron';
 
-import { createPlugin } from '@/utils';
+import { createFeature } from '@/utils';
 
 import { mountAlbumPage, type AlbumPageController } from './album-page';
 import albumPageStyle from './album-page.css?inline';
@@ -343,7 +343,7 @@ const createShell = (
   document.body.append(root);
 };
 
-export default createPlugin({
+export default createFeature({
   name: () => '143 Music UI',
   description: () =>
     'A compact Spotify-inspired shell for the YouTube Music engine.',
