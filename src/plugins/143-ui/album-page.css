@@ -169,6 +169,8 @@
 
 .ui143-album-track {
   appearance: none;
+  position: relative;
+  overflow: hidden;
   width: 100%;
   min-height: 56px;
   padding: 7px 12px;
@@ -179,8 +181,19 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  box-shadow: inset 2px 0 0 transparent;
-  transition: background 100ms ease, box-shadow 100ms ease;
+  contain: paint;
+  transition: background 100ms ease;
+}
+
+.ui143-album-track::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: transparent;
 }
 
 .ui143-album-track:hover {
@@ -189,7 +202,10 @@
 
 .ui143-album-track.is-now-playing {
   background: color-mix(in srgb, var(--ui143-accent) 13%, transparent);
-  box-shadow: inset 2px 0 0 var(--ui143-accent-strong);
+}
+
+.ui143-album-track.is-now-playing::before {
+  background: var(--ui143-accent-strong);
 }
 
 .ui143-album-track-number {
@@ -265,6 +281,34 @@
   max-width: 460px;
   color: #858585;
   font-size: 13px;
+}
+
+@keyframes ui143-status-float {
+  0%, 100% {
+    transform: translate3d(-2px, 1px, 0);
+    opacity: 0.48;
+  }
+  50% {
+    transform: translate3d(3px, -3px, 0);
+    opacity: 0.68;
+  }
+}
+
+.ui143-search-message strong,
+.ui143-artist-message strong,
+.ui143-album-message strong {
+  color: rgba(255, 255, 255, 0.62) !important;
+  font-weight: 620 !important;
+  text-shadow: 0 0 22px rgba(138, 123, 209, 0.12);
+  animation: ui143-status-float 5.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui143-search-message strong,
+  .ui143-artist-message strong,
+  .ui143-album-message strong {
+    animation: none;
+  }
 }
 
 @media (max-width: 850px) {
