@@ -13,6 +13,12 @@ export type ArtistOpenHandler = (
   restoreSearch: boolean,
 ) => void;
 
+export type AlbumOpenHandler = (
+  title: string,
+  browseId: string,
+  restoreSearch: boolean,
+) => void;
+
 const image = (item: SearchResultItem, className: string) => {
   const wrapper = document.createElement('div');
   wrapper.className = className;
@@ -130,6 +136,7 @@ export type SearchPageController = ReturnType<typeof mountSearchPage>;
 export const mountSearchPage = (
   engine: YouTubeMusicAdapter,
   onOpenArtist?: ArtistOpenHandler,
+  onOpenAlbum?: AlbumOpenHandler,
 ) => {
   document.getElementById(ROOT_ID)?.remove();
 
@@ -193,6 +200,11 @@ export const mountSearchPage = (
     if (item.kind === 'artist' && item.browseId && onOpenArtist) {
       setVisible(false);
       onOpenArtist(item.title, item.browseId, true);
+      return;
+    }
+    if (item.kind === 'album' && item.browseId && onOpenAlbum) {
+      setVisible(false);
+      onOpenAlbum(item.title, item.browseId, true);
       return;
     }
     if (!engine.openSearchResult(item)) return;
