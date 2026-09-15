@@ -113,7 +113,7 @@ export const loadMainFeature = async (
 export const loadMainFeatures = async (win: BrowserWindow) => {
   activeWindow = win;
   if (config.get('options.autoUpdates')) config.set('options.autoUpdates', false);
-  await config.plugins.enforceAllowedPlugins();
+  await config.features.enforceAllowedFeatures();
 
   ipcMain.removeHandler('app:get-feature-config');
   ipcMain.removeHandler('app:set-feature-config');
