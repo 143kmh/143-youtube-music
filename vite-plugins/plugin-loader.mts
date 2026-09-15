@@ -35,6 +35,9 @@ const getPropertyName = (prop: Node): string | null => {
   return null;
 };
 
+const isFeatureFactoryCall = (expression: string) =>
+  expression === 'createPlugin' || expression === 'createFeature';
+
 export default function (
   mode: 'backend' | 'preload' | 'renderer' | 'none',
 ): PluginOption {
@@ -72,7 +75,7 @@ export default function (
             );
             if (
               callExpr.getArguments().length === 1 &&
-              callExpr.getExpression().getText() === 'createPlugin'
+              isFeatureFactoryCall(callExpr.getExpression().getText())
             ) {
               const arg = callExpr.getArguments()[0];
               if (arg.getKind() === ts.SyntaxKind.ObjectLiteralExpression) {
@@ -99,7 +102,7 @@ export default function (
               const callExpr = expr.asKindOrThrow(ts.SyntaxKind.CallExpression);
               if (
                 callExpr.getArguments().length === 1 &&
-                callExpr.getExpression().getText() === 'createPlugin'
+                isFeatureFactoryCall(callExpr.getExpression().getText())
               ) {
                 const arg = callExpr.getArguments()[0];
                 if (arg.getKind() === ts.SyntaxKind.ObjectLiteralExpression) {
