@@ -13,22 +13,27 @@ const loadedFeatureMap: Record<
   PluginDef<unknown, unknown, unknown>
 > = {};
 
+const getFeatureConfig = (id: string) =>
+  deepmerge(
+    coreFeatures[id]?.config ?? { enabled: false },
+    config.get(`plugins.${id}`) ?? {},
+  ) as PluginConfig;
+
+const setFeatureConfig = (id: string, newConfig: Partial<PluginConfig>) => {
+  if (!coreFeatures[id]) return;
+  config.setPartial(
+    `plugins.${id}`,
+    newConfig,
+    coreFeatures[id]?.config ?? { enabled: false },
+  );
+};
+
 const createContext = (
   id: string,
   win: BrowserWindow,
 ): BackendContext<PluginConfig> => ({
-  getConfig: () =>
-    deepmerge(
-      coreFeatures[id]?.config ?? { enabled: false },
-      config.get(`plugins.${id}`) ?? {},
-    ) as PluginConfig,
-  setConfig: (newConfig) => {
-    config.setPartial(
-      `plugins.${id}`,
-      newConfig,
-      coreFeatures[id]?.config ?? { enabled: false },
-    );
-  },
+  getConfig: () => getFeatureConfig(id),
+  setConfig: (newConfig) => setFeatureConfig(id, newConfig),
   ipc: {
     send: (event: string, ...args: unknown[]) => {
       win.webContents.send(event, ...args);
@@ -94,6 +99,19 @@ export const forceLoadMainPlugin = async (
 export const loadAllMainPlugins = async (win: BrowserWindow) => {
   if (config.get('options.autoUpdates')) config.set('options.autoUpdates', false);
   await config.plugins.enforceAllowedPlugins();
+
+  ipcMain.removeHandler('app:get-feature-config');
+  ipcMain.removeHandler('app:set-feature-config');
+  ipcMain.handle('app:get-feature-config', (_event, id: string) =>
+    getFeatureConfig(id),
+  );
+  ipcMain.handle(
+    'app:set-feature-config',
+    (_event, id: string, newConfig: Partial<PluginConfig>) => {
+      setFeatureConfig(id, newConfig);
+      return getFeatureConfig(id);
+    },
+  );
 
   const featureConfigs = config.plugins.getPlugins();
   const queue: Promise<void>[] = [];
