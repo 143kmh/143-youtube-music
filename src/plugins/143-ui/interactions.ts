@@ -1,5 +1,6 @@
 import { mountLibraryCollections } from './library-collections';
 import { mountLibraryPage } from './library-page';
+import { mountPlaylistWorkspace } from './playlist-workspace';
 
 import type { PlaybackContextAdapter } from './playback-context';
 
@@ -10,6 +11,7 @@ const PAGE_IDS = [
   'ui143-album-page',
   'ui143-library-page',
   'ui143-library-collections',
+  'ui143-playlist-workspace',
 ] as const;
 
 const mountNativePolish = () => {
@@ -68,6 +70,7 @@ const hideCustomPages = () => {
     'ui143-album-open',
     'ui143-library-open',
     'ui143-library-collections-open',
+    'ui143-playlist-workspace-open',
   );
 };
 
@@ -217,15 +220,22 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   const shelfGestures = mountShelfGestures();
   const libraryPage = mountLibraryPage(engine);
   const collectionsPage = mountLibraryCollections(engine);
+  const playlistWorkspace = mountPlaylistWorkspace(engine);
 
   const openNowPlayingSurface = async () => {
     if (!engine.getState().track.id) return;
-    if (await engine.openNowPlaying()) hideCustomPages();
+    if (await engine.openNowPlaying()) {
+      playlistWorkspace.close(false);
+      hideCustomPages();
+    }
   };
 
   const openLyricsFromAnywhere = async () => {
     if (!engine.getState().track.id) return;
-    if (await engine.toggleLyrics()) hideCustomPages();
+    if (await engine.toggleLyrics()) {
+      playlistWorkspace.close(false);
+      hideCustomPages();
+    }
   };
 
   const onClick = (event: MouseEvent) => {
@@ -263,6 +273,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
     if (libraryMode) {
       event.preventDefault();
       event.stopImmediatePropagation();
+      playlistWorkspace.close(false);
       hideCustomPages();
       collectionsPage.close();
       setActiveNav(navKey);
@@ -272,6 +283,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
     if (collectionMode) {
       event.preventDefault();
       event.stopImmediatePropagation();
+      playlistWorkspace.close(false);
       hideCustomPages();
       libraryPage.close();
       setActiveNav(navKey);
@@ -279,6 +291,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       return;
     }
     if (nav) {
+      if (playlistWorkspace.isOpen()) playlistWorkspace.close(false);
       if (libraryPage.isOpen()) libraryPage.close();
       if (collectionsPage.isOpen()) collectionsPage.close();
     }
@@ -309,6 +322,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       event.target instanceof Element &&
       event.target.matches('.ui143-search')
     ) {
+      if (playlistWorkspace.isOpen()) playlistWorkspace.close(false);
       if (libraryPage.isOpen()) libraryPage.close();
       if (collectionsPage.isOpen()) collectionsPage.close();
     }
@@ -319,6 +333,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   return () => {
     document.removeEventListener('click', onClick, true);
     document.removeEventListener('submit', onSubmit, true);
+    playlistWorkspace.dispose();
     collectionsPage.dispose();
     libraryPage.dispose();
     shelfGestures.dispose();
