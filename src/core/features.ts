@@ -1,5 +1,5 @@
-import ui from '@/plugins/143-ui';
-import audio from '@/plugins/force-high-audio-quality';
+import ui from '@/features/143-ui';
+import audio from '@/features/force-high-audio-quality';
 
 import type { FeatureDef } from '@/types/features';
 
