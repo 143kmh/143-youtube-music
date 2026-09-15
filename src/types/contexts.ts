@@ -1,4 +1,4 @@
-import type { FeatureConfig } from '@/types/plugins';
+import type { FeatureConfig } from '@/types/features';
 import type {
   IpcMain,
   IpcRenderer,
