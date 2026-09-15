@@ -29,6 +29,11 @@ type ScoredItem = Readonly<{
   score: number;
 }>;
 
+type ResolvedSongAlbum = Readonly<{
+  item: SearchResultItem;
+  catalog: AlbumCatalog;
+}>;
+
 const normalize = (value: string) =>
   value
     .normalize('NFKC')
@@ -70,8 +75,6 @@ const scoreItem = (query: string, item: SearchResultItem) => {
   const subtitleOverlap = overlapRatio(q, item.subtitle);
   if (subtitleOverlap > 0) score += subtitleOverlap * 18;
 
-  // Track queries are commonly "artist + song title". Reward a candidate when
-  // the words left after removing the title are actually present in its byline.
   if (item.kind === 'song' && q.includes(title)) {
     const titleTokens = new Set(tokens(title));
     const remainder = tokens(q).filter((token) => !titleTokens.has(token));
@@ -226,14 +229,20 @@ const isFullAlbumCandidate = (item: SearchResultItem) => {
 
 const catalogContainsSong = (catalog: AlbumCatalog, song: SearchResultItem) => {
   const title = normalize(song.title);
-  return Boolean(
-    song.videoId &&
-      catalog.tracks.some(
-        (track) =>
-          track.videoId === song.videoId ||
-          Boolean(title && normalize(track.title) === title),
-      ),
+  return catalog.tracks.some(
+    (track) =>
+      Boolean(song.videoId && track.videoId === song.videoId) ||
+      Boolean(title && normalize(track.title) === title),
   );
+};
+
+const catalogMatchesArtist = (catalog: AlbumCatalog, artist: string) => {
+  const key = normalize(artist);
+  if (!key || !catalog.artists.length) return true;
+  return catalog.artists.some((entry) => {
+    const name = normalize(entry.name);
+    return name === key || name.startsWith(`${key} `) || key.startsWith(`${name} `);
+  });
 };
 
 const resolveSongAlbum = async (
@@ -242,7 +251,7 @@ const resolveSongAlbum = async (
   song: SearchResultItem,
   artist: SearchArtistProfile | null,
   initial: SearchCatalog,
-) => {
+): Promise<ResolvedSongAlbum | null> => {
   const albumCandidates = [...candidatesForKind(initial, 'album')];
   const searchQueries = unique(
     [
@@ -281,16 +290,18 @@ const resolveSongAlbum = async (
     return scoreItem(query, right) - scoreItem(query, left);
   });
 
+  const explicitArtist = artistRemainder(query, song.title) ? artist?.title ?? '' : '';
   for (const candidate of candidates.slice(0, 10)) {
     if (!candidate.browseId) continue;
     try {
       const album = await engine.getAlbumCatalog(candidate.browseId, candidate.title);
-      if (catalogContainsSong(album, song)) return albumItemFromCatalog(album);
+      if (!catalogContainsSong(album, song)) continue;
+      if (explicitArtist && !catalogMatchesArtist(album, explicitArtist)) continue;
+      return { item: albumItemFromCatalog(album), catalog: album };
     } catch {
       // One bad candidate must not kill search.
     }
   }
-  // A missing album is better than confidently showing an unrelated release.
   return null;
 };
 
@@ -321,6 +332,25 @@ const resolveSongArtist = async (
   return loadArtistProfile(engine, artistItem, catalog.featuredArtist);
 };
 
+const artistFromAlbum = async (
+  engine: CatalogYouTubeMusicAdapter,
+  catalog: AlbumCatalog,
+) => {
+  const main = catalog.artists[0];
+  if (!main?.browseId) return null;
+  return loadArtistProfile(
+    engine,
+    {
+      kind: 'artist',
+      title: main.name,
+      subtitle: '',
+      artwork: '',
+      browseId: main.browseId,
+    },
+    null,
+  );
+};
+
 export const detectSearchIntent = (catalog: SearchCatalog) => {
   const song = bestForKind(catalog.query, catalog, 'song');
   const album = bestForKind(catalog.query, catalog, 'album');
@@ -348,15 +378,24 @@ export const resolveSearchFocus = async (
   if (!intent || intent.kind === 'artist') return null;
 
   if (intent.kind === 'song') {
-    const artist = await resolveSongArtist(engine, catalog.query, intent.item, catalog);
-    const album = await resolveSongAlbum(
+    let artist = await resolveSongArtist(engine, catalog.query, intent.item, catalog);
+    const resolvedAlbum = await resolveSongAlbum(
       engine,
       catalog.query,
       intent.item,
       artist,
       catalog,
     );
-    return { kind: 'song', song: intent.item, album, artist };
+    if (resolvedAlbum) {
+      const verifiedArtist = await artistFromAlbum(engine, resolvedAlbum.catalog);
+      if (verifiedArtist) artist = verifiedArtist;
+    }
+    return {
+      kind: 'song',
+      song: intent.item,
+      album: resolvedAlbum?.item ?? null,
+      artist,
+    };
   }
 
   if (!intent.item.browseId) return null;
@@ -366,21 +405,8 @@ export const resolveSearchFocus = async (
       intent.item.title,
     );
     const album = albumItemFromCatalog(albumCatalog);
-    const mainArtist = albumCatalog.artists[0];
-    let artist: SearchArtistProfile | null = null;
-    if (mainArtist?.browseId) {
-      artist = await loadArtistProfile(
-        engine,
-        {
-          kind: 'artist',
-          title: mainArtist.name,
-          subtitle: '',
-          artwork: '',
-          browseId: mainArtist.browseId,
-        },
-        null,
-      );
-    } else {
+    let artist = await artistFromAlbum(engine, albumCatalog);
+    if (!artist) {
       const candidate = bestForKind(catalog.query, catalog, 'artist');
       artist = await loadArtistProfile(
         engine,
