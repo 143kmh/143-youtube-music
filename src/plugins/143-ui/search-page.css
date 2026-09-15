@@ -501,6 +501,10 @@
   margin-bottom: 30px;
 }
 
+.ui143-search-focus-grid.is-song {
+  min-height: 168px;
+}
+
 .ui143-search-focus-grid.is-album {
   grid-template-columns: minmax(220px, 0.8fr) minmax(220px, 0.8fr) minmax(420px, 1.8fr);
 }
@@ -524,6 +528,12 @@
     background 120ms ease,
     transform 120ms ease,
     box-shadow 120ms ease;
+}
+
+.ui143-search-focus-grid.is-song .ui143-search-focus-card {
+  height: 168px;
+  grid-template-columns: 126px minmax(0, 1fr);
+  grid-template-rows: 1fr;
 }
 
 .ui143-search-focus-card:hover {
@@ -565,9 +575,22 @@
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.3);
 }
 
+.ui143-search-focus-grid.is-song .ui143-search-focus-art.is-round img {
+  width: 104px;
+  height: 104px;
+}
+
 .ui143-search-focus-copy {
   min-width: 0;
   padding: 15px 17px 17px;
+}
+
+.ui143-search-focus-grid.is-song .ui143-search-focus-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 15px 16px;
 }
 
 .ui143-search-focus-label {
@@ -590,6 +613,10 @@
   letter-spacing: -0.035em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ui143-search-focus-grid.is-song .ui143-search-focus-copy > strong {
+  font-size: clamp(17px, 1.2vw, 22px);
 }
 
 .ui143-search-focus-copy .ui143-search-now-playing {
@@ -676,6 +703,10 @@ html[data-143-ui] .image.ytmusic-immersive-header-renderer {
   .ui143-search-focus-grid,
   .ui143-search-focus-grid.is-album {
     grid-template-columns: 1fr;
+  }
+
+  .ui143-search-focus-grid.is-song .ui143-search-focus-card {
+    grid-template-columns: 104px minmax(0, 1fr);
   }
 
   .ui143-search-focus-grid.is-album > .ui143-search-top-tracks {
