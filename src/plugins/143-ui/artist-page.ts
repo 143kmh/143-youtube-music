@@ -1,3 +1,9 @@
+import {
+  getArtistLibraryState,
+  setArtistLibraryState,
+} from './library-favorites';
+
+import type { ArtistLibraryState } from './library-favorites';
 import type { PlaybackContextAdapter } from './playback-context';
 import type { SearchArtistProfile, SearchResultItem } from './youtube-music';
 import type { ArtistCatalog } from './youtube-music-catalog';
@@ -130,7 +136,66 @@ export const mountArtistPage = (
     return button;
   };
 
-  const renderHero = (profile: SearchArtistProfile, fallbackName: string) => {
+  const artistLibraryButton = (artist: ArtistRef) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ui143-artist-library-action';
+    button.textContent = 'Follow';
+    button.disabled = true;
+
+    let state: ArtistLibraryState | null = null;
+    let busy = false;
+    const pageId = artist.browseId;
+
+    const renderState = () => {
+      if (!state) {
+        button.textContent = 'Follow';
+        button.disabled = true;
+        button.classList.remove('is-saved');
+        return;
+      }
+      button.textContent = state.saved ? '✓ Following' : '+ Follow';
+      button.disabled = busy;
+      button.classList.toggle('is-saved', state.saved);
+      button.setAttribute('aria-pressed', String(state.saved));
+    };
+
+    void getArtistLibraryState(artist.browseId)
+      .then((next) => {
+        if (current?.browseId !== pageId) return;
+        state = next;
+        renderState();
+      })
+      .catch((error) => {
+        console.warn('[143 Music] Could not read artist library state', error);
+        if (current?.browseId !== pageId) return;
+        button.textContent = '+ Follow';
+        button.disabled = false;
+      });
+
+    button.addEventListener('click', async () => {
+      if (busy) return;
+      try {
+        if (!state) state = await getArtistLibraryState(artist.browseId);
+        if (current?.browseId !== pageId) return;
+        busy = true;
+        renderState();
+        const desired = !state.saved;
+        await setArtistLibraryState(state, desired);
+        if (current?.browseId !== pageId) return;
+        state = { ...state, saved: desired };
+      } catch (error) {
+        console.error('[143 Music] Could not update artist library state', error);
+      } finally {
+        busy = false;
+        if (current?.browseId === pageId) renderState();
+      }
+    });
+
+    return button;
+  };
+
+  const renderHero = (profile: SearchArtistProfile, artist: ArtistRef) => {
     const hero = document.createElement('section');
     hero.className = 'ui143-artist-hero';
     if (profile.banner) {
@@ -156,7 +221,7 @@ export const mountArtistPage = (
     const label = document.createElement('span');
     label.textContent = 'Artist';
     const title = document.createElement('h1');
-    title.textContent = profile.title || fallbackName;
+    title.textContent = profile.title || artist.name;
     const metrics = document.createElement('div');
     metrics.className = 'ui143-artist-metrics';
     for (const metric of [profile.subscribers, profile.monthlyListeners]) {
@@ -165,7 +230,10 @@ export const mountArtistPage = (
       span.textContent = metric;
       metrics.append(span);
     }
-    copy.append(label, title, metrics);
+    const actions = document.createElement('div');
+    actions.className = 'ui143-artist-hero-actions';
+    actions.append(artistLibraryButton(artist));
+    copy.append(label, title, metrics, actions);
     identity.append(copy);
     hero.append(shade, identity);
     return hero;
@@ -183,6 +251,8 @@ export const mountArtistPage = (
       row.type = 'button';
       row.className = 'ui143-artist-track';
       if (item.videoId) row.dataset.videoId = item.videoId;
+      row.dataset.trackTitle = item.title;
+      row.dataset.trackSubtitle = item.subtitle;
       row.addEventListener('click', () => {
         if (!current) return;
         engine.playContext(items, index, {
@@ -240,7 +310,7 @@ export const mountArtistPage = (
 
   const render = (artist: ArtistRef, catalog: ArtistCatalog) => {
     content.replaceChildren();
-    content.append(renderHero(catalog.profile, artist.name));
+    content.append(renderHero(catalog.profile, artist));
     if (catalog.topTracks.length)
       content.append(renderTopTracks(catalog.topTracks));
     if (catalog.albums.length)
