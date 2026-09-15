@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { Menu, app, nativeImage } from 'electron';
@@ -24,6 +25,39 @@ const DEFAULT_DISCORD_SETTINGS: DiscordPresenceSettings = {
   clearOnPause: true,
   pauseTimeoutMinutes: 10,
   playButton: true,
+};
+
+const createSingleImageIco = (png: Buffer, width: number, height: number) => {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+
+  const entry = Buffer.alloc(16);
+  entry.writeUInt8(width >= 256 ? 0 : width, 0);
+  entry.writeUInt8(height >= 256 ? 0 : height, 1);
+  entry.writeUInt8(0, 2);
+  entry.writeUInt8(0, 3);
+  entry.writeUInt16LE(1, 4);
+  entry.writeUInt16LE(32, 6);
+  entry.writeUInt32LE(png.length, 8);
+  entry.writeUInt32LE(header.length + entry.length, 12);
+
+  return Buffer.concat([header, entry, png]);
+};
+
+const ensureWindowsTaskbarIcon = () => {
+  const sourcePath = path.resolve('assets/generated/icons/win/icon.png');
+  const source = nativeImage.createFromPath(sourcePath);
+  if (source.isEmpty()) throw new Error(`Could not load ${sourcePath}`);
+
+  const image = source.resize({ width: 64, height: 64, quality: 'best' });
+  const png = image.toPNG();
+  const ico = createSingleImageIco(png, 64, 64);
+  const iconPath = path.join(app.getPath('userData'), '143-music-taskbar.ico');
+  fs.writeFileSync(iconPath, ico);
+
+  return { iconPath, image };
 };
 
 export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
@@ -169,17 +203,14 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
 
   if (process.platform === 'win32') {
     try {
-      // The upstream main process assigns Pear's AppUserModelID. Override it
-      // before this hidden window reaches ready-to-show so Windows does not
-      // group the dev process under electron.exe / Pear.
       app.setAppUserModelId(WINDOWS_APP_ID);
 
-      const iconPath = path.resolve('assets/generated/icons/win/icon.png');
-      const icon = nativeImage.createFromPath(iconPath);
-      if (!icon.isEmpty()) window.setIcon(icon);
-
+      const { iconPath, image } = ensureWindowsTaskbarIcon();
+      window.setIcon(image);
       window.setAppDetails({
         appId: WINDOWS_APP_ID,
+        appIconPath: iconPath,
+        appIconIndex: 0,
         relaunchCommand: process.execPath,
         relaunchDisplayName: 'YouTube Music',
       });
