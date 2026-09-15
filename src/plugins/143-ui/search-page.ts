@@ -158,7 +158,7 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
 
   const openItem = (item: SearchResultItem) => {
     if (!engine.openSearchResult(item)) return;
-    setVisible(false);
+    if (!item.videoId) setVisible(false);
   };
 
   const resultButton = (item: SearchResultItem, className: string) => {
@@ -279,7 +279,7 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
 
     const list = document.createElement('div');
     list.className = 'ui143-search-top-track-list';
-    for (const [index, item] of items.slice(0, 5).entries()) {
+    for (const [index, item] of items.slice(0, 10).entries()) {
       const row = resultButton(item, 'ui143-search-top-track');
       const number = document.createElement('span');
       number.className = 'ui143-search-track-number';
@@ -408,7 +408,7 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
         }),
       );
 
-    const moreSongs = rankedSongs.slice(5);
+    const moreSongs = rankedSongs.slice(10);
     if (moreSongs.length) content.append(renderSongs('More tracks', moreSongs));
 
     if (results.artists.length)
