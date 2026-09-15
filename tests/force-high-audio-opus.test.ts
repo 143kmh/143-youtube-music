@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-import { patchPlayerResponseForOpus } from '../src/plugins/force-high-audio-quality/player-script-patch';
-import { interceptPlayerVars } from '../src/plugins/force-high-audio-quality/player-vars';
+import { patchPlayerResponseForOpus } from '../src/features/force-high-audio-quality/player-script-patch';
+import { interceptPlayerVars } from '../src/features/force-high-audio-quality/player-vars';
 
 test('experimental Opus mode clears the AAC-high bias without enabling low quality', () => {
   let received: unknown;
