@@ -37,6 +37,15 @@ const looseArtistInSubtitle = (item: SearchResultItem, artist: string) => {
   return !key || normalize(item.subtitle).includes(key);
 };
 
+const withArtistHint = (item: SearchResultItem, artist: string) => {
+  if (!artist || item.kind !== 'song' || looseArtistInSubtitle(item, artist))
+    return item;
+  return {
+    ...item,
+    subtitle: item.subtitle ? `${item.subtitle} • ${artist}` : artist,
+  };
+};
+
 const uniqueItems = (items: readonly SearchResultItem[]) => {
   const result: SearchResultItem[] = [];
   const seen = new Set<string>();
@@ -58,12 +67,9 @@ const cleanCatalog = (catalog: SearchCatalog, artist: string): SearchCatalog => 
       ? catalog.topResult
       : null,
   songs: uniqueItems(
-    catalog.songs.filter(
-      (item) =>
-        item.kind === 'song' &&
-        !isEpisodeLike(item) &&
-        looseArtistInSubtitle(item, artist),
-    ),
+    catalog.songs
+      .filter((item) => item.kind === 'song' && !isEpisodeLike(item))
+      .map((item) => withArtistHint(item, artist)),
   ),
   albums: uniqueItems(
     catalog.albums.filter(
@@ -96,12 +102,9 @@ const mergeCatalogs = (
   const songs = uniqueItems([
     ...base.songs,
     ...extras.flatMap((catalog) => catalog.songs),
-  ]).filter(
-    (item) =>
-      item.kind === 'song' &&
-      !isEpisodeLike(item) &&
-      looseArtistInSubtitle(item, artist),
-  );
+  ])
+    .filter((item) => item.kind === 'song' && !isEpisodeLike(item))
+    .map((item) => withArtistHint(item, artist));
   const albums = uniqueItems([
     ...base.albums,
     ...extras.flatMap((catalog) => catalog.albums),
