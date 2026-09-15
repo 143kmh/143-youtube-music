@@ -25,11 +25,31 @@ const DEFAULT_DISCORD_SETTINGS: DiscordPresenceSettings = {
 
 export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
   const presence = new DiscordRichPresence();
+  const channels = [
+    '143:settings:get',
+    '143:settings:set',
+    '143:discord:update',
+    '143:window',
+  ] as const;
+
+  // Make backend reloads idempotent. A stale handler must never prevent the
+  // whole 143 desktop backend from starting.
+  for (const channel of channels) ipc.removeHandler(channel);
+
   const discordSettings = (): DiscordPresenceSettings => ({
     ...DEFAULT_DISCORD_SETTINGS,
     ...(config.get('options.discordRichPresence') ?? {}),
     applicationId: DISCORD_APPLICATION_ID,
   });
+
+  const applyDiscordSettings = (settings: DiscordPresenceSettings) => {
+    try {
+      presence.applySettings(settings);
+    } catch (error) {
+      console.warn('[143 Music] Discord presence initialization failed', error);
+    }
+  };
+
   const updateDiscordSettings = (patch: Partial<DiscordPresenceSettings>) => {
     const next = {
       ...discordSettings(),
@@ -37,10 +57,8 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
       applicationId: DISCORD_APPLICATION_ID,
     };
     config.set('options.discordRichPresence', next);
-    presence.applySettings(next);
+    applyDiscordSettings(next);
   };
-
-  presence.applySettings(discordSettings());
 
   const read = () => {
     const discord = discordSettings();
@@ -82,8 +100,7 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     } else if (key === 'discordEnabled' && typeof value === 'boolean') {
       updateDiscordSettings({ enabled: value });
     } else if (key === 'discordApplicationId' && typeof value === 'string') {
-      // Kept for compatibility with older renderer builds. The app identity is
-      // bundled with 143 Music and cannot drift through user config.
+      // Compatibility with older renderer builds. The app identity is bundled.
       updateDiscordSettings({ applicationId: DISCORD_APPLICATION_ID });
     } else if (
       key === 'discordAutoReconnect' &&
@@ -123,7 +140,11 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
   });
 
   ipc.handle('143:discord:update', (track: DiscordPresenceTrack) => {
-    presence.updateTrack(track);
+    try {
+      presence.updateTrack(track);
+    } catch (error) {
+      console.warn('[143 Music] Discord presence update failed', error);
+    }
     return presence.getStatus();
   });
 
@@ -139,14 +160,12 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
       window.webContents.send('peard:force-high-audio-quality:inspect');
   });
 
+  // Discord is optional. Initialize it only after the core IPC surface exists,
+  // so an RPC failure can never take settings, lyrics, or window controls down.
+  applyDiscordSettings(discordSettings());
+
   return () => {
     presence.dispose();
-    for (const channel of [
-      '143:settings:get',
-      '143:settings:set',
-      '143:discord:update',
-      '143:window',
-    ])
-      ipc.removeHandler(channel);
+    for (const channel of channels) ipc.removeHandler(channel);
   };
 };
