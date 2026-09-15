@@ -62,6 +62,35 @@ const rankTracks = (items: readonly SearchResultItem[]) =>
     .sort((left, right) => right.plays - left.plays || left.index - right.index)
     .map(({ item }) => item);
 
+const albumYear = (item: SearchResultItem) => {
+  const years = `${item.subtitle} ${item.title}`
+    .match(/(?:19|20)\d{2}/gu)
+    ?.map(Number)
+    .filter((year) => year >= 1900 && year <= 2100);
+  return years?.length ? Math.max(...years) : -1;
+};
+
+const rankAlbums = (items: readonly SearchResultItem[]) =>
+  items
+    .map((item, index) => ({ item, index, year: albumYear(item) }))
+    .sort((left, right) => right.year - left.year || left.index - right.index)
+    .map(({ item }) => item);
+
+const mergeAlbums = (...groups: readonly SearchResultItem[][]) => {
+  const result: SearchResultItem[] = [];
+  const seen = new Set<string>();
+  for (const items of groups) {
+    for (const item of items) {
+      if (item.kind !== 'album') continue;
+      const key = item.browseId ?? `${item.title}\u0000${item.subtitle}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(item);
+    }
+  }
+  return rankAlbums(result);
+};
+
 export type SearchPageController = ReturnType<typeof mountSearchPage>;
 
 export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
@@ -272,18 +301,19 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
   const renderCards = (
     titleText: string,
     items: readonly SearchResultItem[],
-    round = false,
+    options: { round?: boolean; className?: string; limit?: number } = {},
   ) => {
     const section = document.createElement('section');
-    section.className = 'ui143-search-section';
+    section.className = `ui143-search-section ${options.className ?? ''}`.trim();
     const heading = document.createElement('h2');
     heading.textContent = titleText;
     const grid = document.createElement('div');
     grid.className = 'ui143-search-card-grid';
-    for (const item of items.slice(0, 8)) {
+    const limit = options.limit ?? 8;
+    for (const item of items.slice(0, limit)) {
       const card = resultButton(item, 'ui143-search-card');
       const art = image(item, 'ui143-search-card-art');
-      if (round) art.classList.add('is-round');
+      if (options.round) art.classList.add('is-round');
       const name = document.createElement('strong');
       name.textContent = item.title;
       card.append(art, name, subtitle(item));
@@ -327,17 +357,43 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     content.append(hero);
 
     if (results.albums.length)
-      content.append(renderCards('Albums', results.albums));
+      content.append(
+        renderCards('Albums', rankAlbums(results.albums), {
+          className: 'ui143-search-albums',
+          limit: results.albums.length,
+        }),
+      );
 
     const moreSongs = rankedSongs.slice(5);
     if (moreSongs.length) content.append(renderSongs('More tracks', moreSongs));
 
     if (results.artists.length)
-      content.append(renderCards('Artists you may like', results.artists, true));
+      content.append(
+        renderCards('Artists you may like', results.artists, { round: true }),
+      );
     if (results.playlists.length)
       content.append(renderCards('Playlists', results.playlists));
     if (results.videos.length)
       content.append(renderCards('Videos', results.videos));
+  };
+
+  const enrichAlbums = async (results: SearchCatalog, current: number) => {
+    const artist = results.featuredArtist?.title.trim();
+    if (!artist) return results;
+
+    const queries = [`${artist} discography`, `${artist} альбомы`];
+    const settled = await Promise.allSettled(
+      queries.map((query) => engine.searchCatalog(query)),
+    );
+    if (current !== request) return results;
+
+    const extraAlbums = settled.flatMap((entry) =>
+      entry.status === 'fulfilled' ? [...entry.value.albums] : [],
+    );
+    const albums = mergeAlbums([...results.albums], extraAlbums);
+    return albums.length === results.albums.length
+      ? results
+      : { ...results, albums };
   };
 
   return {
@@ -349,9 +405,13 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
       setVisible(true);
       message('Searching…');
       try {
-        const results = await engine.searchCatalog(value);
+        const initial = await engine.searchCatalog(value);
         if (current !== request) return;
-        render(results);
+        render(initial);
+
+        const enriched = await enrichAlbums(initial, current);
+        if (current !== request || enriched === initial) return;
+        render(enriched);
       } catch (error) {
         if (current !== request) return;
         console.error('[143 Music] Search failed', error);
