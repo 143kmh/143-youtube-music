@@ -2,13 +2,13 @@ import { test, expect } from '@playwright/test';
 import {
   interceptPlayerVars,
   findMusicPlayerProxy,
-} from '../src/plugins/force-high-audio-quality/player-vars';
+} from '../src/features/force-high-audio-quality/player-vars';
 
-import { overrideAudioQuality } from '../src/plugins/force-high-audio-quality/preference';
+import { overrideAudioQuality } from '../src/features/force-high-audio-quality/preference';
 import {
   readAudioDiagnostics,
   readPlaybackDetails,
-} from '../src/plugins/force-high-audio-quality/diagnostics';
+} from '../src/features/force-high-audio-quality/diagnostics';
 
 test('native preference becomes high, preserves subscriber gate, and restores exactly', () => {
   const config = {
