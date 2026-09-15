@@ -1,5 +1,3 @@
-import { t } from '@/i18n';
-
 import type {
   BackendContext,
   PreloadContext,
@@ -70,7 +68,7 @@ type Options<Config extends PluginConfig> =
   | { ctx: 'preload'; context: PreloadContext<Config> }
   | { ctx: 'renderer'; context: RendererContext<Config> };
 
-export const startPlugin = async <Config extends PluginConfig>(
+export const startFeature = async <Config extends PluginConfig>(
   id: string,
   def: PluginDef<unknown, unknown, unknown, Config>,
   options: Options<Config>,
@@ -87,7 +85,6 @@ export const startPlugin = async <Config extends PluginConfig>(
         )?.start;
 
   try {
-    // HACK: for bind 'this' to context
     const defContext = def[options.ctx];
     if (defContext && typeof defContext !== 'function') {
       Object.entries(defContext).forEach(([key, value]) => {
@@ -99,7 +96,6 @@ export const startPlugin = async <Config extends PluginConfig>(
     }
 
     const start = performance.now();
-
     await lifecycle?.call(
       defContext,
       options.context as Config & typeof options.context,
@@ -107,28 +103,21 @@ export const startPlugin = async <Config extends PluginConfig>(
 
     console.log(
       LoggerPrefix,
-      t('common.console.plugins.executed-at-ms', {
-        pluginName: id,
-        contextName: options.ctx,
-        ms: (performance.now() - start).toFixed(2),
-      }),
+      `Core feature ${id}::${options.ctx} started in ${(performance.now() - start).toFixed(2)}ms`,
     );
 
     return lifecycle ? true : null;
   } catch (err) {
     console.error(
       LoggerPrefix,
-      t('common.console.plugins.execute-failed', {
-        pluginName: id,
-        contextName: options.ctx,
-      }),
+      `Core feature ${id}::${options.ctx} failed to start`,
     );
     console.trace(err);
     return false;
   }
 };
 
-export const stopPlugin = async <Config extends PluginConfig>(
+export const stopFeature = async <Config extends PluginConfig>(
   id: string,
   def: PluginDef<unknown, unknown, unknown, Config>,
   options: Options<Config>,
@@ -151,21 +140,14 @@ export const stopPlugin = async <Config extends PluginConfig>(
 
     console.log(
       LoggerPrefix,
-      t('common.console.plugins.executed-at-ms', {
-        pluginName: id,
-        contextName: options.ctx,
-        ms: performance.now() - start,
-      }),
+      `Core feature ${id}::${options.ctx} stopped in ${(performance.now() - start).toFixed(2)}ms`,
     );
 
     return true;
   } catch (err) {
     console.error(
       LoggerPrefix,
-      t('common.console.plugins.execute-failed', {
-        pluginName: id,
-        contextName: options.ctx,
-      }),
+      `Core feature ${id}::${options.ctx} failed to stop`,
     );
     console.trace(err);
     return false;
