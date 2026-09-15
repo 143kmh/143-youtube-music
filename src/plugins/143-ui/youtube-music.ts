@@ -23,20 +23,56 @@ export type PlaylistEntry = {
   playlistId: string;
 };
 
+export type SearchResultKind =
+  | 'song'
+  | 'video'
+  | 'artist'
+  | 'album'
+  | 'playlist';
+
+export type SearchResultItem = Readonly<{
+  kind: SearchResultKind;
+  title: string;
+  subtitle: string;
+  artwork: string;
+  videoId?: string;
+  browseId?: string;
+}>;
+
+export type SearchCatalog = Readonly<{
+  query: string;
+  topResult: SearchResultItem | null;
+  songs: readonly SearchResultItem[];
+  artists: readonly SearchResultItem[];
+  albums: readonly SearchResultItem[];
+  playlists: readonly SearchResultItem[];
+  videos: readonly SearchResultItem[];
+}>;
+
 type UnknownRecord = Record<string, unknown>;
 
-type TextRun = {
-  text?: string;
-  navigationEndpoint?: {
-    browseEndpoint?: {
-      browseId?: string;
-      browseEndpointContextSupportedConfigs?: {
-        browseEndpointContextMusicConfig?: {
-          pageType?: string;
-        };
+type NavigationEndpoint = {
+  watchEndpoint?: {
+    videoId?: string;
+    watchEndpointMusicSupportedConfigs?: {
+      watchEndpointMusicConfig?: {
+        musicVideoType?: string;
       };
     };
   };
+  browseEndpoint?: {
+    browseId?: string;
+    browseEndpointContextSupportedConfigs?: {
+      browseEndpointContextMusicConfig?: {
+        pageType?: string;
+      };
+    };
+  };
+};
+
+type TextRun = {
+  text?: string;
+  navigationEndpoint?: NavigationEndpoint;
 };
 
 type NativeSearchBox = HTMLElement & {
@@ -106,7 +142,6 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       cancelable: true,
       composed: true,
     });
-    // YouTube Music has used both key/keyCode checks across player builds.
     Object.defineProperty(enter, 'keyCode', { get: () => 13 });
     Object.defineProperty(enter, 'which', { get: () => 13 });
     input.dispatchEvent(enter);
@@ -169,16 +204,12 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
 
     if (result.length > 0) return result;
 
-    // Queue data is the best source because it contains every credited artist.
-    // Keep a clickable primary-artist fallback for tracks where the queue has not
-    // materialized yet.
     const response = playerApi()?.getPlayerResponse?.() as unknown as
       | { videoDetails?: { author?: string; channelId?: string } }
       | undefined;
     const name = response?.videoDetails?.author?.trim();
     const browseId = response?.videoDetails?.channelId;
     if (name && browseId) return [{ name, browseId }];
-    // Restrict the fallback to the current player bar, never title-matched search rows.
     for (const link of nativeBar()?.querySelectorAll<HTMLAnchorElement>(
       'a[href]',
     ) ?? []) {
@@ -231,6 +262,13 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     if (!isRecord(value) || !Array.isArray(value.runs)) return [];
     return value.runs.filter(isRecord) as TextRun[];
   };
+
+  const textFromRuns = (runs: readonly TextRun[]) =>
+    runs
+      .map((run) => run.text ?? '')
+      .join('')
+      .replaceAll(/\s+/g, ' ')
+      .trim();
 
   const collectArtistRuns = (root: unknown): ArtistEntry[] => {
     const result: ArtistEntry[] = [];
@@ -306,17 +344,24 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     return request;
   };
 
-  const candidateRuns = (candidate: UnknownRecord): TextRun[] => {
-    const runs = [...readRuns(candidate.title)];
+  const flexRunGroups = (candidate: UnknownRecord) => {
+    const groups: TextRun[][] = [];
     const flexColumns = candidate.flexColumns;
-    if (!Array.isArray(flexColumns)) return runs;
+    if (!Array.isArray(flexColumns)) return groups;
 
     for (const column of flexColumns) {
       if (!isRecord(column)) continue;
       const renderer = column.musicResponsiveListItemFlexColumnRenderer;
       if (!isRecord(renderer)) continue;
-      runs.push(...readRuns(renderer.text));
+      const runs = readRuns(renderer.text);
+      if (runs.length) groups.push(runs);
     }
+    return groups;
+  };
+
+  const candidateRuns = (candidate: UnknownRecord): TextRun[] => {
+    const runs = [...readRuns(candidate.title)];
+    for (const group of flexRunGroups(candidate)) runs.push(...group);
     return runs;
   };
 
@@ -371,6 +416,170 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
 
     visit(root);
     return result;
+  };
+
+  const endpointFrom = (value: unknown): NavigationEndpoint | null => {
+    if (!isRecord(value)) return null;
+    if (isRecord(value.watchEndpoint) || isRecord(value.browseEndpoint))
+      return value as NavigationEndpoint;
+    return null;
+  };
+
+  const endpointPageType = (endpoint: NavigationEndpoint | null) =>
+    endpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs
+      ?.browseEndpointContextMusicConfig?.pageType ?? '';
+
+  const endpointVideoType = (endpoint: NavigationEndpoint | null) =>
+    endpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs
+      ?.watchEndpointMusicConfig?.musicVideoType ?? '';
+
+  const deepEndpoint = (root: unknown): NavigationEndpoint | null => {
+    let found: NavigationEndpoint | null = null;
+    const visit = (value: unknown) => {
+      if (found) return;
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (!isRecord(value)) return;
+      const direct = endpointFrom(value);
+      if (direct) {
+        found = direct;
+        return;
+      }
+      Object.values(value).forEach(visit);
+    };
+    visit(root);
+    return found;
+  };
+
+  const bestThumbnail = (root: unknown) => {
+    let best = '';
+    let bestArea = -1;
+    const visit = (value: unknown) => {
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (!isRecord(value)) return;
+      if (Array.isArray(value.thumbnails)) {
+        for (const thumbnail of value.thumbnails) {
+          if (!isRecord(thumbnail) || typeof thumbnail.url !== 'string') continue;
+          const width = typeof thumbnail.width === 'number' ? thumbnail.width : 0;
+          const height = typeof thumbnail.height === 'number' ? thumbnail.height : 0;
+          const area = width * height;
+          if (!best || area >= bestArea) {
+            best = thumbnail.url;
+            bestArea = area;
+          }
+        }
+      }
+      Object.values(value).forEach(visit);
+    };
+    visit(root);
+    return best;
+  };
+
+  const searchItemFromCandidate = (
+    candidate: UnknownRecord,
+  ): SearchResultItem | null => {
+    const titleRuns = readRuns(candidate.title);
+    const flexGroups = flexRunGroups(candidate);
+    const effectiveTitleRuns = titleRuns.length ? titleRuns : (flexGroups[0] ?? []);
+    const title =
+      textFromRuns(effectiveTitleRuns) ||
+      textFromRuns(candidateRuns(candidate));
+    if (!title) return null;
+
+    const explicitSubtitle = textFromRuns(readRuns(candidate.subtitle));
+    const subtitleGroups = titleRuns.length ? flexGroups : flexGroups.slice(1);
+    const subtitle =
+      explicitSubtitle ||
+      subtitleGroups
+        .map(textFromRuns)
+        .filter(Boolean)
+        .join(' • ');
+
+    const runEndpoint = effectiveTitleRuns
+      .map((run) => run.navigationEndpoint ?? null)
+      .find(Boolean) ?? null;
+    const candidateEndpoint =
+      endpointFrom(candidate.navigationEndpoint) ??
+      endpointFrom(candidate.onTap) ??
+      runEndpoint ??
+      deepEndpoint(candidate);
+
+    const playlistData = isRecord(candidate.playlistItemData)
+      ? candidate.playlistItemData
+      : null;
+    const videoId =
+      candidateEndpoint?.watchEndpoint?.videoId ??
+      (typeof playlistData?.videoId === 'string' ? playlistData.videoId : undefined);
+    const browseId = candidateEndpoint?.browseEndpoint?.browseId;
+    const pageType = endpointPageType(candidateEndpoint);
+    const videoType = endpointVideoType(candidateEndpoint);
+
+    let kind: SearchResultKind | null = null;
+    if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') kind = 'artist';
+    else if (pageType === 'MUSIC_PAGE_TYPE_ALBUM') kind = 'album';
+    else if (pageType === 'MUSIC_PAGE_TYPE_PLAYLIST') kind = 'playlist';
+    else if (videoId)
+      kind = /OMV|UGC/i.test(videoType) ? 'video' : 'song';
+    else if (browseId?.startsWith('UC')) kind = 'artist';
+    else if (browseId?.startsWith('VL')) kind = 'playlist';
+    if (!kind) return null;
+
+    return {
+      kind,
+      title,
+      subtitle,
+      artwork: bestThumbnail(candidate),
+      ...(videoId ? { videoId } : {}),
+      ...(browseId ? { browseId } : {}),
+    };
+  };
+
+  const collectSearchCatalog = (root: unknown, query: string): SearchCatalog => {
+    let topResult: SearchResultItem | null = null;
+    const songs: SearchResultItem[] = [];
+    const artists: SearchResultItem[] = [];
+    const albums: SearchResultItem[] = [];
+    const playlists: SearchResultItem[] = [];
+    const videos: SearchResultItem[] = [];
+    const seen = new Set<string>();
+
+    const add = (candidate: unknown, top = false) => {
+      if (!isRecord(candidate)) return;
+      const item = searchItemFromCandidate(candidate);
+      if (!item) return;
+      const key = `${item.kind}:${item.videoId ?? item.browseId ?? item.title}`;
+      if (top) {
+        topResult ??= item;
+        return;
+      }
+      if (seen.has(key)) return;
+      seen.add(key);
+      if (item.kind === 'song') songs.push(item);
+      else if (item.kind === 'artist') artists.push(item);
+      else if (item.kind === 'album') albums.push(item);
+      else if (item.kind === 'playlist') playlists.push(item);
+      else videos.push(item);
+    };
+
+    const visit = (value: unknown) => {
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (!isRecord(value)) return;
+      add(value.musicCardShelfRenderer, true);
+      add(value.musicResponsiveListItemRenderer);
+      add(value.musicTwoRowItemRenderer);
+      Object.values(value).forEach(visit);
+    };
+    visit(root);
+
+    return { query, topResult, songs, artists, albums, playlists, videos };
   };
 
   type StatefulElement = HTMLElement & {
@@ -598,10 +807,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       ),
       queue,
       queueActive: queueTab()?.getAttribute('aria-selected') === 'true',
-      // 143 karaoke can use LRCLib even when YouTube's native lyrics are absent.
       lyricsAvailable: Boolean(id),
-      // A hidden native tab may stay selected while the user browses elsewhere.
-      // Only mark Karaoke active when the actual now-playing lyrics surface exists.
       lyricsActive: lyricsActuallyActive(),
     });
   };
@@ -662,7 +868,6 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     start() {
       if (disposed || timer !== undefined) return;
       refresh();
-      // One bounded sampler also detects late/replaced Polymer nodes and API readiness.
       timer = window.setInterval(refresh, 100);
     },
     subscribe(listener: (state: MusicState) => void) {
@@ -691,13 +896,46 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     search(query: string) {
       const value = query.trim();
       if (!value) return false;
-      // app.navigate('/search?...') can leave current YT Music builds on an
-      // empty response surface. Drive the existing native search box instead so
-      // YouTube owns the search endpoint/router transition and playback survives.
       if (submitNativeSearch(value)) return true;
-      // Tests/late startup may not have the native box yet; keep the old SPA
-      // route as a last-resort fallback rather than doing a full page reload.
       return navigate('/search?q=' + encodeURIComponent(value));
+    },
+    async searchCatalog(query: string): Promise<SearchCatalog> {
+      const value = query.trim();
+      if (!value)
+        return {
+          query: '',
+          topResult: null,
+          songs: [],
+          artists: [],
+          albums: [],
+          playlists: [],
+          videos: [],
+        };
+      const response = await requireApp().networkManager.fetch<
+        unknown,
+        { query: string; suggestStats?: unknown }
+      >('/search', {
+        query: value,
+        suggestStats: nativeSearchBox()?.getSearchboxStats?.(),
+      });
+      return collectSearchCatalog(response, value);
+    },
+    openSearchResult(item: SearchResultItem) {
+      if (item.videoId)
+        return navigate('/watch?v=' + encodeURIComponent(item.videoId));
+      if (!item.browseId) return false;
+      if (item.kind === 'artist' || item.browseId.startsWith('UC'))
+        return navigate(
+          (item.browseId.startsWith('UC') ? '/channel/' : '/browse/') +
+            encodeURIComponent(item.browseId),
+        );
+      if (item.kind === 'playlist') {
+        const playlistId = item.browseId.startsWith('VL')
+          ? item.browseId.slice(2)
+          : item.browseId;
+        return navigate('/playlist?list=' + encodeURIComponent(playlistId));
+      }
+      return navigate('/browse/' + encodeURIComponent(item.browseId));
     },
     navigateArtist(browseId: string) {
       return navigate(
@@ -787,9 +1025,6 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       }
 
       const request = ++lyricsRequest;
-      // The native tabs can remain mounted and selected while the user is on an
-      // artist/album/search page. Opening the cover first restores the actual
-      // now-playing surface; only then is selecting Lyrics meaningful.
       if (!isNowPlayingRoute() || !lyricsRenderer())
         nativeClick('.thumbnail-image-wrapper', '#thumbnail', '.thumbnail');
 
