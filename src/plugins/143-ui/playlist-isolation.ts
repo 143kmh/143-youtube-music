@@ -72,7 +72,7 @@ const continuationTokens = (root: unknown) => {
 
 const isolatePlaylistResponse = (response: unknown) => {
   if (!isRecord(response) && !Array.isArray(response))
-    return { response, tokens: new Set<string>() };
+    return { response, tokens: new Set<string>(), shelfFound: false };
 
   let copy: unknown;
   try {
@@ -85,7 +85,8 @@ const isolatePlaylistResponse = (response: unknown) => {
     'musicPlaylistShelfRenderer',
     'musicPlaylistShelfContinuation',
   ]);
-  if (!shelf) return { response: copy, tokens: new Set<string>() };
+  if (!shelf)
+    return { response: copy, tokens: new Set<string>(), shelfFound: false };
 
   const prune = (value: unknown, insideShelf = false) => {
     if (Array.isArray(value)) {
@@ -105,7 +106,11 @@ const isolatePlaylistResponse = (response: unknown) => {
   };
 
   prune(copy);
-  return { response: copy, tokens: continuationTokens(shelf) };
+  return {
+    response: copy,
+    tokens: continuationTokens(shelf),
+    shelfFound: true,
+  };
 };
 
 export const installPlaylistIsolation = () => {
@@ -148,6 +153,7 @@ export const installPlaylistIsolation = () => {
 
       if (playlistContinuation) playlistContinuations.delete(continuation);
       const isolated = isolatePlaylistResponse(result);
+      if (playlistContinuation && !isolated.shelfFound) return {};
       for (const token of isolated.tokens) playlistContinuations.add(token);
       return isolated.response;
     };
