@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { Window } from 'happy-dom';
-import { createYouTubeMusicAdapter } from '../src/plugins/143-ui/youtube-music';
-import { mountPlayer } from '../src/plugins/143-ui/player';
-import { mountPlaylistPicker } from '../src/plugins/143-ui/playlist-picker';
-import { mountInteractions } from '../src/plugins/143-ui/interactions';
+import { createYouTubeMusicAdapter } from '../src/features/143-ui/youtube-music';
+import { mountPlayer } from '../src/features/143-ui/player';
+import { mountPlaylistPicker } from '../src/features/143-ui/playlist-picker';
+import { mountInteractions } from '../src/features/143-ui/interactions';
 
 let dom: Window;
 let engine: ReturnType<typeof createYouTubeMusicAdapter>;
@@ -466,7 +466,7 @@ test('UI has no engine selectors, network calls or full-page internal navigation
     'index.ts',
   ]) {
     const source = readFileSync(
-      new URL('../src/plugins/143-ui/' + file, import.meta.url),
+      new URL('../src/features/143-ui/' + file, import.meta.url),
       'utf8',
     );
     expect(source).not.toMatch(
