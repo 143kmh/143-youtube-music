@@ -1,5 +1,5 @@
 import workspaceStyle from './playlist-workspace.css?inline';
-import { responseData, validatePlaylistEdit } from './native-player';
+import { validatePlaylistEdit } from './native-player';
 
 import type { PlaybackContextAdapter } from './playback-context';
 import type { ArtistEntry, PlaylistEntry, SearchResultItem } from './youtube-music';
