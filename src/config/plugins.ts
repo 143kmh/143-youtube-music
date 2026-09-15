@@ -7,11 +7,7 @@ import { store } from './store';
 
 import type { PluginConfig } from '@/types/plugins';
 
-const allowedPluginIds = new Set([
-  '143-ui',
-  'force-high-audio-quality',
-  'discord',
-]);
+const allowedPluginIds = new Set(['143-ui', 'force-high-audio-quality']);
 
 export function isAllowedPlugin(plugin: string) {
   return allowedPluginIds.has(plugin);
