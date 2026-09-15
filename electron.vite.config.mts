@@ -14,7 +14,6 @@ import viteResolve from 'vite-plugin-resolve';
 import solidPlugin from 'vite-plugin-solid';
 
 import { i18nImporter } from './vite-plugins/i18n-importer.mjs';
-import { pluginVirtualModuleGenerator } from './vite-plugins/plugin-importer.mjs';
 import pluginLoader from './vite-plugins/plugin-loader.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,7 +36,6 @@ export default defineConfig(({ mode }) => {
       pluginLoader('backend'),
       viteResolve({
         'virtual:i18n': i18nImporter(),
-        'virtual:plugins': pluginVirtualModuleGenerator('main'),
       }),
     ],
     publicDir: 'assets',
