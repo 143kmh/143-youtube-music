@@ -6,7 +6,7 @@ import { setConfig, setCurrentTime } from './renderer';
 import { fetchLyrics } from './store';
 import { selectors, tabStates } from './utils';
 
-import type { SyncedLyricsPluginConfig } from '../types';
+import type { SyncedLyricsFeatureConfig } from '../types';
 import type { SongInfo } from '@/providers/song-info';
 import type { RendererContext } from '@/types/contexts';
 import type { MusicPlayer } from '@/types/music-player';
@@ -24,7 +24,7 @@ export const renderer = createRenderer<
     videoDataChange: () => Promise<void>;
     updateTimestampInterval?: NodeJS.Timeout | string | number;
   },
-  SyncedLyricsPluginConfig
+  SyncedLyricsFeatureConfig
 >({
   onConfigChange(newConfig) {
     setConfig(newConfig);
@@ -71,7 +71,7 @@ export const renderer = createRenderer<
     header.removeAttribute('disabled');
   },
 
-  async start(ctx: RendererContext<SyncedLyricsPluginConfig>) {
+  async start(ctx: RendererContext<SyncedLyricsFeatureConfig>) {
     netFetch = ctx.ipc.invoke.bind(ctx.ipc, 'synced-lyrics:fetch');
     setConfig(await ctx.getConfig());
 
