@@ -22,6 +22,11 @@ const isEpisodeLike = (item: SearchResultItem) => {
   );
 };
 
+const isVariantVideoQuery = (query: string) =>
+  /(?:^|\s)(?:sped\s*up|speed\s*up|speedup|slowed|reverb|nightcore|remix|lyrics?|lyric\s+video|live|bass\s*boosted|8d)(?:\s|$)/iu.test(
+    normalize(query),
+  );
+
 const exactArtistInSubtitle = (item: SearchResultItem, artist: string) => {
   const key = normalize(artist);
   if (!key) return true;
@@ -60,6 +65,42 @@ const uniqueItems = (items: readonly SearchResultItem[]) => {
   return result;
 };
 
+const cleanVideos = (catalog: SearchCatalog) =>
+  uniqueItems(catalog.videos.filter((item) => item.videoId && !isEpisodeLike(item)));
+
+const playableVideo = (item: SearchResultItem): SearchResultItem => ({
+  ...item,
+  kind: 'song',
+  subtitle: /(?:^|\s)video(?:\s|$)/iu.test(item.subtitle)
+    ? item.subtitle
+    : item.subtitle
+      ? `Video • ${item.subtitle}`
+      : 'Video',
+});
+
+const variantCatalog = (catalog: SearchCatalog): SearchCatalog => {
+  const videos = cleanVideos(catalog);
+  const promoted = videos.map(playableVideo);
+  const songs = uniqueItems([
+    ...promoted,
+    ...catalog.songs.filter((item) => item.kind === 'song' && !isEpisodeLike(item)),
+  ]);
+
+  return {
+    ...catalog,
+    // Queries such as “pharaoh speedup” are requests for the exact variant,
+    // not an invitation to replace the page with PHARAOH's artist profile.
+    topResult: null,
+    featuredArtist: null,
+    songs,
+    albums: [],
+    videos,
+    playlists: uniqueItems(
+      catalog.playlists.filter((item) => !isEpisodeLike(item)),
+    ),
+  };
+};
+
 const cleanCatalog = (catalog: SearchCatalog, artist: string): SearchCatalog => ({
   ...catalog,
   topResult:
@@ -82,7 +123,9 @@ const cleanCatalog = (catalog: SearchCatalog, artist: string): SearchCatalog => 
   playlists: uniqueItems(
     catalog.playlists.filter((item) => !isEpisodeLike(item)),
   ),
-  videos: [],
+  // Preserve OMV/UGC results in the adapter even when the current Search page
+  // does not render a dedicated Videos shelf yet.
+  videos: cleanVideos(catalog),
 });
 
 const queryArtistHint = (query: string) => {
@@ -114,20 +157,27 @@ const mergeCatalogs = (
       !isEpisodeLike(item) &&
       exactArtistInSubtitle(item, artist),
   );
+  const videos = uniqueItems([
+    ...base.videos,
+    ...extras.flatMap((catalog) => catalog.videos),
+  ]).filter((item) => item.videoId && !isEpisodeLike(item));
 
-  return { ...base, songs, albums, videos: [] };
+  return { ...base, songs, albums, videos };
 };
 
 /**
- * Keeps the 143 catalog music-only and makes artist searches useful enough for
- * the custom Search/Artist pages. This wraps the adapter's public catalog API;
- * it does not touch playback, stream selection, or force-high-audio-quality.
+ * Keeps podcasts out of the 143 catalog while preserving YouTube Music's UGC
+ * advantage. Variant queries (sped up/slowed/reverb/remix/etc.) promote video
+ * results into the normal playable track list so the existing 143 queue and
+ * transport can own them without a second playback engine.
  */
 export const installCatalogPolish = (engine: YouTubeMusicAdapter) => {
   const rawSearchCatalog = engine.searchCatalog.bind(engine);
 
   engine.searchCatalog = async (query: string) => {
     const raw = await rawSearchCatalog(query);
+    if (isVariantVideoQuery(query)) return variantCatalog(raw);
+
     const explicitHint = queryArtistHint(query);
     const artist =
       explicitHint ||
@@ -136,7 +186,7 @@ export const installCatalogPolish = (engine: YouTubeMusicAdapter) => {
     const cleaned = cleanCatalog(raw, artist);
 
     // Auxiliary requests are already narrow queries. Do not recursively enrich
-    // them; just return the strict, music-only result.
+    // them; just return the strict music result.
     if (explicitHint || !artist || !raw.featuredArtist) return cleaned;
 
     const requests = [
