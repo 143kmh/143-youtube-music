@@ -16,6 +16,8 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
         ?.enabled ?? false,
     alwaysOnTop: config.get('options.alwaysOnTop'),
     resumeOnStart: config.get('options.resumeOnStart'),
+    customFrame: process.platform !== 'darwin',
+    maximized: window.isMaximized(),
   });
   ipc.handle('143:settings:get', read);
   ipc.handle('143:settings:set', (key: string, value: unknown) => {
@@ -39,7 +41,12 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     return read();
   });
   ipc.handle('143:window', (action: string) => {
-    if (action === 'advanced')
+    if (action === 'minimize') window.minimize();
+    else if (action === 'maximize') {
+      if (window.isMaximized()) window.unmaximize();
+      else window.maximize();
+    } else if (action === 'close') window.close();
+    else if (action === 'advanced')
       Menu.getApplicationMenu()?.popup({ window });
     else if (action === 'audio-details')
       window.webContents.send('peard:force-high-audio-quality:inspect');

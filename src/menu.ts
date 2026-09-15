@@ -722,6 +722,9 @@ export const setApplicationMenu = async (win: Electron.BrowserWindow) => {
 
   const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
+  if (process.platform !== 'darwin' && await config.plugins.isEnabled('143-ui')) {
+    win.setMenu(null);
+  }
 };
 
 async function setProxy(item: Electron.MenuItem, win: BrowserWindow) {
