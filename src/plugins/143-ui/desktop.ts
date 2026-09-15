@@ -14,7 +14,7 @@ import type {
 } from './discord-rich-presence';
 import type { QualityConfig } from '../force-high-audio-quality/preference';
 import type { BackendContext } from '@/types/contexts';
-import type { PluginConfig } from '@/types/plugins';
+import type { FeatureConfig } from '@/types/features';
 
 const DISCORD_APPLICATION_ID = '1549504717527322724';
 const WINDOWS_APP_ID = 'com.143aimclub.music';
@@ -60,7 +60,7 @@ const ensureWindowsTaskbarIcon = () => {
   return { iconPath, image };
 };
 
-export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
+export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => {
   const presence = new DiscordRichPresence();
   const channels = [
     '143:settings:get',
@@ -99,10 +99,10 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     const discord = discordSettings();
     return {
       quality:
-        config.plugins.getOptions<QualityConfig>('force-high-audio-quality')
+        config.features.getOptions<QualityConfig>('force-high-audio-quality')
           ?.quality ?? 'maximum',
       enabled:
-        config.plugins.getOptions<QualityConfig>('force-high-audio-quality')
+        config.features.getOptions<QualityConfig>('force-high-audio-quality')
           ?.enabled ?? false,
       discordEnabled: discord.enabled,
       discordApplicationId: DISCORD_APPLICATION_ID,
@@ -125,9 +125,9 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
       key === 'quality' &&
       (value === 'default' || value === 'maximum' || value === 'opus')
     ) {
-      config.plugins.setOptions('force-high-audio-quality', { quality: value });
+      config.features.setOptions('force-high-audio-quality', { quality: value });
     } else if (key === 'enabled' && typeof value === 'boolean') {
-      config.plugins.setOptions(
+      config.features.setOptions(
         'force-high-audio-quality',
         { enabled: value },
         [],
