@@ -1,5 +1,5 @@
 import { t } from '@/i18n';
-import { createPlugin } from '@/utils';
+import { createFeature } from '@/utils';
 
 import { backend } from './backend';
 import { menu } from './menu';
@@ -8,7 +8,7 @@ import style from './style.css?inline';
 
 import type { SyncedLyricsPluginConfig } from './types';
 
-export default createPlugin<
+export default createFeature<
   typeof backend,
   unknown,
   typeof renderer,
