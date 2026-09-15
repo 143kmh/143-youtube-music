@@ -16,10 +16,6 @@ export type SyncedLyricsFeatureConfig = {
     | 'disabled';
 };
 
-// Temporary compatibility alias while the retained lyrics implementation is
-// migrated away from inherited plugin terminology.
-export type SyncedLyricsPluginConfig = SyncedLyricsFeatureConfig;
-
 export type LineLyricsStatus = 'previous' | 'current' | 'upcoming';
 
 export type LineWordTiming = {
