@@ -2,6 +2,8 @@ import { net } from 'electron';
 
 import { createPlugin } from '@/utils';
 
+import { mountArtistPage, type ArtistPageController } from './artist-page';
+import artistPageStyle from './artist-page.css?inline';
 import { startDesktop } from './desktop';
 import { mountInteractions } from './interactions';
 import interactionStyle from './interactions.css?inline';
@@ -113,6 +115,7 @@ const createNavButton = (
 const createHistoryButton = (
   engine: YouTubeMusicAdapter,
   searchPage: SearchPageController,
+  artistPage: ArtistPageController,
   icon: 'back' | 'forward',
   label: string,
 ) => {
@@ -123,6 +126,14 @@ const createHistoryButton = (
   button.title = label;
   button.append(createIcon(icon));
   button.addEventListener('click', () => {
+    if (icon === 'back' && artistPage.isOpen()) {
+      const result = artistPage.back();
+      if (result === 'search') {
+        searchPage.show();
+        setActiveNav('search');
+      }
+      return;
+    }
     if (icon === 'back' && searchPage.isOpen()) {
       searchPage.close();
       return;
@@ -135,9 +146,15 @@ const createHistoryButton = (
 const createShell = (
   engine: YouTubeMusicAdapter,
   searchPage: SearchPageController,
+  artistPage: ArtistPageController,
 ) => {
   document.getElementById(UI_ROOT_ID)?.remove();
   document.documentElement.setAttribute(UI_ATTR, '');
+
+  const closePages = () => {
+    searchPage.close();
+    artistPage.close();
+  };
 
   const root = document.createElement('div');
   root.id = UI_ROOT_ID;
@@ -163,7 +180,7 @@ const createShell = (
     'home',
     'home',
     'home',
-    searchPage.close,
+    closePages,
   );
   home.classList.add('is-active');
 
@@ -176,6 +193,7 @@ const createShell = (
   searchText.textContent = 'Search';
   search.append(searchText);
   search.addEventListener('click', () => {
+    artistPage.close();
     searchPage.show();
     setActiveNav('search');
     document.getElementById(UI_SEARCH_ID)?.focus();
@@ -190,7 +208,7 @@ const createShell = (
       'library',
       'library',
       'library',
-      searchPage.close,
+      closePages,
     ),
   );
 
@@ -210,7 +228,7 @@ const createShell = (
       'playlist',
       'playlists',
       'playlists',
-      searchPage.close,
+      closePages,
     ),
     createNavButton(
       engine,
@@ -218,7 +236,7 @@ const createShell = (
       'heart',
       'songs',
       'songs',
-      searchPage.close,
+      closePages,
     ),
     createNavButton(
       engine,
@@ -226,7 +244,7 @@ const createShell = (
       'album',
       'albums',
       'albums',
-      searchPage.close,
+      closePages,
     ),
     createNavButton(
       engine,
@@ -234,7 +252,7 @@ const createShell = (
       'artist',
       'artists',
       'artists',
-      searchPage.close,
+      closePages,
     ),
   );
 
@@ -250,8 +268,8 @@ const createShell = (
   const historyControls = document.createElement('div');
   historyControls.className = 'ui143-history';
   historyControls.append(
-    createHistoryButton(engine, searchPage, 'back', 'Back'),
-    createHistoryButton(engine, searchPage, 'forward', 'Forward'),
+    createHistoryButton(engine, searchPage, artistPage, 'back', 'Back'),
+    createHistoryButton(engine, searchPage, artistPage, 'forward', 'Forward'),
   );
 
   const searchForm = document.createElement('form');
@@ -271,6 +289,7 @@ const createShell = (
     event.stopPropagation();
     const query = input.value.trim();
     if (!query) return;
+    artistPage.close();
     setActiveNav('search');
     void searchPage.search(query);
   });
@@ -335,9 +354,11 @@ export default createPlugin({
     playerPolishStyleSheet: null as CSSStyleSheet | null,
     interactionStyleSheet: null as CSSStyleSheet | null,
     searchPageStyleSheet: null as CSSStyleSheet | null,
+    artistPageStyleSheet: null as CSSStyleSheet | null,
     settingsCleanup: null as (() => void) | null,
     playerCleanup: null as (() => void) | null,
     searchPage: null as SearchPageController | null,
+    artistPage: null as ArtistPageController | null,
     engine: null as YouTubeMusicAdapter | null,
     interactionCleanup: null as (() => void) | null,
 
@@ -348,12 +369,14 @@ export default createPlugin({
       this.playerPolishStyleSheet = new CSSStyleSheet();
       this.interactionStyleSheet = new CSSStyleSheet();
       this.searchPageStyleSheet = new CSSStyleSheet();
+      this.artistPageStyleSheet = new CSSStyleSheet();
       await Promise.all([
         this.styleSheet.replace(style),
         this.playerStyleSheet.replace(playerStyle),
         this.playerPolishStyleSheet.replace(playerPolishStyle),
         this.interactionStyleSheet.replace(interactionStyle),
         this.searchPageStyleSheet.replace(searchPageStyle),
+        this.artistPageStyleSheet.replace(artistPageStyle),
         startKaraoke(ctx),
       ]);
       document.adoptedStyleSheets = [
@@ -363,22 +386,37 @@ export default createPlugin({
         this.playerPolishStyleSheet,
         this.interactionStyleSheet,
         this.searchPageStyleSheet,
+        this.artistPageStyleSheet,
       ];
       this.playerCleanup?.();
       this.interactionCleanup?.();
       this.searchPage?.dispose();
+      this.artistPage?.dispose();
       const engine = createYouTubeMusicAdapter({
         attach: attachKaraokePlayer,
         stop: stopKaraoke,
       });
       this.engine = engine;
       engine.start();
-      const searchPage = mountSearchPage(engine);
+
+      const artistPage = mountArtistPage(engine);
+      this.artistPage = artistPage;
+      const searchPage = mountSearchPage(
+        engine,
+        (name, browseId, restoreSearch) => {
+          setActiveNav('');
+          void artistPage.open(name, browseId, { restoreSearch });
+        },
+      );
       this.searchPage = searchPage;
-      createShell(engine, searchPage);
+      createShell(engine, searchPage, artistPage);
       this.settingsCleanup?.();
       this.settingsCleanup = mountSettings(ctx.ipc);
-      this.playerCleanup = mountPlayer(engine);
+      this.playerCleanup = mountPlayer(engine, (name, browseId) => {
+        searchPage.close();
+        setActiveNav('');
+        void artistPage.open(name, browseId);
+      });
       this.interactionCleanup = mountInteractions(engine);
     },
 
@@ -394,6 +432,8 @@ export default createPlugin({
       this.interactionCleanup = null;
       this.searchPage?.dispose();
       this.searchPage = null;
+      this.artistPage?.dispose();
+      this.artistPage = null;
       this.engine?.dispose();
       this.engine = null;
       this.playerCleanup?.();
@@ -406,6 +446,7 @@ export default createPlugin({
         this.playerPolishStyleSheet?.replace(''),
         this.interactionStyleSheet?.replace(''),
         this.searchPageStyleSheet?.replace(''),
+        this.artistPageStyleSheet?.replace(''),
       ]);
       const ownedSheets = new Set([
         this.styleSheet,
@@ -413,6 +454,7 @@ export default createPlugin({
         this.playerPolishStyleSheet,
         this.interactionStyleSheet,
         this.searchPageStyleSheet,
+        this.artistPageStyleSheet,
       ]);
       document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
         (sheet) => !ownedSheets.has(sheet),
