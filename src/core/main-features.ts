@@ -18,13 +18,13 @@ let configWatchInstalled = false;
 const getFeatureConfig = (id: string) =>
   deepmerge(
     coreFeatures[id]?.config ?? { enabled: false },
-    config.get(`plugins.${id}`) ?? {},
+    config.get(`features.${id}`) ?? {},
   ) as FeatureConfig;
 
 const setFeatureConfig = (id: string, newConfig: Partial<FeatureConfig>) => {
   if (!coreFeatures[id]) return;
   config.setPartial(
-    `plugins.${id}`,
+    `features.${id}`,
     newConfig,
     coreFeatures[id]?.config ?? { enabled: false },
   );
