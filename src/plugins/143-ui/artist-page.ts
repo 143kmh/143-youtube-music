@@ -229,10 +229,13 @@ export const mountArtistPage = (
       card.append(art, name, subtitle(item));
       shelf.append(card);
     }
+    // Normal wheel movement belongs to the page. Shift+wheel is the explicit
+    // mouse fallback for horizontal album/release shelves; trackpads still use
+    // their native horizontal delta without trapping vertical scrolling.
     shelf.addEventListener(
       'wheel',
       (event) => {
-        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+        if (!event.shiftKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
         if (shelf.scrollWidth <= shelf.clientWidth) return;
         event.preventDefault();
         shelf.scrollLeft += event.deltaY;
