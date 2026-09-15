@@ -80,7 +80,8 @@
 .ui143-search-featured-artist-card,
 .ui143-search-top-track,
 .ui143-search-song,
-.ui143-search-card {
+.ui143-search-card,
+.ui143-search-focus-card {
   appearance: none;
   border: 0;
   color: inherit;
@@ -114,7 +115,8 @@
 .ui143-search-featured-artist-card:active,
 .ui143-search-top-track:active,
 .ui143-search-song:active,
-.ui143-search-card:active {
+.ui143-search-card:active,
+.ui143-search-focus-card:active {
   transform: scale(0.993);
 }
 
@@ -295,7 +297,8 @@
 }
 
 .ui143-search-top-track.is-now-playing,
-.ui143-search-song.is-now-playing {
+.ui143-search-song.is-now-playing,
+.ui143-search-focus-card.is-now-playing {
   background: color-mix(in srgb, var(--ui143-accent) 14%, transparent);
   box-shadow: inset 2px 0 0 var(--ui143-accent-strong);
 }
@@ -326,7 +329,8 @@
   white-space: nowrap;
 }
 
-.ui143-search-top-track.is-now-playing .ui143-search-now-playing {
+.ui143-search-top-track.is-now-playing .ui143-search-now-playing,
+.ui143-search-focus-card.is-now-playing .ui143-search-now-playing {
   display: inline-flex;
 }
 
@@ -489,6 +493,113 @@
   transition: background 100ms ease, transform 100ms ease;
 }
 
+.ui143-search-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  min-height: 270px;
+  margin-bottom: 30px;
+}
+
+.ui143-search-focus-grid.is-album {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(220px, 0.8fr) minmax(420px, 1.8fr);
+}
+
+.ui143-search-focus-grid > .ui143-search-top-tracks {
+  height: 100%;
+  min-height: 270px;
+}
+
+.ui143-search-focus-card {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 12px;
+  background: #181818;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  transition:
+    background 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.ui143-search-focus-card:hover {
+  background: #202020;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.055),
+    0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.ui143-search-focus-art {
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #222;
+  color: #777;
+  font-size: 30px;
+}
+
+.ui143-search-focus-art img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: block;
+  object-fit: cover;
+}
+
+.ui143-search-focus-art.is-round {
+  background: radial-gradient(circle at center, #232323 0 42%, #181818 43% 100%);
+}
+
+.ui143-search-focus-art.is-round img {
+  width: 154px;
+  height: 154px;
+  align-self: center;
+  justify-self: center;
+  border-radius: 50%;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.3);
+}
+
+.ui143-search-focus-copy {
+  min-width: 0;
+  padding: 15px 17px 17px;
+}
+
+.ui143-search-focus-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #8f8f8f;
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ui143-search-focus-copy > strong {
+  display: block;
+  overflow: hidden;
+  color: #f7f7f7;
+  font-size: clamp(18px, 1.45vw, 25px);
+  font-weight: 760;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-search-focus-copy .ui143-search-now-playing {
+  margin-top: 9px;
+}
+
+.ui143-search-focus-card.is-now-playing .ui143-search-focus-copy > strong {
+  color: var(--ui143-accent-strong);
+}
+
 .ui143-search-message {
   min-height: 52vh;
   display: grid;
@@ -527,6 +638,15 @@ html[data-143-ui] .image.ytmusic-immersive-header-renderer {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: repeat(5, minmax(0, 1fr));
   }
+
+  .ui143-search-focus-grid,
+  .ui143-search-focus-grid.is-album {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ui143-search-focus-grid.is-album > .ui143-search-top-tracks {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
@@ -551,6 +671,15 @@ html[data-143-ui] .image.ytmusic-immersive-header-renderer {
 
   .ui143-search-albums .ui143-search-card-grid {
     grid-auto-columns: 148px;
+  }
+
+  .ui143-search-focus-grid,
+  .ui143-search-focus-grid.is-album {
+    grid-template-columns: 1fr;
+  }
+
+  .ui143-search-focus-grid.is-album > .ui143-search-top-tracks {
+    grid-column: auto;
   }
 
   .ui143-search-now-playing {
