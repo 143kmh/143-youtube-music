@@ -134,12 +134,25 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
     if (event.key === 'Escape' && engine.getPlaybackContext()?.queueOpen)
       engine.closeContextQueue();
   };
+  const onOutsidePointerDown = (event: PointerEvent) => {
+    if (!engine.getPlaybackContext()?.queueOpen) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (root.contains(target)) return;
+
+    const element = target instanceof Element ? target : target.parentElement;
+    if (element?.closest('#ui143-player button[aria-label="Queue"]')) return;
+
+    engine.closeContextQueue();
+  };
   window.addEventListener('keydown', onKeyDown);
+  document.addEventListener('pointerdown', onOutsidePointerDown, true);
 
   return () => {
     unsubscribe();
     window.clearInterval(buttonSyncTimer);
     window.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     syncPlayerButton(false);
     root.remove();
     document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
