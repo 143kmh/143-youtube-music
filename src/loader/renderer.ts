@@ -1,12 +1,9 @@
-import { deepmerge } from 'deepmerge-ts';
-
 import { coreFeatures } from '@/core/features';
 import { LoggerPrefix, startPlugin, stopPlugin } from '@/utils';
 
 import type { RendererContext } from '@/types/contexts';
 import type { PluginConfig, PluginDef } from '@/types/plugins';
 
-const unregisterStyleMap: Record<string, (() => void)[]> = {};
 const loadedFeatureMap: Record<
   string,
   PluginDef<unknown, unknown, unknown>
@@ -38,9 +35,6 @@ export const createContext = <Config extends PluginConfig>(
 });
 
 export const forceUnloadRendererPlugin = async (id: string) => {
-  unregisterStyleMap[id]?.forEach((unregister) => unregister());
-  delete unregisterStyleMap[id];
-
   const feature = loadedFeatureMap[id];
   if (!feature) return;
 
@@ -60,6 +54,8 @@ export const forceUnloadRendererPlugin = async (id: string) => {
 };
 
 export const forceLoadRendererPlugin = async (id: string) => {
+  if (loadedFeatureMap[id]) return;
+
   const feature = coreFeatures[id];
   if (!feature?.renderer) return;
 
@@ -83,7 +79,6 @@ export const forceLoadRendererPlugin = async (id: string) => {
         styleSheet.replaceSync(style);
         return styleSheet;
       });
-
       document.adoptedStyleSheets = [
         ...document.adoptedStyleSheets,
         ...styleSheetList,
@@ -95,19 +90,8 @@ export const forceLoadRendererPlugin = async (id: string) => {
 };
 
 export const loadAllRendererPlugins = async () => {
-  const featureConfigs = window.mainConfig.plugins.getPlugins();
-
-  for (const [id, feature] of Object.entries(coreFeatures)) {
-    const featureConfig = deepmerge(
-      feature.config ?? { enabled: false },
-      featureConfigs[id] ?? {},
-    );
-
-    if (featureConfig.enabled && feature.renderer) {
-      await forceLoadRendererPlugin(id);
-    } else if (loadedFeatureMap[id]) {
-      await forceUnloadRendererPlugin(id);
-    }
+  for (const id of Object.keys(coreFeatures)) {
+    await forceLoadRendererPlugin(id);
   }
 };
 
