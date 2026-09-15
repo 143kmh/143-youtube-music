@@ -2,17 +2,30 @@ import { Menu } from 'electron';
 
 import * as config from '@/config';
 
-import type { DiscordPluginConfig } from '../discord';
+import { DiscordRichPresence } from './discord-rich-presence';
+
+import type {
+  DiscordPresenceSettings,
+  DiscordPresenceTrack,
+} from './discord-rich-presence';
 import type { QualityConfig } from '../force-high-audio-quality/preference';
 import type { BackendContext } from '@/types/contexts';
 import type { PluginConfig } from '@/types/plugins';
 
-const PLAY_ON_YOUTUBE_MUSIC =
-  'playOn\u0059\u006f\u0075\u0054\u0075\u0062\u0065\u004d\u0075\u0073\u0069\u0063' as const;
-
 export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
+  const presence = new DiscordRichPresence();
+  const discordSettings = (): DiscordPresenceSettings =>
+    config.get('options.discordRichPresence');
+  const updateDiscordSettings = (patch: Partial<DiscordPresenceSettings>) => {
+    const next = { ...discordSettings(), ...patch };
+    config.set('options.discordRichPresence', next);
+    presence.applySettings(next);
+  };
+
+  presence.applySettings(discordSettings());
+
   const read = () => {
-    const discord = config.plugins.getOptions<DiscordPluginConfig>('discord');
+    const discord = discordSettings();
     return {
       quality:
         config.plugins.getOptions<QualityConfig>('force-high-audio-quality')
@@ -20,22 +33,21 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
       enabled:
         config.plugins.getOptions<QualityConfig>('force-high-audio-quality')
           ?.enabled ?? false,
-      discordEnabled: discord?.enabled ?? false,
-      discordAutoReconnect: discord?.autoReconnect ?? true,
-      discordShowDuration: !(discord?.hideDurationLeft ?? false),
-      discordClearOnPause: discord?.activityTimeoutEnabled ?? true,
-      discordPauseTimeoutMinutes: Math.max(
-        0,
-        Math.round((discord?.activityTimeoutTime ?? 10 * 60 * 1000) / 60_000),
-      ),
-      discordPlayButton: discord?.[PLAY_ON_YOUTUBE_MUSIC] ?? true,
-      discordShowGitHubButton: !(discord?.hideGitHubButton ?? true),
+      discordEnabled: discord.enabled,
+      discordApplicationId: discord.applicationId,
+      discordAutoReconnect: discord.autoReconnect,
+      discordShowDuration: discord.showRemainingTime,
+      discordClearOnPause: discord.clearOnPause,
+      discordPauseTimeoutMinutes: discord.pauseTimeoutMinutes,
+      discordPlayButton: discord.playButton,
+      discordStatus: presence.getStatus(),
       alwaysOnTop: config.get('options.alwaysOnTop'),
       resumeOnStart: config.get('options.resumeOnStart'),
       customFrame: process.platform !== 'darwin',
       maximized: window.isMaximized(),
     };
   };
+
   ipc.handle('143:settings:get', read);
   ipc.handle('143:settings:set', (key: string, value: unknown) => {
     if (
@@ -50,40 +62,40 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
         [],
       );
     } else if (key === 'discordEnabled' && typeof value === 'boolean') {
-      config.plugins.setOptions('discord', { enabled: value }, []);
+      updateDiscordSettings({ enabled: value });
+    } else if (key === 'discordApplicationId' && typeof value === 'string') {
+      const applicationId = value.trim();
+      if (applicationId && !/^\d{15,22}$/u.test(applicationId))
+        throw new Error('Discord Application ID must contain only digits.');
+      updateDiscordSettings({ applicationId });
     } else if (
       key === 'discordAutoReconnect' &&
       typeof value === 'boolean'
     ) {
-      config.plugins.setOptions('discord', { autoReconnect: value });
+      updateDiscordSettings({ autoReconnect: value });
     } else if (
       key === 'discordShowDuration' &&
       typeof value === 'boolean'
     ) {
-      config.plugins.setOptions('discord', { hideDurationLeft: !value });
+      updateDiscordSettings({ showRemainingTime: value });
     } else if (
       key === 'discordClearOnPause' &&
       typeof value === 'boolean'
     ) {
-      config.plugins.setOptions('discord', { activityTimeoutEnabled: value });
+      updateDiscordSettings({ clearOnPause: value });
     } else if (
       key === 'discordPauseTimeoutMinutes' &&
       typeof value === 'number' &&
       Number.isFinite(value)
     ) {
-      config.plugins.setOptions('discord', {
-        activityTimeoutTime: Math.round(Math.max(0, Math.min(1440, value)) * 60_000),
+      updateDiscordSettings({
+        pauseTimeoutMinutes: Math.max(0, Math.min(1440, Math.round(value))),
       });
     } else if (
       key === 'discordPlayButton' &&
       typeof value === 'boolean'
     ) {
-      config.plugins.setOptions('discord', { [PLAY_ON_YOUTUBE_MUSIC]: value });
-    } else if (
-      key === 'discordShowGitHubButton' &&
-      typeof value === 'boolean'
-    ) {
-      config.plugins.setOptions('discord', { hideGitHubButton: !value });
+      updateDiscordSettings({ playButton: value });
     } else if (key === 'alwaysOnTop' && typeof value === 'boolean') {
       config.set('options.alwaysOnTop', value);
       window.setAlwaysOnTop(value);
@@ -92,6 +104,12 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     } else throw new Error('Unsupported setting');
     return read();
   });
+
+  ipc.handle('143:discord:update', (track: DiscordPresenceTrack) => {
+    presence.updateTrack(track);
+    return presence.getStatus();
+  });
+
   ipc.handle('143:window', (action: string) => {
     if (action === 'minimize') window.minimize();
     else if (action === 'maximize') {
@@ -103,10 +121,13 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     else if (action === 'audio-details')
       window.webContents.send('peard:force-high-audio-quality:inspect');
   });
+
   return () => {
+    presence.dispose();
     for (const channel of [
       '143:settings:get',
       '143:settings:set',
+      '143:discord:update',
       '143:window',
     ])
       ipc.removeHandler(channel);
