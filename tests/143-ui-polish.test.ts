@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { Window } from 'happy-dom';
 
-import { installCatalogCache } from '../src/plugins/143-ui/catalog-cache';
-import { installPlaylistIsolation } from '../src/plugins/143-ui/playlist-isolation';
+import { installCatalogCache } from '../src/features/143-ui/catalog-cache';
+import { installPlaylistIsolation } from '../src/features/143-ui/playlist-isolation';
 
 let dom: Window;
 let cleanup: (() => void) | undefined;
