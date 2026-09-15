@@ -119,7 +119,7 @@ test('search and artist navigation preserve playing track, time and media API', 
   expect(engine.search('a & b')).toBe(true);
   expect(engine.navigateArtist('UCprimary')).toBe(true);
   engine.refresh();
-  expect(routes).toEqual(['/search?q=a%20%26%20b', '/channel/UCprimary']);
+  expect(routes).toEqual(['/search?q=a%20%26%20b', 'UCprimary']);
   expect(engine.getState().track.id).toBe('first');
   expect(engine.getState().playing).toBe(true);
   expect(engine.getState().time).toBe(12);
@@ -128,7 +128,83 @@ test('search and artist navigation preserve playing track, time and media API', 
   expect(engine.navigate('https://example.com/')).toBe(false);
   document.querySelector('ytmusic-app')?.remove();
   expect(engine.search('offline')).toBe(false);
-  expect(dom.location.pathname).toBe('/channel/UCprimary');
+  expect(dom.location.pathname).toBe('/UCprimary');
+});
+
+test('search catalog enriches an artist and opens its browse id directly', async () => {
+  fetchResponse = async (path) => {
+    if (path === '/search')
+      return {
+        musicCardShelfRenderer: {
+          title: {
+            runs: [
+              {
+                text: 'Oxxxymiron',
+                navigationEndpoint: {
+                  browseEndpoint: {
+                    browseId: 'UCartist',
+                    browseEndpointContextSupportedConfigs: {
+                      browseEndpointContextMusicConfig: {
+                        pageType: 'MUSIC_PAGE_TYPE_ARTIST',
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          },
+          subtitle: { runs: [{ text: 'Artist • 2.5M monthly listeners' }] },
+          thumbnail: {
+            musicThumbnailRenderer: {
+              thumbnail: {
+                thumbnails: [
+                  { url: 'avatar-small', width: 64, height: 64 },
+                  { url: 'avatar-large', width: 512, height: 512 },
+                ],
+              },
+            },
+          },
+        },
+      };
+    if (path === '/browse')
+      return {
+        header: {
+          musicImmersiveHeaderRenderer: {
+            title: { runs: [{ text: 'Oxxxymiron' }] },
+            thumbnail: {
+              musicThumbnailRenderer: {
+                thumbnail: {
+                  thumbnails: [
+                    { url: 'banner', width: 1920, height: 720 },
+                  ],
+                },
+              },
+            },
+            subscriptionButton: {
+              subscribeButtonRenderer: {
+                subscriberCountWithSubscribeText: {
+                  runs: [{ text: '2.1M subscribers' }],
+                },
+              },
+            },
+          },
+        },
+      };
+    return {};
+  };
+
+  const result = await engine.searchCatalog('Oxxxymiron');
+  expect(result.featuredArtist).toMatchObject({
+    title: 'Oxxxymiron',
+    browseId: 'UCartist',
+    avatar: 'avatar-large',
+    banner: 'banner',
+    subscribers: '2.1M subscribers',
+    monthlyListeners: '2.5M monthly listeners',
+  });
+  expect(requests.map((request) => request.path)).toEqual(['/search', '/browse']);
+  expect(engine.openSearchResult(result.topResult!)).toBe(true);
+  expect(routes.at(-1)).toBe('UCartist');
 });
 
 test('transport, clamped seek and mute restoration use the existing player', () => {
@@ -343,7 +419,7 @@ test('lyrics and queue commands reflect native tabs', () => {
   expect(engine.getState().queueActive).toBe(true);
   tabs[1].setAttribute('disabled', '');
   engine.refresh();
-  expect(engine.getState().lyricsAvailable).toBe(false);
+  expect(engine.getState().lyricsAvailable).toBe(true);
 });
 
 test('adapter handles missing and late engine nodes, start/dispose are idempotent', async () => {
@@ -368,6 +444,7 @@ test('UI has no engine selectors, network calls or full-page internal navigation
     'interactions.ts',
     'playlist-picker.ts',
     'settings.ts',
+    'search-page.ts',
     'index.ts',
   ]) {
     const source = readFileSync(
