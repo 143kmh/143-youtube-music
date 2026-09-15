@@ -1,15 +1,14 @@
 import { deepmerge } from 'deepmerge-ts';
 import { type BrowserWindow, ipcMain } from 'electron';
-import { allPlugins, mainPlugins } from 'virtual:plugins';
 
 import * as config from '@/config';
-import { t } from '@/i18n';
+import { coreFeatures } from '@/core/features';
 import { LoggerPrefix, startPlugin, stopPlugin } from '@/utils';
 
 import type { BackendContext } from '@/types/contexts';
 import type { PluginConfig, PluginDef } from '@/types/plugins';
 
-const loadedPluginMap: Record<
+const loadedFeatureMap: Record<
   string,
   PluginDef<unknown, unknown, unknown>
 > = {};
@@ -18,19 +17,18 @@ const createContext = (
   id: string,
   win: BrowserWindow,
 ): BackendContext<PluginConfig> => ({
-  getConfig: async () =>
+  getConfig: () =>
     deepmerge(
-      (await allPlugins())[id].config ?? { enabled: false },
+      coreFeatures[id]?.config ?? { enabled: false },
       config.get(`plugins.${id}`) ?? {},
     ) as PluginConfig,
-  setConfig: async (newConfig) => {
+  setConfig: (newConfig) => {
     config.setPartial(
       `plugins.${id}`,
       newConfig,
-      (await allPlugins())[id].config,
+      coreFeatures[id]?.config ?? { enabled: false },
     );
   },
-
   ipc: {
     send: (event: string, ...args: unknown[]) => {
       win.webContents.send(event, ...args);
@@ -39,15 +37,12 @@ const createContext = (
       ipcMain.handle(event, (_, ...args: unknown[]) => listener(...args));
     },
     on: (event: string, listener: CallableFunction) => {
-      ipcMain.on(event, (_, ...args: unknown[]) => {
-        listener(...args);
-      });
+      ipcMain.on(event, (_, ...args: unknown[]) => listener(...args));
     },
     removeHandler: (event: string) => {
       ipcMain.removeHandler(event);
     },
   },
-
   window: win,
 });
 
@@ -55,40 +50,22 @@ export const forceUnloadMainPlugin = async (
   id: string,
   win: BrowserWindow,
 ): Promise<void> => {
-  const plugin = loadedPluginMap[id];
-  if (!plugin) return;
+  const feature = loadedFeatureMap[id];
+  if (!feature) return;
 
-  try {
-    const hasStopped = await stopPlugin(id, plugin, {
-      ctx: 'backend',
-      context: createContext(id, win),
-    });
-    if (
-      hasStopped ||
-      (hasStopped === null &&
-        typeof plugin.backend !== 'function' &&
-        plugin.backend)
-    ) {
-      delete loadedPluginMap[id];
-      console.log(
-        LoggerPrefix,
-        t('common.console.plugins.unloaded', { pluginName: id }),
-      );
-      return;
-    }
+  const hasStopped = await stopPlugin(id, feature, {
+    ctx: 'backend',
+    context: createContext(id, win),
+  });
 
-    const message = t('common.console.plugins.unload-failed', {
-      pluginName: id,
-    });
-    console.log(LoggerPrefix, message);
-    return Promise.reject(new Error(message));
-  } catch (err) {
-    console.error(
-      LoggerPrefix,
-      t('common.console.plugins.unload-failed', { pluginName: id }),
-    );
-    console.trace(err);
-    return Promise.reject(err as Error);
+  if (
+    hasStopped ||
+    (hasStopped === null &&
+      typeof feature.backend !== 'function' &&
+      feature.backend)
+  ) {
+    delete loadedFeatureMap[id];
+    console.log(LoggerPrefix, `Core feature ${id} stopped`);
   }
 };
 
@@ -96,59 +73,41 @@ export const forceLoadMainPlugin = async (
   id: string,
   win: BrowserWindow,
 ): Promise<void> => {
-  if (!config.plugins.isAllowedPlugin(id)) return;
+  const feature = coreFeatures[id];
+  if (!feature?.backend) return;
 
-  const plugin = (await mainPlugins())[id];
-  if (!plugin) return;
+  const hasStarted = await startPlugin(id, feature, {
+    ctx: 'backend',
+    context: createContext(id, win),
+  });
 
-  try {
-    const hasStarted = await startPlugin(id, plugin, {
-      ctx: 'backend',
-      context: createContext(id, win),
-    });
-    if (
-      hasStarted ||
-      (hasStarted === null &&
-        typeof plugin.backend !== 'function' &&
-        plugin.backend)
-    ) {
-      loadedPluginMap[id] = plugin;
-      return;
-    }
-
-    const message = t('common.console.plugins.load-failed', {
-      pluginName: id,
-    });
-    console.log(LoggerPrefix, message);
-    return Promise.reject(new Error(message));
-  } catch (err) {
-    console.error(
-      LoggerPrefix,
-      t('common.console.plugins.initialize-failed', { pluginName: id }),
-    );
-    console.trace(err);
-    return Promise.reject(err as Error);
+  if (
+    hasStarted ||
+    (hasStarted === null &&
+      typeof feature.backend !== 'function' &&
+      feature.backend)
+  ) {
+    loadedFeatureMap[id] = feature;
   }
 };
 
 export const loadAllMainPlugins = async (win: BrowserWindow) => {
-  console.log(LoggerPrefix, t('common.console.plugins.load-all'));
-
-  // Pear's updater points at the inherited upstream repository. 143 Music owns
-  // its release lifecycle now, so an old local config must never re-enable it.
   if (config.get('options.autoUpdates')) config.set('options.autoUpdates', false);
-
   await config.plugins.enforceAllowedPlugins();
 
-  const pluginConfigs = config.plugins.getPlugins();
+  const featureConfigs = config.plugins.getPlugins();
   const queue: Promise<void>[] = [];
 
-  for (const [plugin, pluginDef] of Object.entries(await mainPlugins())) {
-    const pluginConfig = deepmerge(pluginDef.config, pluginConfigs[plugin] ?? {});
-    if (config.plugins.isAllowedPlugin(plugin) && pluginConfig.enabled) {
-      queue.push(forceLoadMainPlugin(plugin, win));
-    } else if (loadedPluginMap[plugin]) {
-      queue.push(forceUnloadMainPlugin(plugin, win));
+  for (const [id, feature] of Object.entries(coreFeatures)) {
+    const featureConfig = deepmerge(
+      feature.config ?? { enabled: false },
+      featureConfigs[id] ?? {},
+    );
+
+    if (featureConfig.enabled && feature.backend) {
+      queue.push(forceLoadMainPlugin(id, win));
+    } else if (loadedFeatureMap[id]) {
+      queue.push(forceUnloadMainPlugin(id, win));
     }
   }
 
@@ -156,13 +115,13 @@ export const loadAllMainPlugins = async (win: BrowserWindow) => {
 };
 
 export const unloadAllMainPlugins = async (win: BrowserWindow) => {
-  for (const id of Object.keys(loadedPluginMap)) {
+  for (const id of Object.keys(loadedFeatureMap)) {
     await forceUnloadMainPlugin(id, win);
   }
 };
 
 export const getLoadedMainPlugin = (
   id: string,
-): PluginDef<unknown, unknown, unknown> | undefined => loadedPluginMap[id];
+): PluginDef<unknown, unknown, unknown> | undefined => loadedFeatureMap[id];
 
-export const getAllLoadedMainPlugins = () => loadedPluginMap;
+export const getAllLoadedMainPlugins = () => loadedFeatureMap;
