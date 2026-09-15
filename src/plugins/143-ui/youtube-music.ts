@@ -39,6 +39,10 @@ type TextRun = {
   };
 };
 
+type NativeSearchBox = HTMLElement & {
+  getSearchboxStats?: () => unknown;
+};
+
 export type RepeatMode = 0 | 1 | 2;
 export type MusicState = Readonly<{
   track: Readonly<{
@@ -72,6 +76,42 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
 
   const app = () =>
     document.querySelector<MusicPlayerAppElement>('ytmusic-app');
+  const nativeSearchBox = () =>
+    document.querySelector<NativeSearchBox>('ytmusic-search-box');
+
+  const submitNativeSearch = (query: string) => {
+    const searchBox = nativeSearchBox();
+    const input = searchBox?.querySelector<HTMLInputElement>('#input, input');
+    if (!input) return false;
+
+    input.focus();
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    if (valueSetter) valueSetter.call(input, query);
+    else input.value = query;
+
+    input.dispatchEvent(
+      new Event('input', { bubbles: true, cancelable: false, composed: true }),
+    );
+    input.dispatchEvent(
+      new Event('change', { bubbles: true, cancelable: false, composed: true }),
+    );
+
+    const enter = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    // YouTube Music has used both key/keyCode checks across player builds.
+    Object.defineProperty(enter, 'keyCode', { get: () => 13 });
+    Object.defineProperty(enter, 'which', { get: () => 13 });
+    input.dispatchEvent(enter);
+    return true;
+  };
 
   const normalizeArtistName = (value: string) =>
     value
@@ -227,9 +267,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       const musicApp = app();
       if (!musicApp) return null;
 
-      const searchBox = document.querySelector<
-        HTMLElement & { getSearchboxStats?: () => unknown }
-      >('ytmusic-search-box');
+      const searchBox = nativeSearchBox();
 
       try {
         const response = await musicApp.networkManager.fetch<
@@ -415,12 +453,24 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   const queueTab = () => tabHeader(1);
   const lyricsTab = () => tabHeader(2);
   const defaultPlayerTab = () => tabHeader(1);
+  const lyricsRenderer = () =>
+    document.querySelector<HTMLElement>(
+      '#tab-renderer[page-type="MUSIC_PAGE_TYPE_TRACK_LYRICS"]',
+    );
+  const isNowPlayingRoute = () => window.location.pathname === '/watch';
+  const lyricsActuallyActive = () =>
+    Boolean(
+      isNowPlayingRoute() &&
+        lyricsRenderer() &&
+        lyricsTab()?.getAttribute('aria-selected') === 'true',
+    );
 
   let disposed = false;
   let timer: number | undefined;
   let lastNonZeroVolume = 100;
   let sourceKey = '';
   let generation = 0;
+  let lyricsRequest = 0;
   let resolvedArtists: ArtistEntry[] = [];
   const listeners = new Set<(state: MusicState) => void>();
   let state: MusicState = {
@@ -516,7 +566,6 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       '.repeat',
     ) as StatefulElement | null;
     const likeStatus = store?.likeStatus?.videos?.[id];
-    const lyrics = lyricsTab();
     emit({
       track: {
         id,
@@ -549,12 +598,11 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       ),
       queue,
       queueActive: queueTab()?.getAttribute('aria-selected') === 'true',
-      lyricsAvailable: Boolean(
-        lyrics &&
-        !lyrics.hasAttribute('disabled') &&
-        lyrics.getAttribute('aria-disabled') !== 'true',
-      ),
-      lyricsActive: lyrics?.getAttribute('aria-selected') === 'true',
+      // 143 karaoke can use LRCLib even when YouTube's native lyrics are absent.
+      lyricsAvailable: Boolean(id),
+      // A hidden native tab may stay selected while the user browses elsewhere.
+      // Only mark Karaoke active when the actual now-playing lyrics surface exists.
+      lyricsActive: lyricsActuallyActive(),
     });
   };
   const navigate = (destination: string) => {
@@ -629,6 +677,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       if (disposed) return;
       disposed = true;
       ++generation;
+      ++lyricsRequest;
       window.clearInterval(timer);
       timer = undefined;
       listeners.clear();
@@ -640,9 +689,15 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       return navigate(sectionBrowseIds[section]);
     },
     search(query: string) {
-      return query.trim()
-        ? navigate('/search?q=' + encodeURIComponent(query.trim()))
-        : false;
+      const value = query.trim();
+      if (!value) return false;
+      // app.navigate('/search?...') can leave current YT Music builds on an
+      // empty response surface. Drive the existing native search box instead so
+      // YouTube owns the search endpoint/router transition and playback survives.
+      if (submitNativeSearch(value)) return true;
+      // Tests/late startup may not have the native box yet; keep the old SPA
+      // route as a last-resort fallback rather than doing a full page reload.
+      return navigate('/search?q=' + encodeURIComponent(value));
     },
     navigateArtist(browseId: string) {
       return navigate(
@@ -716,15 +771,42 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     },
     openQueue() {
       if (!disposed) {
+        ++lyricsRequest;
         queueTab()?.click();
         refresh();
       }
     },
     toggleLyrics() {
-      if (!disposed && state.lyricsAvailable) {
-        (state.lyricsActive ? defaultPlayerTab() : lyricsTab())?.click();
+      if (disposed || !state.track.id) return;
+      refresh();
+      if (state.lyricsActive) {
+        ++lyricsRequest;
+        defaultPlayerTab()?.click();
         refresh();
+        return;
       }
+
+      const request = ++lyricsRequest;
+      // The native tabs can remain mounted and selected while the user is on an
+      // artist/album/search page. Opening the cover first restores the actual
+      // now-playing surface; only then is selecting Lyrics meaningful.
+      if (!isNowPlayingRoute() || !lyricsRenderer())
+        nativeClick('.thumbnail-image-wrapper', '#thumbnail', '.thumbnail');
+
+      const selectLyrics = (attempt = 0) => {
+        if (disposed || request !== lyricsRequest) return;
+        const tab = lyricsTab();
+        if (tab) {
+          tab.removeAttribute('disabled');
+          tab.removeAttribute('aria-disabled');
+          tab.click();
+          refresh();
+          if (lyricsActuallyActive()) return;
+        }
+        if (attempt < 30)
+          window.setTimeout(() => selectLyrics(attempt + 1), 50);
+      };
+      window.setTimeout(selectLyrics, 0);
     },
     openNowPlaying() {
       if (!disposed)
