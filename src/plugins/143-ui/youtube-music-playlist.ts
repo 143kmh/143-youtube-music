@@ -1,4 +1,4 @@
-import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
+import { playlistEditPayload, validatePlaylistEdit } from './native-player';
 
 import type {
   SearchArtistProfile,
@@ -9,6 +9,7 @@ import type {
   ArtistCatalog,
   CatalogYouTubeMusicAdapter,
 } from './youtube-music-catalog';
+import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -94,7 +95,7 @@ const findRecordByKey = (root: unknown, keys: readonly string[]) => {
     if (!isRecord(value)) return;
     for (const key of keys) {
       if (isRecord(value[key])) {
-        found = value[key] as UnknownRecord;
+        found = value[key];
         return;
       }
     }
@@ -142,7 +143,8 @@ const bestSquareThumbnail = (root: unknown) => {
     const ratio = thumbnail.width / thumbnail.height;
     if (ratio < 0.68 || ratio > 1.46) continue;
     const area = thumbnail.width * thumbnail.height;
-    const nextScore = area / (1 + Math.abs(1 - ratio) * 3);
+    const shapePenalty = Math.abs(1 - ratio) * 3;
+    const nextScore = area / (1 + shapePenalty);
     if (nextScore > score) {
       score = nextScore;
       best = thumbnail.url;
@@ -159,7 +161,8 @@ const strictSquareThumbnail = (root: unknown) => {
     const ratio = thumbnail.width / thumbnail.height;
     if (ratio < 0.78 || ratio > 1.28) continue;
     const area = thumbnail.width * thumbnail.height;
-    const nextScore = area / (1 + Math.abs(1 - ratio) * 4);
+    const shapePenalty = Math.abs(1 - ratio) * 4;
+    const nextScore = area / (1 + shapePenalty);
     if (nextScore > score) {
       score = nextScore;
       best = thumbnail.url;
@@ -239,7 +242,9 @@ const isEpisodeLike = (title: string, subtitle: string, videoType: string) => {
   );
 };
 
-const trackFromCandidate = (candidate: UnknownRecord): SearchResultItem | null => {
+const trackFromCandidate = (
+  candidate: UnknownRecord,
+): SearchResultItem | null => {
   const titleRuns = readRuns(candidate.title);
   const groups = flexGroups(candidate);
   const effectiveTitleRuns = titleRuns.length ? titleRuns : (groups[0] ?? []);
@@ -255,7 +260,9 @@ const trackFromCandidate = (candidate: UnknownRecord): SearchResultItem | null =
   const endpoint =
     endpointFrom(candidate.navigationEndpoint) ??
     endpointFrom(candidate.onTap) ??
-    effectiveTitleRuns.map((run) => run.navigationEndpoint ?? null).find(Boolean) ??
+    effectiveTitleRuns
+      .map((run) => run.navigationEndpoint ?? null)
+      .find(Boolean) ??
     deepEndpoint(candidate);
   const playlistData = isRecord(candidate.playlistItemData)
     ? candidate.playlistItemData
@@ -265,11 +272,13 @@ const trackFromCandidate = (candidate: UnknownRecord): SearchResultItem | null =
   const videoId =
     directVideoId ??
     endpoint?.watchEndpoint?.videoId ??
-    (typeof playlistData?.videoId === 'string' ? playlistData.videoId : undefined);
+    (typeof playlistData?.videoId === 'string'
+      ? playlistData.videoId
+      : undefined);
   if (!videoId) return null;
   const videoType =
-    endpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig
-      ?.musicVideoType ??
+    endpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs
+      ?.watchEndpointMusicConfig?.musicVideoType ??
     (typeof candidate.videoType === 'string' ? candidate.videoType : '');
   if (isEpisodeLike(title, subtitle, videoType)) return null;
 
@@ -311,7 +320,9 @@ const collectTracks = (root: unknown) => {
   return tracks;
 };
 
-const releaseFromCandidate = (candidate: UnknownRecord): SearchResultItem | null => {
+const releaseFromCandidate = (
+  candidate: UnknownRecord,
+): SearchResultItem | null => {
   const titleRuns = readRuns(candidate.title);
   const groups = flexGroups(candidate);
   const effectiveTitleRuns = titleRuns.length ? titleRuns : (groups[0] ?? []);
@@ -326,11 +337,16 @@ const releaseFromCandidate = (candidate: UnknownRecord): SearchResultItem | null
   const endpoint =
     endpointFrom(candidate.navigationEndpoint) ??
     endpointFrom(candidate.onTap) ??
-    effectiveTitleRuns.map((run) => run.navigationEndpoint ?? null).find(Boolean) ??
+    effectiveTitleRuns
+      .map((run) => run.navigationEndpoint ?? null)
+      .find(Boolean) ??
     deepEndpoint(candidate);
   const browseId = endpoint?.browseEndpoint?.browseId;
   const pageType = endpointPageType(endpoint);
-  if (!browseId || (pageType !== 'MUSIC_PAGE_TYPE_ALBUM' && !browseId.startsWith('MPRE')))
+  if (
+    !browseId ||
+    (pageType !== 'MUSIC_PAGE_TYPE_ALBUM' && !browseId.startsWith('MPRE'))
+  )
     return null;
   return {
     kind: 'album',
@@ -407,7 +423,11 @@ const collectStrictAlbumShelf = (root: unknown) => {
       const title = normalize(rendererTitle(renderer));
       if (/^(?:album|albums|альбом|альбомы|альбоми)$/u.test(title)) {
         for (const item of collectReleaseCards(renderer.contents)) {
-          if (!item.browseId || seen.has(item.browseId) || isExplicitSingleOrEp(item))
+          if (
+            !item.browseId ||
+            seen.has(item.browseId) ||
+            isExplicitSingleOrEp(item)
+          )
             continue;
           seen.add(item.browseId);
           result.push(item);
@@ -429,7 +449,9 @@ const mergeAlbums = (
   const seen = new Set<string>();
   for (const item of [...left, ...right]) {
     if (item.kind !== 'album' || isExplicitSingleOrEp(item)) continue;
-    const key = item.browseId ?? `${normalize(item.title)}\u0000${normalize(item.subtitle)}`;
+    const key =
+      item.browseId ??
+      `${normalize(item.title)}\u0000${normalize(item.subtitle)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(item);
@@ -440,15 +462,16 @@ const mergeAlbums = (
 const watchTrackFromCandidate = (
   candidate: UnknownRecord,
 ): SearchResultItem | null => {
-  const videoId = typeof candidate.videoId === 'string' ? candidate.videoId : '';
+  const videoId =
+    typeof candidate.videoId === 'string' ? candidate.videoId : '';
   const title = textFromValue(candidate.title);
   if (!videoId || !title) return null;
 
   const endpoint =
     endpointFrom(candidate.navigationEndpoint) ?? deepEndpoint(candidate);
   const videoType =
-    endpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig
-      ?.musicVideoType ??
+    endpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs
+      ?.watchEndpointMusicConfig?.musicVideoType ??
     (typeof candidate.videoType === 'string' ? candidate.videoType : '');
   if (/PODCAST|EPISODE|OMV|UGC/iu.test(videoType)) return null;
 
@@ -499,7 +522,8 @@ const collectAutoplayTracks = (root: unknown) => {
 export const installPlaylistCatalog = (
   engine: CatalogYouTubeMusicAdapter,
 ): PlaylistCatalogAdapter => {
-  const app = () => document.querySelector<MusicPlayerAppElement>('ytmusic-app');
+  const app = () =>
+    document.querySelector<MusicPlayerAppElement>('ytmusic-app');
   const requireApp = () => {
     const musicApp = app();
     if (!musicApp?.networkManager?.fetch)
@@ -511,9 +535,12 @@ export const installPlaylistCatalog = (
   const profileCache = new Map<string, Promise<SearchArtistProfile>>();
 
   const browse = (browseId: string) =>
-    requireApp().networkManager.fetch<unknown, { browseId: string }>('/browse', {
-      browseId,
-    });
+    requireApp().networkManager.fetch<unknown, { browseId: string }>(
+      '/browse',
+      {
+        browseId,
+      },
+    );
 
   const canonicalProfile = (
     browseId: string,
@@ -525,12 +552,12 @@ export const installPlaylistCatalog = (
 
     const request = (async () => {
       const raw = response ?? (await browse(browseId));
-      const header =
+      const header: UnknownRecord =
         findRecordByKey(raw, [
           'musicImmersiveHeaderRenderer',
           'musicVisualHeaderRenderer',
           'musicResponsiveHeaderRenderer',
-        ]) ?? (isRecord(raw) ? raw : {});
+        ]) ?? {};
 
       let searchAvatar = '';
       const title = fallback.title.trim();
@@ -541,9 +568,7 @@ export const installPlaylistCatalog = (
             ...(search.topResult?.kind === 'artist' ? [search.topResult] : []),
             ...search.artists,
           ];
-          const exact =
-            candidates.find((item) => item.browseId === browseId) ??
-            candidates.find((item) => normalize(item.title) === normalize(title));
+          const exact = candidates.find((item) => item.browseId === browseId);
           searchAvatar = exact?.artwork ?? '';
         } catch {
           // Browse data below is still enough to render a stable profile.
@@ -565,11 +590,14 @@ export const installPlaylistCatalog = (
       return {
         ...fallback,
         browseId,
-        avatar: searchAvatar || directAvatar || fallback.avatar,
+        avatar: directAvatar || searchAvatar,
         banner: banner || fallback.banner || searchAvatar || directAvatar,
       };
     })();
 
+    request.catch(() => {
+      if (profileCache.get(browseId) === request) profileCache.delete(browseId);
+    });
     profileCache.set(browseId, request);
     return request;
   };
@@ -587,7 +615,12 @@ export const installPlaylistCatalog = (
     return {
       ...catalog,
       profile,
-      albums: mergeAlbums(catalog.albums, shelfAlbums),
+      albums: mergeAlbums(
+        catalog.albums.filter((item) =>
+          /(?:^|\s)(?:album|альбом)(?:\s|$)/iu.test(normalize(item.subtitle)),
+        ),
+        shelfAlbums,
+      ),
     };
   };
 
@@ -601,7 +634,10 @@ export const installPlaylistCatalog = (
         featuredArtist: await canonicalProfile(featured.browseId, featured),
       };
     } catch (error) {
-      console.warn('[143 Music] Could not stabilize artist profile artwork', error);
+      console.warn(
+        '[143 Music] Could not stabilize artist profile artwork',
+        error,
+      );
       return catalog;
     }
   };
@@ -676,36 +712,11 @@ export const installPlaylistCatalog = (
   };
 
   const addToPlaylist = async (playlistId: string, videoId: string) => {
-    if (!playlistId || !videoId)
-      throw new Error('A playlist and track are required');
-    const normalizedPlaylistId = playlistId.startsWith('VL')
-      ? playlistId.slice(2)
-      : playlistId;
-    const response = await requireApp().networkManager.fetch<
-      unknown,
-      {
-        playlistId: string;
-        actions: {
-          action: string;
-          addedVideoId: string;
-          dedupeOption: string;
-        }[];
-      }
-    >('/browse/edit_playlist', {
-      playlistId: normalizedPlaylistId,
-      actions: [
-        {
-          action: 'ACTION_ADD_VIDEO',
-          addedVideoId: videoId,
-          dedupeOption: 'DEDUPE_OPTION_SKIP',
-        },
-      ],
-    });
-
-    if (!isRecord(response)) return;
-    const status = typeof response.status === 'string' ? response.status : '';
-    if (response.error || (status && !status.includes('SUCCEEDED')))
-      throw new Error(`Playlist edit failed${status ? `: ${status}` : ''}`);
+    const response = await requireApp().networkManager.fetch(
+      '/browse/edit_playlist',
+      playlistEditPayload(playlistId, videoId),
+    );
+    validatePlaylistEdit(response);
   };
 
   return Object.assign(engine, {

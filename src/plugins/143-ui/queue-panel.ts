@@ -1,4 +1,5 @@
 import queueStyle from './queue-panel.css?inline';
+
 import type { PlaybackContextAdapter } from './playback-context';
 
 const ROOT_ID = 'ui143-queue-panel';
@@ -7,7 +8,7 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
   document.getElementById(ROOT_ID)?.remove();
 
   const sheet = new CSSStyleSheet();
-  void sheet.replace(queueStyle);
+  sheet.replaceSync(queueStyle);
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
 
   const root = document.createElement('aside');
@@ -45,6 +46,9 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
     button.setAttribute('aria-pressed', String(active));
   };
 
+  const rows = new Map<string, HTMLButtonElement>();
+  let firstItem: unknown;
+  let scrolledId = '';
   const render = () => {
     const context = engine.getPlaybackContext();
     const visible = Boolean(context?.queueOpen);
@@ -52,14 +56,34 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
     syncPlayerButton(visible);
     if (!context) {
       list.replaceChildren();
+      rows.clear();
       source.textContent = '';
       return;
     }
 
     source.textContent = `${context.source.title} • ${context.items.length} tracks`;
-    list.replaceChildren();
+    if (context.items[0] !== firstItem) {
+      rows.clear();
+      list.replaceChildren();
+      firstItem = context.items[0];
+      scrolledId = '';
+    }
+    const ids = new Set(context.items.map((item) => item.videoId!));
+    for (const [id, row] of rows)
+      if (!ids.has(id)) {
+        row.remove();
+        rows.delete(id);
+      }
     for (const [index, item] of context.items.entries()) {
+      const existing = rows.get(item.videoId!);
+      if (existing) {
+        existing.classList.toggle('is-current', index === context.index);
+        existing.querySelector('.ui143-queue-index')!.textContent =
+          `${index + 1}/${context.items.length}`;
+        continue;
+      }
       const row = document.createElement('button');
+      rows.set(item.videoId!, row);
       row.type = 'button';
       row.className = 'ui143-queue-row';
       row.classList.toggle('is-current', index === context.index);
@@ -92,9 +116,13 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
       list.append(row);
     }
 
-    list
-      .querySelector<HTMLElement>('.ui143-queue-row.is-current')
-      ?.scrollIntoView({ block: 'nearest' });
+    const id = context.items[context.index]?.videoId ?? '';
+    if (visible && id !== scrolledId) {
+      list
+        .querySelector<HTMLElement>('.ui143-queue-row.is-current')
+        ?.scrollIntoView({ block: 'nearest' });
+      scrolledId = id;
+    }
   };
 
   const unsubscribe = engine.subscribePlaybackContext(render);

@@ -1,14 +1,18 @@
-import type { MusicPlayer } from '@/types/music-player';
+import {
+  nativeStore,
+  isNativeSubstitution,
+  interceptNativeTransitions,
+} from './native-player';
 
 import type { MusicState, SearchResultItem } from './youtube-music';
 import type { PlaylistCatalogAdapter } from './youtube-music-playlist';
+import type { MusicPlayer } from '@/types/music-player';
 
 export type PlaybackContextSource = Readonly<{
   kind: 'search' | 'artist' | 'album' | 'playlist';
   title: string;
   browseId?: string;
 }>;
-
 export type PlaybackContext = Readonly<{
   source: PlaybackContextSource;
   items: readonly SearchResultItem[];
@@ -17,7 +21,6 @@ export type PlaybackContext = Readonly<{
   repeat: 0 | 1 | 2;
   queueOpen: boolean;
 }>;
-
 export type PlaybackContextAdapter = PlaylistCatalogAdapter & {
   playContext: (
     items: readonly SearchResultItem[],
@@ -33,281 +36,317 @@ export type PlaybackContextAdapter = PlaylistCatalogAdapter & {
   closeContextQueue: () => void;
   clearPlaybackContext: () => void;
 };
-
 const playableItems = (items: readonly SearchResultItem[]) => {
-  const result: SearchResultItem[] = [];
   const seen = new Set<string>();
-  for (const item of items) {
-    if (item.kind !== 'song' || !item.videoId || seen.has(item.videoId)) continue;
+  return items.filter((item) => {
+    if (item.kind !== 'song' || !item.videoId || seen.has(item.videoId))
+      return false;
     seen.add(item.videoId);
-    result.push(item);
-  }
-  return result;
+    return true;
+  });
 };
 
 export const installPlaybackContext = (
   engine: PlaylistCatalogAdapter,
 ): PlaybackContextAdapter => {
-  const originalOpenSearchResult = engine.openSearchResult.bind(engine);
-  const originalNext = engine.next.bind(engine);
-  const originalPrevious = engine.previous.bind(engine);
-  const originalSeek = engine.seek.bind(engine);
-  const originalToggleShuffle = engine.toggleShuffle.bind(engine);
-  const originalCycleRepeat = engine.cycleRepeat.bind(engine);
-  const originalOpenQueue = engine.openQueue.bind(engine);
-  const originalGetState = engine.getState.bind(engine);
-  const originalSubscribe = engine.subscribe.bind(engine);
-  const originalDispose = engine.dispose.bind(engine);
-
-  const playerApi = () =>
+  const original = {
+    open: engine.openSearchResult.bind(engine),
+    next: engine.next.bind(engine),
+    previous: engine.previous.bind(engine),
+    seek: engine.seek.bind(engine),
+    shuffle: engine.toggleShuffle.bind(engine),
+    repeat: engine.cycleRepeat.bind(engine),
+    queue: engine.openQueue.bind(engine),
+    state: engine.getState.bind(engine),
+    subscribe: engine.subscribe.bind(engine),
+    dispose: engine.dispose.bind(engine),
+  };
+  const api = () =>
     document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
-  const playerMedia = () =>
-    playerApi()?.querySelector<HTMLVideoElement>('video') ??
-    document.querySelector<HTMLVideoElement>('video');
-
   let context: PlaybackContext | null = null;
-  let contextToken = 0;
-  let pendingVideoId = '';
-  let pendingTicks = 0;
-  let mismatchTicks = 0;
-  let endedVideoId = '';
+  let epoch = 0;
+  let revision = 0;
+  let pending = false;
+  let advancing = false;
+  let ended = false;
+  let disposed = false;
+  let recovering = false;
+  let acceptedId = '';
+  let visible = original.state();
   const history: number[] = [];
-  const extensionSeeds = new Set<string>();
-  const contextListeners = new Set<(value: PlaybackContext | null) => void>();
+  const shuffleBag = new Set<string>();
+  const extensions = new Map<string, Promise<number>>();
+  const contextListeners = new Set<(context: PlaybackContext | null) => void>();
   const stateListeners = new Set<(state: MusicState) => void>();
+  let savedNative: {
+    autoplay: unknown;
+    repeatMode: unknown;
+    shuffleEnabled: unknown;
+  } | null = null;
 
-  const setNativeAutonav = (enabled: boolean) => {
+  const nativeTransitions = interceptNativeTransitions(() => {
+    engine.refresh();
+    if (
+      !pending &&
+      context &&
+      original.state().track.id === acceptedId &&
+      visible.time >= visible.duration - 0.5
+    )
+      advance(true);
+  });
+  const ownNative = () => {
+    nativeTransitions.install();
+    const store = nativeStore();
+    const queue = store?.getState().queue;
+    if (queue && !savedNative)
+      savedNative = {
+        autoplay: queue.autoplay,
+        repeatMode: queue.repeatMode,
+        shuffleEnabled: queue.shuffleEnabled,
+      };
+    for (const [key, type, value] of [
+      ['autoplay', 'SET_AUTOPLAY_ENABLED', false],
+      ['repeatMode', 'SET_REPEAT', 'NONE'],
+      ['shuffleEnabled', 'SET_SHUFFLE_ENABLED', false],
+    ] as const) {
+      if (queue && queue[key] !== value)
+        store?.dispatch({ type, payload: value });
+    }
     try {
-      playerApi()?.setAutonav?.(enabled);
+      api()?.setAutonav?.(false);
     } catch {
-      // Player builds differ here; the 143 queue does not depend on this call.
+      /* guarded by ended capture too */
     }
   };
-
-  const presentedState = (base: MusicState): MusicState =>
+  const releaseNative = () => {
+    nativeTransitions.dispose();
+    const store = nativeStore();
+    if (savedNative) {
+      for (const [key, type] of [
+        ['autoplay', 'SET_AUTOPLAY_ENABLED'],
+        ['repeatMode', 'SET_REPEAT'],
+        ['shuffleEnabled', 'SET_SHUFFLE_ENABLED'],
+      ] as const)
+        if (savedNative[key] !== undefined)
+          store?.dispatch({ type, payload: savedNative[key] });
+    }
+    try {
+      api()?.setAutonav?.(savedNative?.autoplay ?? true);
+    } catch {
+      /* player detached */
+    }
+    savedNative = null;
+  };
+  const state = (): MusicState =>
     context
       ? {
-          ...base,
+          ...visible,
           shuffle: context.shuffle,
           repeat: context.repeat,
           queueActive: context.queueOpen,
+          queue: context.items.map((item, index) => ({
+            id: item.videoId!,
+            title: item.title,
+            selected: index === context!.index,
+          })),
         }
-      : base;
-
-  const notifyState = (base = originalGetState()) => {
-    const visible = presentedState(base);
-    for (const listener of stateListeners) listener(visible);
+      : original.state();
+  const notify = () => {
+    for (const listener of stateListeners) listener(state());
   };
-
   const emit = () => {
     for (const listener of contextListeners) listener(context);
-    notifyState();
+    notify();
   };
-
-  const replace = (next: PlaybackContext | null) => {
-    context = next;
-    contextToken++;
-    pendingVideoId = '';
-    pendingTicks = 0;
-    mismatchTicks = 0;
-    endedVideoId = '';
+  const clear = () => {
+    epoch++;
+    revision++;
+    context = null;
+    pending = advancing = ended = recovering = false;
+    extensions.clear();
     history.length = 0;
-    extensionSeeds.clear();
-    setNativeAutonav(!next);
+    shuffleBag.clear();
+    acceptedId = '';
+    releaseNative();
     emit();
   };
+  const extend = (seed: string): Promise<number> => {
+    if (!context || !seed) return Promise.resolve(0);
+    const existing = extensions.get(seed);
+    if (existing) return existing;
+    const token = epoch;
+    const request = engine
+      .getAutoplayItems(seed)
+      .then((items) => {
+        if (!context || token !== epoch || disposed) return 0;
+        const known = new Set(context.items.map((item) => item.videoId));
+        const additions = playableItems(items).filter(
+          (item) => !known.has(item.videoId),
+        );
+        if (additions.length) {
+          context = { ...context, items: [...context.items, ...additions] };
+          emit();
+        }
+        // Keep completed empty responses cached so refresh cannot start a request storm.
 
-  const extendFrom = async (seedVideoId: string) => {
-    if (!context || !seedVideoId || extensionSeeds.has(seedVideoId)) return 0;
-    extensionSeeds.add(seedVideoId);
-    const token = contextToken;
-
-    try {
-      const extra = await engine.getAutoplayItems(seedVideoId);
-      if (!context || token !== contextToken) return 0;
-      const known = new Set(
-        context.items.flatMap((item) => (item.videoId ? [item.videoId] : [])),
-      );
-      const additions = playableItems(extra).filter(
-        (item) => item.videoId && !known.has(item.videoId),
-      );
-      if (!additions.length) return 0;
-      context = { ...context, items: [...context.items, ...additions] };
-      emit();
-      return additions.length;
-    } catch (error) {
-      extensionSeeds.delete(seedVideoId);
-      console.warn('[143 Music] Could not extend autoplay queue', error);
-      return 0;
-    }
+        return additions.length;
+      })
+      .catch((error) => {
+        if (token === epoch) extensions.delete(seed);
+        console.warn('[143 Music] Could not extend autoplay queue', error);
+        return 0;
+      });
+    extensions.set(seed, request);
+    return request;
   };
-
   const ensureTail = () => {
-    if (!context || context.items.length - context.index > 6) return;
-    const seed = context.items.at(-1)?.videoId;
-    if (seed) void extendFrom(seed);
+    if (
+      context &&
+      context.repeat === 0 &&
+      context.items.length - context.index <= 6
+    )
+      extend(context.items.at(-1)?.videoId ?? '');
   };
-
-  const loadIndex = (index: number, recordHistory = true) => {
-    if (!context || index < 0 || index >= context.items.length) return false;
-    const item = context.items[index];
-    if (!item?.videoId) return false;
-    if (recordHistory && context.index !== index) history.push(context.index);
-    context = { ...context, index };
-    pendingVideoId = item.videoId;
-    pendingTicks = 0;
-    mismatchTicks = 0;
-    endedVideoId = '';
-    setNativeAutonav(false);
+  const load = (index: number, record = true) => {
+    if (!context || !context.items[index]?.videoId) return false;
+    const before = context;
+    const item = before.items[index];
+    const previousVisible = visible;
+    revision++;
+    pending = true;
+    ended = false;
+    recovering = false;
+    acceptedId = '';
+    context = { ...before, index };
+    visible = {
+      ...visible,
+      track: {
+        id: item.videoId!,
+        title: item.title,
+        byline: item.subtitle,
+        artwork: item.artwork,
+        artists: [],
+      },
+      duration: 0,
+      time: 0,
+    };
+    ownNative();
+    api()?.clearQueue?.();
     emit();
-
-    const opened = originalOpenSearchResult(item);
-    if (opened) ensureTail();
-    return opened;
-  };
-
-  const randomNextIndex = () => {
-    if (!context || context.items.length < 2) return context?.index ?? -1;
-    let next = context.index;
-    while (next === context.index)
-      next = Math.floor(Math.random() * context.items.length);
-    return next;
-  };
-
-  const advance = async (automatic: boolean) => {
-    if (!context) return false;
-    if (automatic && context.repeat === 2) return loadIndex(context.index, false);
-
-    const token = contextToken;
-    const next = context.shuffle ? randomNextIndex() : context.index + 1;
-    if (next >= 0 && next < context.items.length) return loadIndex(next, true);
-
-    const seed = context.items.at(-1)?.videoId ?? '';
-    if (seed) await extendFrom(seed);
-    if (!context || token !== contextToken) return false;
-
-    const extendedNext = context.index + 1;
-    if (!context.shuffle && extendedNext < context.items.length)
-      return loadIndex(extendedNext, true);
-
-    if (context.repeat === 1 && context.items.length) return loadIndex(0, true);
-
-    if (automatic) {
-      try {
-        playerApi()?.stopVideo?.();
-      } catch {
-        // The media element is already ended; stopping only blocks native autonav.
-      }
+    let opened = false;
+    try {
+      opened = original.open(item);
+    } catch (error) {
+      console.warn('[143 Music] Could not load track', error);
     }
-    return false;
-  };
-
-  const rewind = () => {
-    if (!context) return false;
-    if (originalGetState().time > 3) {
-      const api = playerApi();
-      if (api?.seekTo) api.seekTo(0);
-      else originalSeek(0);
-      return true;
+    if (!opened) {
+      context = before;
+      visible = previousVisible;
+      pending = false;
+      emit();
+      return false;
     }
-    if (context.shuffle && history.length) {
-      const previous = history.pop();
-      return previous === undefined ? false : loadIndex(previous, false);
-    }
-    const previous = context.index - 1;
-    if (previous >= 0) return loadIndex(previous, true);
-    if (context.repeat === 1 && context.items.length)
-      return loadIndex(context.items.length - 1, true);
-    const api = playerApi();
-    if (api?.seekTo) api.seekTo(0);
-    else originalSeek(0);
+    if (record && before.index !== index) history.push(before.index);
+    shuffleBag.add(item.videoId!);
+    ensureTail();
     return true;
   };
-
-  const stateUnsubscribe = originalSubscribe((baseState) => {
+  const chooseShuffle = () => {
+    if (!context) return -1;
+    let choices = context.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !shuffleBag.has(item.videoId!));
+    if (!choices.length && context.repeat === 1) {
+      shuffleBag.clear();
+      shuffleBag.add(context.items[context.index].videoId!);
+      choices = context.items
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => !shuffleBag.has(item.videoId!));
+      if (!choices.length) return context.index;
+    }
+    return choices.length
+      ? choices[Math.floor(Math.random() * choices.length)].index
+      : -1;
+  };
+  const advance = async (automatic: boolean) => {
+    if (!context || disposed || pending || advancing || (automatic && ended))
+      return;
+    advancing = true;
+    ended = true;
+    const token = epoch,
+      turn = revision;
+    try {
+      if (automatic && context.repeat === 2) {
+        load(context.index, false);
+        return;
+      }
+      let next = context.shuffle ? chooseShuffle() : context.index + 1;
+      if (next >= 0 && next < context.items.length) {
+        load(next);
+        return;
+      }
+      if (context.repeat === 1) {
+        load(0);
+        return;
+      }
+      if (context.repeat === 0) {
+        await extend(context.items.at(-1)?.videoId ?? '');
+        if (!context || epoch !== token || revision !== turn) return;
+        next = context.shuffle ? chooseShuffle() : context.index + 1;
+        if (next >= 0 && next < context.items.length) {
+          load(next);
+          return;
+        }
+      }
+      if (automatic) api()?.pauseVideo?.();
+    } finally {
+      if (epoch === token) advancing = false;
+    }
+  };
+  const unsubscribe = original.subscribe((base) => {
     if (!context) {
-      notifyState(baseState);
+      visible = base;
+      notify();
       return;
     }
-
-    const id = baseState.track.id;
-    if (!id) {
-      notifyState(baseState);
-      return;
-    }
-
-    if (pendingVideoId) {
-      if (id === pendingVideoId) {
-        pendingVideoId = '';
-        pendingTicks = 0;
-        mismatchTicks = 0;
-      } else {
-        pendingTicks++;
-        if (pendingTicks < 30) return;
-        // Some uploads can be substituted by YouTube. Wait for the requested ID
-        // first instead of immediately accepting a native autonav race.
-        pendingVideoId = '';
-        pendingTicks = 0;
+    ownNative();
+    const expected = context.items[context.index]?.videoId;
+    const id = base.track.id;
+    if (!id || !expected) return;
+    const matches = id === expected || isNativeSubstitution(expected, id);
+    if (!matches) {
+      // No timer-based adoption: only a native wrapper explicitly pairing the IDs
+      // can establish an audio/video substitution. Keep the same queue position.
+      if (!pending && !recovering) {
+        recovering = true;
+        pending = true;
+        original.open(context.items[context.index]);
       }
-    }
-
-    const index = context.items.findIndex((item) => item.videoId === id);
-    if (index >= 0) {
-      mismatchTicks = 0;
-      if (index !== context.index) {
-        context = { ...context, index };
-        emit();
-      } else {
-        notifyState(baseState);
-      }
-      ensureTail();
       return;
     }
-
-    mismatchTicks++;
-    if (mismatchTicks >= 3) {
-      const adopted: SearchResultItem = {
-        kind: 'song',
-        title: baseState.track.title || 'Autoplay',
-        subtitle: baseState.track.byline,
-        artwork: baseState.track.artwork,
-        videoId: id,
-      };
-      context = {
-        ...context,
-        items: [...context.items, adopted],
-        index: context.items.length,
-      };
-      mismatchTicks = 0;
-      endedVideoId = '';
-      emit();
-      ensureTail();
-      return;
-    }
-
-    notifyState(baseState);
+    // Metadata acknowledgement includes a duration tied to this video. Until then
+    // no seek/ended event is allowed to operate on the previous decoder state.
+    if (base.duration <= 0) return;
+    pending = false;
+    recovering = false;
+    acceptedId = id;
+    visible = base;
+    notify();
+    ensureTail();
   });
-
   const onEnded = (event: Event) => {
     if (!context) return;
-    const media = playerMedia();
-    if (media && event.target !== media) return;
-
-    const id = originalGetState().track.id;
-    if (!id || endedVideoId === id) return;
-    const current = context.items[context.index];
-    if (current?.videoId !== id) return;
-
-    // A custom 143 context owns end-of-track navigation. Block YouTube Music's
-    // native ended handlers here; otherwise native Automix can race our next
-    // loadVideoById() and replace it with an unrelated track.
+    const video =
+      api()?.querySelector('video') ?? document.querySelector('video');
+    if (!video || event.target !== video) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    endedVideoId = id;
-    void advance(true);
+    if (pending || original.state().track.id !== acceptedId) return;
+    if (visible.time < visible.duration - 0.5 && !video.ended) return;
+    advance(true);
   };
-  document.addEventListener('ended', onEnded, true);
-
+  // Window capture precedes the document/media listeners installed by YTM.
+  window.addEventListener('ended', onEnded, true);
   return Object.assign(engine, {
     playContext(
       items: readonly SearchResultItem[],
@@ -315,141 +354,138 @@ export const installPlaybackContext = (
       source: PlaybackContextSource,
       options: Readonly<{ shuffle?: boolean }> = {},
     ) {
-      const selected = items[startIndex];
-      const playable = playableItems(items);
-      if (!playable.length) return false;
-      const index = selected?.videoId
-        ? Math.max(
-            0,
-            playable.findIndex((item) => item.videoId === selected.videoId),
-          )
-        : 0;
-      const baseState = originalGetState();
-      contextToken++;
+      if (!nativeTransitions.install()) {
+        console.warn('[143 Music] Native playback controller is not ready');
+        return false;
+      }
+      const list = playableItems(items);
+      if (!list.length) {
+        if (!context) nativeTransitions.dispose();
+        return false;
+      }
+      epoch++;
+      revision++;
+      extensions.clear();
       history.length = 0;
-      extensionSeeds.clear();
+      shuffleBag.clear();
+      advancing = false;
+      const index = Math.max(
+        0,
+        list.findIndex((item) => item.videoId === items[startIndex]?.videoId),
+      );
       context = {
         source,
-        items: playable,
+        items: list,
         index,
-        // Custom contexts start sequentially unless the caller explicitly asks
-        // for shuffle. This avoids inheriting stale hidden-YT shuffle state.
         shuffle: options.shuffle ?? false,
-        repeat: baseState.repeat ?? 0,
-        queueOpen: false,
+        repeat: context?.repeat ?? original.state().repeat ?? 0,
+        queueOpen: context?.queueOpen ?? false,
       };
-      setNativeAutonav(false);
-      emit();
-      const seed = playable.at(-1)?.videoId;
-      if (seed) void extendFrom(seed);
-      return loadIndex(index, false);
+      return load(index, false);
     },
-    playContextIndex(index: number) {
-      return loadIndex(index, true);
-    },
+    playContextIndex: (index: number) => load(index),
     getPlaybackContext: () => context,
-    subscribePlaybackContext(listener: (value: PlaybackContext | null) => void) {
+    subscribePlaybackContext(
+      listener: (value: PlaybackContext | null) => void,
+    ) {
       contextListeners.add(listener);
       listener(context);
-      return () => contextListeners.delete(listener);
+      return () => {
+        contextListeners.delete(listener);
+      };
     },
     closeContextQueue() {
-      if (!context?.queueOpen) return;
-      context = { ...context, queueOpen: false };
-      emit();
+      if (context) {
+        context = { ...context, queueOpen: false };
+        emit();
+      }
     },
-    clearPlaybackContext() {
-      replace(null);
-    },
-    getState() {
-      return presentedState(originalGetState());
-    },
-    subscribe(listener: (state: MusicState) => void) {
+    clearPlaybackContext: clear,
+    getState: state,
+    subscribe(listener: (value: MusicState) => void) {
       stateListeners.add(listener);
-      listener(presentedState(originalGetState()));
-      return () => stateListeners.delete(listener);
+      listener(state());
+      return () => {
+        stateListeners.delete(listener);
+      };
     },
     openSearchResult(item: SearchResultItem) {
-      replace(null);
-      return originalOpenSearchResult(item);
+      clear();
+      return original.open(item);
     },
     next() {
-      if (context) {
-        void advance(false);
-        return;
-      }
-      originalNext();
+      if (context) advance(false);
+      else original.next();
     },
     previous() {
-      if (context) {
-        rewind();
+      if (!context) {
+        original.previous();
         return;
       }
-      originalPrevious();
+      if (pending || advancing) return;
+      if (visible.time > 3) {
+        original.seek(0);
+        ended = false;
+        return;
+      }
+      const index = context.shuffle ? history.pop() : context.index - 1;
+      if (index !== undefined && index >= 0) load(index, false);
+      else if (context.repeat === 1) load(context.items.length - 1, false);
+      else original.seek(0);
     },
     seek(seconds: number) {
       if (!Number.isFinite(seconds)) return;
-      const target = Math.max(0, seconds);
-      const api = playerApi();
-      const liveDuration = api?.getDuration?.() ?? originalGetState().duration;
-
-      // Seeking exactly to the end can let YouTube's own autonav run before our
-      // ended handler. Treat the final fraction of a second as an explicit
-      // request for the next item and use the same deterministic 143 transition
-      // as the Next button.
-      if (context && liveDuration > 0) {
-        const endGuard = Math.max(0.6, Math.min(1.25, liveDuration * 0.003));
-        if (target >= liveDuration - endGuard) {
-          endedVideoId = originalGetState().track.id;
-          void advance(true);
-          return;
-        }
-      }
-
-      endedVideoId = '';
-      if (api?.seekTo) {
-        // Do not clamp against cached state.duration. Right after a track change
-        // that value can belong to the previous song and causes a visible snap back.
-        api.seekTo(target);
-        engine.refresh();
+      if (!context) {
+        original.seek(seconds);
         return;
       }
-      originalSeek(target);
+      if (
+        pending ||
+        advancing ||
+        visible.duration <= 0 ||
+        original.state().track.id !== acceptedId
+      )
+        return;
+      const target = Math.max(0, seconds);
+      if (target >= visible.duration - 0.25) {
+        advance(true);
+        return;
+      }
+      ended = false;
+      original.seek(target);
     },
     toggleShuffle() {
       if (!context) {
-        originalToggleShuffle();
+        original.shuffle();
         return;
       }
+      shuffleBag.clear();
+      shuffleBag.add(context.items[context.index].videoId!);
       context = { ...context, shuffle: !context.shuffle };
       emit();
     },
     cycleRepeat() {
       if (!context) {
-        originalCycleRepeat();
+        original.repeat();
         return;
       }
-      context = {
-        ...context,
-        repeat: ((context.repeat + 1) % 3) as 0 | 1 | 2,
-      };
+      context = { ...context, repeat: ((context.repeat + 1) % 3) as 0 | 1 | 2 };
       emit();
     },
     openQueue() {
-      if (!context) {
-        originalOpenQueue();
-        return;
-      }
-      context = { ...context, queueOpen: !context.queueOpen };
-      emit();
+      if (context) {
+        context = { ...context, queueOpen: !context.queueOpen };
+        emit();
+      } else original.queue();
     },
     dispose() {
-      stateUnsubscribe();
-      document.removeEventListener('ended', onEnded, true);
+      disposed = true;
+      unsubscribe();
+      window.removeEventListener('ended', onEnded, true);
+      clear();
       contextListeners.clear();
       stateListeners.clear();
-      replace(null);
-      originalDispose();
+      original.dispose();
     },
   });
 };

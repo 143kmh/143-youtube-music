@@ -1,3 +1,5 @@
+import { PlaylistEditUnconfirmedError } from './native-player';
+
 import type { YouTubeMusicAdapter } from './youtube-music';
 
 export const mountPlaylistPicker = (engine: YouTubeMusicAdapter) => {
@@ -95,7 +97,15 @@ export const mountPlaylistPicker = (engine: YouTubeMusicAdapter) => {
             row.disabled = false;
             row.classList.remove('is-loading');
             row.textContent = original;
-            renderPickerMessage(list, 'Could not add this track. Try again.');
+            const message = document.createElement('div');
+            message.className = 'ui143-playlist-picker-message';
+            message.setAttribute('role', 'status');
+            message.textContent =
+              error instanceof PlaylistEditUnconfirmedError
+                ? error.message
+                : 'YouTube Music could not add this track. Try again.';
+            list.querySelector('.ui143-playlist-picker-message')?.remove();
+            list.append(message);
           }
         });
         list.append(row);

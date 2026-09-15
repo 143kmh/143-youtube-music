@@ -178,6 +178,7 @@ export const mountPlayer = (
   let previewTime = 0;
   let pendingSeek = false;
   let seekTrackId = '';
+  let seekDuration = 0;
 
   const setProgressVisual = (ratio: number) => {
     const clamped = Math.max(0, Math.min(1, ratio));
@@ -188,9 +189,12 @@ export const mountPlayer = (
   const durationSeconds = () => engine.getState().duration;
 
   const updateSeekPreview = () => {
-    const total = durationSeconds();
+    const total = pendingSeek ? seekDuration : durationSeconds();
     if (total <= 0) return;
-    if (!pendingSeek) seekTrackId = engine.getState().track.id;
+    if (!pendingSeek) {
+      seekTrackId = engine.getState().track.id;
+      seekDuration = total;
+    }
     pendingSeek = true;
     const ratio = Number(progress.value) / 1000;
     previewTime = ratio * total;
@@ -199,7 +203,11 @@ export const mountPlayer = (
   };
 
   const commitSeek = () => {
-    if (pendingSeek && seekTrackId === engine.getState().track.id)
+    if (
+      pendingSeek &&
+      seekTrackId === engine.getState().track.id &&
+      seekDuration === durationSeconds()
+    )
       engine.seek(previewTime);
     pendingSeek = false;
     scrubbing = false;
@@ -220,7 +228,12 @@ export const mountPlayer = (
     commitSeek();
   };
   window.addEventListener('pointerup', finishScrub);
-  window.addEventListener('pointercancel', finishScrub);
+  const cancelScrub = () => {
+    pendingSeek = false;
+    scrubbing = false;
+    progressWrap.classList.remove('is-scrubbing');
+  };
+  window.addEventListener('pointercancel', cancelScrub);
 
   let volumeDragging = false;
   const renderVolume = (shownVolume: number) => {
@@ -256,6 +269,8 @@ export const mountPlayer = (
   let artistKey = '';
   const unsubscribe = engine.subscribe((state) => {
     const track = state.track;
+    progress.disabled = state.duration <= 0;
+    if (pendingSeek && seekTrackId !== track.id) cancelScrub();
     root.classList.toggle('is-idle', !track.id && !track.title);
     title.textContent = track.title || 'Nothing playing';
     if (track.artwork) {
@@ -320,7 +335,7 @@ export const mountPlayer = (
     unsubscribe();
     picker.dispose();
     window.removeEventListener('pointerup', finishScrub);
-    window.removeEventListener('pointercancel', finishScrub);
+    window.removeEventListener('pointercancel', cancelScrub);
     window.removeEventListener('pointerup', finishVolume);
     root.remove();
   };
