@@ -30,7 +30,7 @@ import { loadMainFeatures } from '@/core/main-features';
 import { APPLICATION_NAME, loadI18n, setLanguage, t } from '@/i18n';
 import { refreshMenu, setApplicationMenu } from '@/menu';
 import musicPlayerCss from '@/music-player.css?inline';
-import { fileExists, injectCSS, injectCSSAsFile } from '@/plugins/utils/main';
+import { fileExists, injectCSS, injectCSSAsFile } from '@/features/utils/main';
 import { restart, setupAppControls } from '@/providers/app-controls';
 import {
   APP_PROTOCOL,
