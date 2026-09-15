@@ -5,15 +5,15 @@ import 'mdui';
 
 import { loadI18n, setLanguage, t as i18t } from '@/i18n';
 import {
+  createFeatureContext,
+  getLoadedRendererFeatures,
+  loadRendererFeatures,
+} from '@/core/renderer-features';
+import {
   defaultTrustedTypePolicy,
   registerWindowDefaultTrustedTypePolicy,
 } from '@/utils/trusted-types';
 
-import {
-  createContext,
-  getAllLoadedRendererPlugins,
-  loadAllRendererPlugins,
-} from './loader/renderer';
 import { startingPages } from './providers/extracted-data';
 import { setupSongInfo } from './providers/song-info-front';
 
@@ -272,12 +272,12 @@ async function onApiLoaded() {
   const audioSource = audioContext.createMediaElementSource(video);
   audioSource.connect(audioContext.destination);
 
-  for (const [id, feature] of Object.entries(getAllLoadedRendererPlugins())) {
+  for (const [id, feature] of Object.entries(getLoadedRendererFeatures())) {
     if (typeof feature.renderer !== 'function') {
       await feature.renderer?.onPlayerApiReady?.call(
         feature.renderer,
         api!,
-        createContext(id),
+        createFeatureContext(id),
       );
     }
   }
@@ -386,7 +386,7 @@ const preload = async () => {
 };
 
 const main = async () => {
-  await loadAllRendererPlugins();
+  await loadRendererFeatures();
   areFeaturesLoaded = true;
   await listenForApiLoad();
   setInterval(() => (window._lact = Date.now()), 900_000);
