@@ -1,139 +1,19 @@
 import type { YouTubeMusicAdapter } from './youtube-music';
 
 const NATIVE_POLISH_STYLE_ID = 'ui143-native-polish';
-const HIDDEN_SHELF_CLASS = 'ui143-native-shelf-hidden';
-
-const normalizeShelfTitle = (value: string) =>
-  value
-    .normalize('NFKC')
-    .toLocaleLowerCase()
-    .replace(/[\p{P}\p{S}]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-const shouldHideNativeArtistShelf = (value: string) => {
-  const title = normalizeShelfTitle(value);
-  if (!title) return false;
-  return /^(?:albums?|альбомы?|singles?(?: and | & )?releases?|синглы(?: и)? выпуски|videos?|видео|podcasts?|подкасты?|episodes?|эпизоды?|выпуски?)$/iu.test(
-    title,
-  );
-};
+const PAGE_IDS = ['ui143-search-page', 'ui143-artist-page', 'ui143-album-page'] as const;
 
 const mountNativePolish = () => {
   document.getElementById(NATIVE_POLISH_STYLE_ID)?.remove();
   const style = document.createElement('style');
   style.id = NATIVE_POLISH_STYLE_ID;
   style.textContent = `
-    /* Keep the 143 shell visually continuous over immersive artist headers. */
     .ui143-topbar {
       background: #121212 !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
 
-    /* Native artist pages still provide the data/rendering, but should use the
-       full 143 content width instead of YouTube Music's centered desktop gutter. */
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer),
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer) #browse-page,
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer) #content-wrapper,
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer) #single-column-browse-results {
-      width: 100% !important;
-      max-width: none !important;
-      margin-left: 0 !important;
-      margin-right: 0 !important;
-      box-sizing: border-box !important;
-    }
-
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer) {
-      --ytmusic-content-width: 100% !important;
-      --ytmusic-page-padding: 24px !important;
-    }
-
-    /* The native hero was effectively half a screen tall. Keep it as a compact
-       banner so the eye lands on Top tracks without losing the artist image. */
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      ytmusic-immersive-header-renderer {
-      position: relative !important;
-      height: clamp(270px, 31vh, 330px) !important;
-      min-height: 270px !important;
-      max-height: 330px !important;
-      overflow: hidden !important;
-    }
-
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      .image.ytmusic-immersive-header-renderer {
-      position: absolute !important;
-      inset: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-      min-height: 0 !important;
-      margin: 0 !important;
-      overflow: hidden !important;
-    }
-
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      .image.ytmusic-immersive-header-renderer img,
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      .image.ytmusic-immersive-header-renderer yt-img-shadow {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: cover !important;
-      object-position: center 34% !important;
-    }
-
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      ytmusic-immersive-header-renderer .content-container-wrapper {
-      position: relative !important;
-      z-index: 2 !important;
-      width: 100% !important;
-      max-width: none !important;
-      height: 100% !important;
-      min-height: 0 !important;
-      display: flex !important;
-      align-items: flex-end !important;
-      margin: 0 !important;
-      box-sizing: border-box !important;
-    }
-
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      ytmusic-immersive-header-renderer .content-container {
-      width: 100% !important;
-      padding: 0 24px 18px !important;
-      box-sizing: border-box !important;
-    }
-
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      ytmusic-immersive-header-renderer .gradient-container {
-      position: absolute !important;
-      inset: 0 !important;
-      background: linear-gradient(180deg, transparent 28%, rgba(0, 0, 0, 0.18) 58%, rgba(0, 0, 0, 0.9) 100%) !important;
-      pointer-events: none !important;
-    }
-
-    /* Merch/social copy is useful on youtube.com, but in 143 Music it makes the
-       compact hero taller and pushes playback content below the fold. */
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      ytmusic-immersive-header-renderer .description-container {
-      display: none !important;
-    }
-
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      ytmusic-section-list-renderer > #contents,
-    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
-      ytmusic-shelf-renderer > #contents {
-      padding-left: 24px !important;
-      padding-right: 24px !important;
-      box-sizing: border-box !important;
-    }
-
-    /* The current native album/singles/video shelves render badly inside our
-       shell. Hide those fallback shelves until they are replaced by 143 views. */
-    html[data-143-ui] .${HIDDEN_SHELF_CLASS} {
-      display: none !important;
-    }
-
-    /* 143 Music is a music player. Keep podcast / episode surfaces out of the
-       native fallback pages as well as our own search results. */
     html[data-143-ui] ytmusic-podcast-show,
     html[data-143-ui] ytmusic-podcast-detail-page,
     html[data-143-ui] ytmusic-podcast-shelf-renderer,
@@ -144,84 +24,202 @@ const mountNativePolish = () => {
     html[data-143-ui] ytmusic-guide-entry-renderer:has(a[href*="/podcast/"]) {
       display: none !important;
     }
+
+    .ui143-artist-shelf-row,
+    .ui143-search-albums .ui143-search-card-grid {
+      cursor: grab;
+      overscroll-behavior-inline: contain;
+    }
+
+    .ui143-artist-shelf-row.is-dragging,
+    .ui143-search-albums .ui143-search-card-grid.is-dragging {
+      cursor: grabbing;
+      scroll-snap-type: none !important;
+      user-select: none;
+    }
+
+    .ui143-artist-shelf-row.is-dragging *,
+    .ui143-search-albums .ui143-search-card-grid.is-dragging * {
+      pointer-events: none;
+      user-select: none;
+    }
   `;
   document.head.append(style);
+  return () => style.remove();
+};
 
-  let scheduled = false;
-  const polishArtistShelves = () => {
-    scheduled = false;
-    const artistPage = document.querySelector<HTMLElement>(
-      'ytmusic-browse-response:has(ytmusic-immersive-header-renderer)',
+const hideCustomPages = () => {
+  for (const id of PAGE_IDS) {
+    const page = document.getElementById(id);
+    if (page) page.hidden = true;
+  }
+  document.documentElement.classList.remove(
+    'ui143-search-open',
+    'ui143-artist-open',
+    'ui143-album-open',
+  );
+};
+
+const shelfFromTarget = (target: Element) => {
+  const card = target.closest('.ui143-artist-card, .ui143-search-card');
+  if (!card) return null;
+  return card.closest<HTMLElement>(
+    '.ui143-artist-shelf-row, .ui143-search-albums .ui143-search-card-grid',
+  );
+};
+
+const mountShelfGestures = () => {
+  type DragState = {
+    shelf: HTMLElement;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    active: boolean;
+  };
+
+  let drag: DragState | null = null;
+  let suppressShelf: HTMLElement | null = null;
+  let suppressClickUntil = 0;
+
+  const onWheel = (event: WheelEvent) => {
+    if (!(event.target instanceof Element)) return;
+    const shelf = shelfFromTarget(event.target);
+    if (!shelf || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+    const max = Math.max(0, shelf.scrollWidth - shelf.clientWidth);
+    if (max <= 1) return;
+    const direction = Math.sign(event.deltaY);
+    const canMove =
+      (direction > 0 && shelf.scrollLeft < max - 1) ||
+      (direction < 0 && shelf.scrollLeft > 1);
+    if (!canMove) return;
+
+    event.preventDefault();
+    shelf.scrollLeft = Math.max(0, Math.min(max, shelf.scrollLeft + event.deltaY));
+  };
+
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.button !== 0 || !(event.target instanceof Element)) return;
+    const shelf = shelfFromTarget(event.target);
+    if (!shelf || shelf.scrollWidth <= shelf.clientWidth + 1) return;
+    drag = {
+      shelf,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollLeft: shelf.scrollLeft,
+      active: false,
+    };
+  };
+
+  const onPointerMove = (event: PointerEvent) => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.active) {
+      if (Math.abs(dx) < 7 || Math.abs(dx) <= Math.abs(dy)) return;
+      drag.active = true;
+      drag.shelf.classList.add('is-dragging');
+      try {
+        drag.shelf.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture is only a convenience; document listeners still work.
+      }
+    }
+    event.preventDefault();
+    const max = Math.max(0, drag.shelf.scrollWidth - drag.shelf.clientWidth);
+    drag.shelf.scrollLeft = Math.max(
+      0,
+      Math.min(max, drag.startScrollLeft - dx),
     );
-    for (const shelf of document.querySelectorAll<HTMLElement>(
-      `.${HIDDEN_SHELF_CLASS}`,
-    )) {
-      if (!artistPage?.contains(shelf)) shelf.classList.remove(HIDDEN_SHELF_CLASS);
-    }
-    if (!artistPage) return;
-
-    for (const shelf of artistPage.querySelectorAll<HTMLElement>(
-      'ytmusic-carousel-shelf-renderer, ytmusic-shelf-renderer',
-    )) {
-      const heading = shelf.querySelector<HTMLElement>(
-        '#title, .title, .headline, h2',
-      );
-      shelf.classList.toggle(
-        HIDDEN_SHELF_CLASS,
-        shouldHideNativeArtistShelf(heading?.textContent ?? ''),
-      );
-    }
   };
-  const schedulePolish = () => {
-    if (scheduled) return;
-    scheduled = true;
-    window.requestAnimationFrame(polishArtistShelves);
-  };
-  const observer = new MutationObserver(schedulePolish);
-  observer.observe(document.body, { childList: true, subtree: true });
-  schedulePolish();
 
-  return () => {
-    observer.disconnect();
-    style.remove();
-    for (const shelf of document.querySelectorAll<HTMLElement>(
-      `.${HIDDEN_SHELF_CLASS}`,
-    ))
-      shelf.classList.remove(HIDDEN_SHELF_CLASS);
+  const finishDrag = (event: PointerEvent) => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.active) {
+      suppressShelf = drag.shelf;
+      suppressClickUntil = performance.now() + 260;
+      drag.shelf.classList.remove('is-dragging');
+      try {
+        drag.shelf.releasePointerCapture(event.pointerId);
+      } catch {
+        // It may already have been released by Chromium.
+      }
+    }
+    drag = null;
+  };
+
+  const suppressDraggedClick = (event: MouseEvent) => {
+    if (
+      performance.now() > suppressClickUntil ||
+      !suppressShelf ||
+      !(event.target instanceof Node) ||
+      !suppressShelf.contains(event.target)
+    )
+      return false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    suppressShelf = null;
+    suppressClickUntil = 0;
+    return true;
+  };
+
+  document.addEventListener('wheel', onWheel, { capture: true, passive: false });
+  document.addEventListener('pointerdown', onPointerDown, true);
+  document.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
+  document.addEventListener('pointerup', finishDrag, true);
+  document.addEventListener('pointercancel', finishDrag, true);
+
+  return {
+    suppressDraggedClick,
+    dispose() {
+      drag?.shelf.classList.remove('is-dragging');
+      document.removeEventListener('wheel', onWheel, true);
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('pointermove', onPointerMove, true);
+      document.removeEventListener('pointerup', finishDrag, true);
+      document.removeEventListener('pointercancel', finishDrag, true);
+    },
   };
 };
 
 export const mountInteractions = (engine: YouTubeMusicAdapter) => {
   const removeNativePolish = mountNativePolish();
+  const shelfGestures = mountShelfGestures();
 
-  const openCurrentTrack = () => {
+  const routeToCurrentTrack = () => {
     const id = engine.getState().track.id;
     if (!id) return false;
+    hideCustomPages();
     return engine.navigate('/watch?v=' + encodeURIComponent(id));
   };
 
   const openLyricsFromAnywhere = () => {
     const trackId = engine.getState().track.id;
     if (!trackId) return;
+    hideCustomPages();
+
+    const selectLyrics = (attempt = 0) => {
+      if (engine.getState().track.id !== trackId) return;
+      if (window.location.pathname === '/watch') {
+        engine.toggleLyrics();
+        return;
+      }
+      if (attempt >= 30) return;
+      window.setTimeout(() => selectLyrics(attempt + 1), 50);
+    };
 
     if (window.location.pathname === '/watch') {
       engine.toggleLyrics();
       return;
     }
-
-    if (!openCurrentTrack()) return;
-    const toggleWhenRouted = (attempt = 0) => {
-      if (engine.getState().track.id !== trackId) return;
-      if (window.location.pathname === '/watch' || attempt >= 20) {
-        engine.toggleLyrics();
-        return;
-      }
-      window.setTimeout(() => toggleWhenRouted(attempt + 1), 50);
-    };
-    window.setTimeout(toggleWhenRouted, 0);
+    if (!engine.navigate('/watch?v=' + encodeURIComponent(trackId))) return;
+    window.setTimeout(selectLyrics, 0);
   };
 
   const onClick = (event: MouseEvent) => {
+    if (shelfGestures.suppressDraggedClick(event)) return;
     const target = event.target;
     if (!(target instanceof Element)) return;
 
@@ -240,14 +238,16 @@ export const mountInteractions = (engine: YouTubeMusicAdapter) => {
     if (meta && (!interactive || !meta.contains(interactive))) {
       event.preventDefault();
       event.stopPropagation();
-      openCurrentTrack();
+      routeToCurrentTrack();
       return;
     }
     engine.handleTrackClick(event);
   };
+
   document.addEventListener('click', onClick, true);
   return () => {
     document.removeEventListener('click', onClick, true);
+    shelfGestures.dispose();
     removeNativePolish();
   };
 };
