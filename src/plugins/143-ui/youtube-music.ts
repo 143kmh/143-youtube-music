@@ -39,9 +39,19 @@ export type SearchResultItem = Readonly<{
   browseId?: string;
 }>;
 
+export type SearchArtistProfile = Readonly<{
+  title: string;
+  browseId: string;
+  avatar: string;
+  banner: string;
+  subscribers: string;
+  monthlyListeners: string;
+}>;
+
 export type SearchCatalog = Readonly<{
   query: string;
   topResult: SearchResultItem | null;
+  featuredArtist: SearchArtistProfile | null;
   songs: readonly SearchResultItem[];
   artists: readonly SearchResultItem[];
   albums: readonly SearchResultItem[];
@@ -270,6 +280,79 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       .replaceAll(/\s+/g, ' ')
       .trim();
 
+  const textFromValue = (value: unknown): string => {
+    if (typeof value === 'string') return value.replaceAll(/\s+/g, ' ').trim();
+    if (!isRecord(value)) return '';
+    if (typeof value.simpleText === 'string')
+      return value.simpleText.replaceAll(/\s+/g, ' ').trim();
+    const runs = textFromRuns(readRuns(value));
+    if (runs) return runs;
+    return '';
+  };
+
+  const findRecordByKey = (root: unknown, keys: readonly string[]) => {
+    let found: UnknownRecord | null = null;
+    const visit = (value: unknown) => {
+      if (found) return;
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (!isRecord(value)) return;
+      for (const key of keys) {
+        if (isRecord(value[key])) {
+          found = value[key] as UnknownRecord;
+          return;
+        }
+      }
+      Object.values(value).forEach(visit);
+    };
+    visit(root);
+    return found;
+  };
+
+  const findTextByKeys = (root: unknown, keys: readonly string[]) => {
+    let found = '';
+    const visit = (value: unknown) => {
+      if (found) return;
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (!isRecord(value)) return;
+      for (const key of keys) {
+        const text = textFromValue(value[key]);
+        if (text) {
+          found = text;
+          return;
+        }
+      }
+      Object.values(value).forEach(visit);
+    };
+    visit(root);
+    return found;
+  };
+
+  const collectText = (root: unknown) => {
+    const result: string[] = [];
+    const seen = new Set<string>();
+    const visit = (value: unknown) => {
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (!isRecord(value)) return;
+      const text = textFromValue(value);
+      if (text && !seen.has(text)) {
+        seen.add(text);
+        result.push(text);
+      }
+      Object.values(value).forEach(visit);
+    };
+    visit(root);
+    return result;
+  };
+
   const collectArtistRuns = (root: unknown): ArtistEntry[] => {
     const result: ArtistEntry[] = [];
     const seen = new Set<string>();
@@ -453,9 +536,14 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     return found;
   };
 
-  const bestThumbnail = (root: unknown) => {
-    let best = '';
-    let bestArea = -1;
+  type ThumbnailCandidate = {
+    url: string;
+    width: number;
+    height: number;
+  };
+
+  const collectThumbnails = (root: unknown) => {
+    const result: ThumbnailCandidate[] = [];
     const visit = (value: unknown) => {
       if (Array.isArray(value)) {
         value.forEach(visit);
@@ -465,18 +553,45 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       if (Array.isArray(value.thumbnails)) {
         for (const thumbnail of value.thumbnails) {
           if (!isRecord(thumbnail) || typeof thumbnail.url !== 'string') continue;
-          const width = typeof thumbnail.width === 'number' ? thumbnail.width : 0;
-          const height = typeof thumbnail.height === 'number' ? thumbnail.height : 0;
-          const area = width * height;
-          if (!best || area >= bestArea) {
-            best = thumbnail.url;
-            bestArea = area;
-          }
+          result.push({
+            url: thumbnail.url,
+            width: typeof thumbnail.width === 'number' ? thumbnail.width : 0,
+            height: typeof thumbnail.height === 'number' ? thumbnail.height : 0,
+          });
         }
       }
       Object.values(value).forEach(visit);
     };
     visit(root);
+    return result;
+  };
+
+  const bestThumbnail = (root: unknown) => {
+    let best = '';
+    let bestArea = -1;
+    for (const thumbnail of collectThumbnails(root)) {
+      const area = thumbnail.width * thumbnail.height;
+      if (!best || area >= bestArea) {
+        best = thumbnail.url;
+        bestArea = area;
+      }
+    }
+    return best;
+  };
+
+  const bestWideThumbnail = (root: unknown) => {
+    let best = '';
+    let bestScore = -1;
+    for (const thumbnail of collectThumbnails(root)) {
+      if (!thumbnail.width || !thumbnail.height) continue;
+      const ratio = thumbnail.width / thumbnail.height;
+      if (ratio < 1.45) continue;
+      const score = thumbnail.width * thumbnail.height * Math.min(ratio, 4);
+      if (score > bestScore) {
+        best = thumbnail.url;
+        bestScore = score;
+      }
+    }
     return best;
   };
 
@@ -579,7 +694,64 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     };
     visit(root);
 
-    return { query, topResult, songs, artists, albums, playlists, videos };
+    return {
+      query,
+      topResult,
+      featuredArtist: null,
+      songs,
+      artists,
+      albums,
+      playlists,
+      videos,
+    };
+  };
+
+  const metricFromSubtitle = (subtitle: string) => {
+    const parts = subtitle
+      .split(/\s*[•·]\s*/u)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return (
+      parts.find((part) => /monthly|listener|слушател|слухач/i.test(part)) ?? ''
+    );
+  };
+
+  const artistProfileFromBrowse = (
+    root: unknown,
+    fallback: SearchResultItem,
+  ): SearchArtistProfile => {
+    const header =
+      findRecordByKey(root, [
+        'musicImmersiveHeaderRenderer',
+        'musicVisualHeaderRenderer',
+      ]) ?? (isRecord(root) ? root : {});
+    const headerTexts = collectText(header);
+    const subscribers =
+      findTextByKeys(header, [
+        'subscriberCountWithSubscribeText',
+        'subscriberCountText',
+        'subscriberCount',
+      ]) ||
+      headerTexts.find((text) => /subscriber|подписчик|підписник/i.test(text)) ||
+      '';
+    const monthlyListeners =
+      headerTexts.find((text) => /monthly|listener|слушател|слухач/i.test(text)) ||
+      metricFromSubtitle(fallback.subtitle);
+    const title =
+      textFromValue(header.title) ||
+      textFromValue(header.name) ||
+      fallback.title;
+    const avatar = fallback.artwork || bestThumbnail(header);
+    const banner = bestWideThumbnail(header) || avatar;
+
+    return {
+      title,
+      browseId: fallback.browseId ?? '',
+      avatar,
+      banner,
+      subscribers,
+      monthlyListeners,
+    };
   };
 
   type StatefulElement = HTMLElement & {
@@ -831,6 +1003,13 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     musicApp.navigate(url.pathname + url.search);
     return true;
   };
+  const navigateBrowseId = (browseId: string) => {
+    if (disposed || !browseId) return false;
+    const musicApp = app();
+    if (typeof musicApp?.navigate !== 'function') return false;
+    musicApp.navigate(browseId);
+    return true;
+  };
   const setVolume = (value: number) => {
     if (disposed || !Number.isFinite(value)) return;
     const clamped = Math.max(0, Math.min(100, Math.round(value)));
@@ -905,6 +1084,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
         return {
           query: '',
           topResult: null,
+          featuredArtist: null,
           songs: [],
           artists: [],
           albums: [],
@@ -918,30 +1098,36 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
         query: value,
         suggestStats: nativeSearchBox()?.getSearchboxStats?.(),
       });
-      return collectSearchCatalog(response, value);
+      const catalog = collectSearchCatalog(response, value);
+      const artistCandidate =
+        catalog.topResult?.kind === 'artist'
+          ? catalog.topResult
+          : catalog.artists[0] ?? null;
+      if (!artistCandidate?.browseId) return catalog;
+
+      let profile: SearchArtistProfile = artistProfileFromBrowse(
+        {},
+        artistCandidate,
+      );
+      try {
+        const browse = await requireApp().networkManager.fetch<
+          unknown,
+          { browseId: string }
+        >('/browse', { browseId: artistCandidate.browseId });
+        profile = artistProfileFromBrowse(browse, artistCandidate);
+      } catch (error) {
+        console.warn('[143 Music] Could not enrich artist search card', error);
+      }
+      return { ...catalog, featuredArtist: profile };
     },
     openSearchResult(item: SearchResultItem) {
       if (item.videoId)
         return navigate('/watch?v=' + encodeURIComponent(item.videoId));
       if (!item.browseId) return false;
-      if (item.kind === 'artist' || item.browseId.startsWith('UC'))
-        return navigate(
-          (item.browseId.startsWith('UC') ? '/channel/' : '/browse/') +
-            encodeURIComponent(item.browseId),
-        );
-      if (item.kind === 'playlist') {
-        const playlistId = item.browseId.startsWith('VL')
-          ? item.browseId.slice(2)
-          : item.browseId;
-        return navigate('/playlist?list=' + encodeURIComponent(playlistId));
-      }
-      return navigate('/browse/' + encodeURIComponent(item.browseId));
+      return navigateBrowseId(item.browseId);
     },
     navigateArtist(browseId: string) {
-      return navigate(
-        (browseId.startsWith('UC') ? '/channel/' : '/browse/') +
-          encodeURIComponent(browseId),
-      );
+      return navigateBrowseId(browseId);
     },
     history(direction: 'back' | 'forward') {
       if (!disposed) window.history[direction]();
