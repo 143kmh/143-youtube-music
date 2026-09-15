@@ -44,7 +44,7 @@ export default function (
     name: 'ytm-feature-context-splitter',
     load: {
       filter: {
-        id: /(?:\/(?:plugins|features)\/[^/]+\/index\.(?:js|ts|jsx|tsx)|\/(?:plugins|features)\/[^/]+\.(?:js|ts|jsx|tsx))$/,
+        id: /(?:\/features\/[^/]+\/index\.(?:js|ts|jsx|tsx)|\/features\/[^/]+\.(?:js|ts|jsx|tsx))$/,
       },
       handler(id) {
         const fileContent = readFileSync(id, 'utf8');
