@@ -6,21 +6,9 @@ import * as config from '@/config';
 import type { GetPlayerResponse } from '@/types/get-player-response';
 
 export enum MediaType {
-  /**
-   * Audio uploaded by the original artist
-   */
   Audio = 'AUDIO',
-  /**
-   * Official music video uploaded by the original artist
-   */
   OriginalMusicVideo = 'ORIGINAL_MUSIC_VIDEO',
-  /**
-   * Normal video uploaded by a user
-   */
   UserGeneratedContent = 'USER_GENERATED_CONTENT',
-  /**
-   * Podcast episode
-   */
   PodcastEpisode = 'PODCAST_EPISODE',
   OtherVideo = 'OTHER_VIDEO',
 }
@@ -45,17 +33,14 @@ export interface SongInfo {
   tags?: string[];
 }
 
-// Grab the native image using the src
 export const getImage = async (src: string): Promise<Electron.NativeImage> => {
   const result = await net.fetch(src);
   const output = nativeImage.createFromBuffer(
     Buffer.from(await result.arrayBuffer()),
   );
   if (output.isEmpty() && !src.endsWith('.jpg') && src.includes('.jpg')) {
-    // Fix hidden webp files (https://github.com/pear-devs/pear-desktop/issues/315)
     return getImage(src.slice(0, src.lastIndexOf('.jpg') + 4));
   }
-
   return output;
 };
 
@@ -63,11 +48,8 @@ const handleData = async (
   data: GetPlayerResponse,
   win: Electron.BrowserWindow,
 ): Promise<SongInfo | null> => {
-  if (!data) {
-    return null;
-  }
+  if (!data) return null;
 
-  // Fill songInfo with empty values
   const songInfo: SongInfo = {
     title: '',
     alternativeTitle: '',
@@ -86,7 +68,7 @@ const handleData = async (
     playlistId: '',
     mediaType: MediaType.Audio,
     tags: [],
-  } satisfies SongInfo;
+  };
 
   const microformat = data.microformat?.microformatDataRenderer;
   if (microformat) {
@@ -95,9 +77,8 @@ const handleData = async (
     songInfo.playlistId =
       URL.parse(microformat.urlCanonical)?.searchParams?.get('list') ?? '';
     if (microformat.pageOwnerDetails?.externalChannelId) {
-      songInfo.artistUrl = `https://music.\u0079\u006f\u0075\u0074\u0075\u0062\u0065.com/channel/${microformat.pageOwnerDetails.externalChannelId}`;
+      songInfo.artistUrl = `https://music.youtube.com/channel/${microformat.pageOwnerDetails.externalChannelId}`;
     }
-    // Used for options.resumeOnStart
     config.set('url', microformat.urlCanonical);
     songInfo.alternativeTitle = microformat.linkAlternates.find(
       (link) => link.title,
@@ -106,83 +87,76 @@ const handleData = async (
   }
 
   const { videoDetails } = data;
-  if (videoDetails) {
-    songInfo.title = cleanupName(videoDetails.title);
-    songInfo.artist = cleanupName(videoDetails.author);
-    songInfo.views = Number(videoDetails.viewCount);
-    songInfo.songDuration = Number(videoDetails.lengthSeconds);
-    songInfo.elapsedSeconds = videoDetails.elapsedSeconds;
-    songInfo.isPaused = videoDetails.isPaused;
-    songInfo.videoId = videoDetails.videoId;
-    songInfo.album = videoDetails.album; // Will be undefined if video exist
+  if (!videoDetails) return songInfo;
 
-    switch (videoDetails?.musicVideoType) {
-      case 'MUSIC_VIDEO_TYPE_ATV':
-        songInfo.mediaType = MediaType.Audio;
-        break;
-      case 'MUSIC_VIDEO_TYPE_OMV':
-        songInfo.mediaType = MediaType.OriginalMusicVideo;
-        break;
-      case 'MUSIC_VIDEO_TYPE_UGC':
-        songInfo.mediaType = MediaType.UserGeneratedContent;
-        break;
-      case 'MUSIC_VIDEO_TYPE_PODCAST_EPISODE':
-        songInfo.mediaType = MediaType.PodcastEpisode;
-        // HACK: Podcast's participant is not the artist
-        if (!config.get('options.usePodcastParticipantAsArtist')) {
-          songInfo.artist = cleanupName(
-            data.microformat.microformatDataRenderer.pageOwnerDetails.name,
-          );
-        }
-        break;
-      default:
-        songInfo.mediaType = MediaType.OtherVideo;
-        // HACK: This is a workaround for "podcast" types where "musicVideoType" doesn't exist. Google :facepalm:
-        if (
-          !config.get('options.usePodcastParticipantAsArtist') &&
-          (data.responseContext.serviceTrackingParams
-            ?.at(0)
-            ?.params?.find((it) => it.key === 'ipcc')?.value ?? '1') != '0'
-        ) {
-          songInfo.artist = cleanupName(
-            data.microformat.microformatDataRenderer.pageOwnerDetails.name,
-          );
-        }
-        break;
-    }
+  songInfo.title = cleanupName(videoDetails.title);
+  songInfo.artist = cleanupName(videoDetails.author);
+  songInfo.views = Number(videoDetails.viewCount);
+  songInfo.songDuration = Number(videoDetails.lengthSeconds);
+  songInfo.elapsedSeconds = videoDetails.elapsedSeconds;
+  songInfo.isPaused = videoDetails.isPaused;
+  songInfo.videoId = videoDetails.videoId;
+  songInfo.album = videoDetails.album;
 
-    const thumbnails = videoDetails.thumbnail?.thumbnails;
-    songInfo.imageSrc = thumbnails?.at(-1)?.url?.split('?')?.at(0);
-
-    if (
-      songInfo.imageSrc &&
-      !(await net.fetch(songInfo.imageSrc, { method: 'HEAD' })).ok
-    ) {
-      songInfo.imageSrc = thumbnails.at(-1)?.url;
-    }
-
-    if (songInfo.imageSrc) songInfo.image = await getImage(songInfo.imageSrc);
-
-    win.webContents.send('peard:update-song-info', songInfo);
+  switch (videoDetails.musicVideoType) {
+    case 'MUSIC_VIDEO_TYPE_ATV':
+      songInfo.mediaType = MediaType.Audio;
+      break;
+    case 'MUSIC_VIDEO_TYPE_OMV':
+      songInfo.mediaType = MediaType.OriginalMusicVideo;
+      break;
+    case 'MUSIC_VIDEO_TYPE_UGC':
+      songInfo.mediaType = MediaType.UserGeneratedContent;
+      break;
+    case 'MUSIC_VIDEO_TYPE_PODCAST_EPISODE':
+      songInfo.mediaType = MediaType.PodcastEpisode;
+      if (!config.get('options.usePodcastParticipantAsArtist')) {
+        songInfo.artist = cleanupName(
+          data.microformat.microformatDataRenderer.pageOwnerDetails.name,
+        );
+      }
+      break;
+    default:
+      songInfo.mediaType = MediaType.OtherVideo;
+      if (
+        !config.get('options.usePodcastParticipantAsArtist') &&
+        (data.responseContext.serviceTrackingParams
+          ?.at(0)
+          ?.params?.find((it) => it.key === 'ipcc')?.value ?? '1') != '0'
+      ) {
+        songInfo.artist = cleanupName(
+          data.microformat.microformatDataRenderer.pageOwnerDetails.name,
+        );
+      }
+      break;
   }
 
+  const thumbnails = videoDetails.thumbnail?.thumbnails;
+  songInfo.imageSrc = thumbnails?.at(-1)?.url?.split('?')?.at(0);
+  if (
+    songInfo.imageSrc &&
+    !(await net.fetch(songInfo.imageSrc, { method: 'HEAD' })).ok
+  ) {
+    songInfo.imageSrc = thumbnails.at(-1)?.url;
+  }
+  if (songInfo.imageSrc) songInfo.image = await getImage(songInfo.imageSrc);
+
+  win.webContents.send('app:song:info', songInfo);
   return songInfo;
 };
 
 export enum SongInfoEvent {
-  VideoSrcChanged = 'peard:video-src-changed',
-  PlayOrPaused = 'peard:play-or-paused',
-  TimeChanged = 'peard:time-changed',
+  VideoSrcChanged = 'app:song:video-src-changed',
+  PlayOrPaused = 'app:song:play-or-paused',
+  TimeChanged = 'app:song:time-changed',
 }
 
-// This variable will be filled with the callbacks once they register
 export type SongInfoCallback = (
   songInfo: SongInfo,
   event: SongInfoEvent,
 ) => void;
-const callbacks: Set<SongInfoCallback> = new Set();
+const callbacks = new Set<SongInfoCallback>();
 
-// This function will allow plugins to register callback that will be triggered when data changes
 export const registerCallback = (callback: SongInfoCallback) => {
   callbacks.add(callback);
 };
@@ -191,23 +165,20 @@ const registerProvider = (win: BrowserWindow) => {
   const dataMutex = new Mutex();
   let songInfo: SongInfo | null = null;
 
-  // This will be called when the song-info-front finds a new request with song data
-  ipcMain.on('peard:video-src-changed', async (_, data: GetPlayerResponse) => {
-    const tempSongInfo = await dataMutex.runExclusive<SongInfo | null>(
-      async () => {
-        songInfo = await handleData(data, win);
-        return songInfo;
-      },
-    );
-
-    if (tempSongInfo) {
-      for (const c of callbacks) {
-        c(tempSongInfo, SongInfoEvent.VideoSrcChanged);
+  ipcMain.on('app:song:video-src-changed', async (_, data: GetPlayerResponse) => {
+    const current = await dataMutex.runExclusive<SongInfo | null>(async () => {
+      songInfo = await handleData(data, win);
+      return songInfo;
+    });
+    if (current) {
+      for (const callback of callbacks) {
+        callback(current, SongInfoEvent.VideoSrcChanged);
       }
     }
   });
+
   ipcMain.on(
-    'peard:play-or-paused',
+    'app:song:play-or-paused',
     async (
       _,
       {
@@ -215,51 +186,38 @@ const registerProvider = (win: BrowserWindow) => {
         elapsedSeconds,
       }: { isPaused: boolean; elapsedSeconds: number },
     ) => {
-      const tempSongInfo = await dataMutex.runExclusive<SongInfo | null>(() => {
-        if (!songInfo) {
-          return null;
-        }
-
+      const current = await dataMutex.runExclusive<SongInfo | null>(() => {
+        if (!songInfo) return null;
         songInfo.isPaused = isPaused;
         songInfo.elapsedSeconds = elapsedSeconds;
-
         return songInfo;
       });
-
-      if (tempSongInfo) {
-        for (const c of callbacks) {
-          c(tempSongInfo, SongInfoEvent.PlayOrPaused);
+      if (current) {
+        for (const callback of callbacks) {
+          callback(current, SongInfoEvent.PlayOrPaused);
         }
       }
     },
   );
 
-  ipcMain.on('peard:time-changed', async (_, seconds: number) => {
-    const tempSongInfo = await dataMutex.runExclusive<SongInfo | null>(() => {
-      if (!songInfo) {
-        return null;
-      }
-
+  ipcMain.on('app:song:time-changed', async (_, seconds: number) => {
+    const current = await dataMutex.runExclusive<SongInfo | null>(() => {
+      if (!songInfo) return null;
       songInfo.elapsedSeconds = seconds;
-
       return songInfo;
     });
-
-    if (tempSongInfo) {
-      for (const c of callbacks) {
-        c(tempSongInfo, SongInfoEvent.TimeChanged);
+    if (current) {
+      for (const callback of callbacks) {
+        callback(current, SongInfoEvent.TimeChanged);
       }
     }
   });
 };
 
 const suffixesToRemove = [
-  // Artist names
   /\s*(- topic)$/i,
   /\s*vevo$/i,
-
-  // Video titles
-  /\s*[(|[]official(.*?)[)|\]]/i, // (Official Music Video), [Official Visualizer], etc...
+  /\s*[(|[]official(.*?)[)|\]]/i,
   /\s*[(|[]((lyrics?|visualizer|audio)\s*(video)?)[)|\]]/i,
   /\s*[(|[](performance video)[)|\]]/i,
   /\s*[(|[](clip official)[)|\]]/i,
@@ -270,14 +228,8 @@ const suffixesToRemove = [
 ];
 
 export function cleanupName(name: string): string {
-  if (!name) {
-    return name;
-  }
-
-  for (const suffix of suffixesToRemove) {
-    name = name.replace(suffix, '');
-  }
-
+  if (!name) return name;
+  for (const suffix of suffixesToRemove) name = name.replace(suffix, '');
   return name;
 }
 
