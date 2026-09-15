@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { Window } from 'happy-dom';
 
-import { createYouTubeMusicAdapter } from '../src/plugins/143-ui/youtube-music';
-import { installBrowseCatalog } from '../src/plugins/143-ui/youtube-music-catalog';
+import { createYouTubeMusicAdapter } from '../src/features/143-ui/youtube-music';
+import { installBrowseCatalog } from '../src/features/143-ui/youtube-music-catalog';
 
 let dom: Window;
 let requests: { path: string; data: any }[];
