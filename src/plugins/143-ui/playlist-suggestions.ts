@@ -4,8 +4,12 @@ import type { SearchResultItem } from './youtube-music';
 const ROOT_ID = 'ui143-playlist-suggestions';
 const STYLE_ID = 'ui143-playlist-suggestions-style';
 
+type PlaylistEditor = PlaybackContextAdapter & {
+  addToPlaylist: (playlistId: string, videoId: string) => Promise<void>;
+};
+
 const makeRow = (
-  engine: PlaybackContextAdapter,
+  engine: PlaylistEditor,
   playlistId: string,
   item: SearchResultItem,
 ) => {
@@ -51,7 +55,7 @@ const makeRow = (
 };
 
 const render = (
-  engine: PlaybackContextAdapter,
+  engine: PlaylistEditor,
   playlistId: string,
   items: readonly SearchResultItem[],
 ) => {
@@ -92,6 +96,7 @@ const mountStyle = () => {
 
 export const installPlaylistSuggestions = (engine: PlaybackContextAdapter) => {
   document.getElementById(STYLE_ID)?.remove();
+  const editor = engine as PlaylistEditor;
   const removeStyle = mountStyle();
   let revision = 0;
   let timer: number | undefined;
@@ -111,7 +116,7 @@ export const installPlaylistSuggestions = (engine: PlaybackContextAdapter) => {
       if (document.getElementById(ROOT_ID)?.dataset.playlistId === playlistId) return;
       const current = ++revision;
       try {
-        const autoplay = await engine.getAutoplayItems(seed);
+        const autoplay = await editor.getAutoplayItems(seed);
         if (current !== revision || workspace.hidden) return;
         const existing = new Set(rows.map((row) => row.dataset.videoId).filter(Boolean));
         const seen = new Set<string>();
@@ -123,7 +128,7 @@ export const installPlaylistSuggestions = (engine: PlaybackContextAdapter) => {
         }).slice(0, 8);
         document.getElementById(ROOT_ID)?.remove();
         if (!suggestions.length) return;
-        workspace.querySelector<HTMLElement>('.ui143-playlist-workspace-content')?.append(render(engine, playlistId, suggestions));
+        workspace.querySelector<HTMLElement>('.ui143-playlist-workspace-content')?.append(render(editor, playlistId, suggestions));
       } catch (error) {
         console.warn('[143 Music] Could not load playlist suggestions', error);
       }
