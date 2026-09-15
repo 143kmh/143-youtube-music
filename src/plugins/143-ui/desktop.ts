@@ -15,6 +15,9 @@ import type { PluginConfig } from '@/types/plugins';
 const DISCORD_APPLICATION_ID = '1549504717527322724';
 
 export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
+  if (process.platform === 'win32')
+    window.setIcon('assets/generated/icons/win/icon.png');
+
   const presence = new DiscordRichPresence();
   const discordSettings = (): DiscordPresenceSettings => ({
     ...config.get('options.discordRichPresence'),
