@@ -9,13 +9,10 @@ import is from 'electron-is';
 import { loadI18n, setLanguage } from '@/i18n';
 
 import * as config from './config';
-import {
-  forceLoadPreloadPlugin,
-  forceUnloadPreloadPlugin,
-  loadAllPreloadPlugins,
-} from './loader/preload';
 
-// @ts-expect-error dummy
+// YouTube's page ships the legacy custom-elements adapter even though the
+// embedded Chromium already supports custom elements. Keep the existing guard.
+// @ts-expect-error dummy customElements implementation for the page adapter
 globalThis.customElements = { define() {} };
 
 new MutationObserver((mutations, observer) => {
@@ -31,23 +28,14 @@ new MutationObserver((mutations, observer) => {
         continue;
 
       script.remove();
-
       observer.disconnect();
       return;
     }
   }
 }).observe(document, { subtree: true, childList: true });
 
-loadI18n().then(async () => {
+void loadI18n().then(async () => {
   await setLanguage(config.get('options.language') ?? 'en');
-  await loadAllPreloadPlugins();
-});
-
-ipcRenderer.on('plugin:unload', async (_, id: string) => {
-  await forceUnloadPreloadPlugin(id);
-});
-ipcRenderer.on('plugin:enable', async (_, id: string) => {
-  await forceLoadPreloadPlugin(id);
 });
 
 contextBridge.exposeInMainWorld('mainConfig', config);
@@ -76,26 +64,24 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   sendToHost: (channel: string, ...args: unknown[]) =>
     ipcRenderer.sendToHost(channel, ...args),
 });
-contextBridge.exposeInMainWorld('reload', () =>
-  ipcRenderer.send('peard:reload'),
-);
+contextBridge.exposeInMainWorld('reload', () => ipcRenderer.send('app:reload'));
 contextBridge.exposeInMainWorld(
   'ELECTRON_RENDERER_URL',
   process.env.ELECTRON_RENDERER_URL,
 );
 
-const [path, script] = ipcRenderer.sendSync('get-renderer-script') as [
+const [scriptPath, script] = ipcRenderer.sendSync('get-renderer-script') as [
   string | null,
   string,
 ];
 let blocked = true;
-if (path) {
+if (scriptPath) {
   webFrame.executeJavaScriptInIsolatedWorld(
     0,
     [
       {
         code: script,
-        url: path,
+        url: scriptPath,
       },
     ],
     true,
@@ -105,5 +91,5 @@ if (path) {
   webFrame.executeJavaScript(script, true, () => (blocked = false));
 }
 
-// HACK: Wait for the script to be executed
+// HACK: Wait for the renderer script to be injected before preload exits.
 while (blocked);
