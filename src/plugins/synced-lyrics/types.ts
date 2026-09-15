@@ -1,7 +1,7 @@
 import type { ProviderName } from './providers';
 import type { SongInfo } from '@/providers/song-info';
 
-export type SyncedLyricsPluginConfig = {
+export type SyncedLyricsFeatureConfig = {
   enabled: boolean;
   preferredProvider?: ProviderName;
   preciseTiming: boolean;
@@ -15,6 +15,10 @@ export type SyncedLyricsPluginConfig = {
     | 'traditionalToSimplified'
     | 'disabled';
 };
+
+// Temporary compatibility alias while the retained lyrics implementation is
+// migrated away from inherited plugin terminology.
+export type SyncedLyricsPluginConfig = SyncedLyricsFeatureConfig;
 
 export type LineLyricsStatus = 'previous' | 'current' | 'upcoming';
 
