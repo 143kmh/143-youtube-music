@@ -265,9 +265,10 @@
   min-height: 0;
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  grid-auto-flow: column;
+  gap: 2px 12px;
 }
 
 .ui143-search-top-track {
@@ -275,13 +276,17 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 18px 42px minmax(0, 1fr);
+  grid-template-columns: 20px 44px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 7px 7px;
+  gap: 10px;
+  padding: 4px 8px;
   border-radius: 7px;
   background: transparent;
-  transition: background 100ms ease, transform 100ms ease;
+  box-shadow: inset 2px 0 0 transparent;
+  transition:
+    background 100ms ease,
+    transform 100ms ease,
+    box-shadow 100ms ease;
 }
 
 .ui143-search-top-track:hover,
@@ -289,11 +294,40 @@
   background: rgba(255, 255, 255, 0.055);
 }
 
+.ui143-search-top-track.is-now-playing,
+.ui143-search-song.is-now-playing {
+  background: color-mix(in srgb, var(--ui143-accent) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--ui143-accent-strong);
+}
+
 .ui143-search-track-number {
   color: #777;
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+.ui143-search-top-track.is-now-playing .ui143-search-track-number,
+.ui143-search-top-track.is-now-playing .ui143-search-song-copy strong {
+  color: var(--ui143-accent-strong);
+}
+
+.ui143-search-now-playing {
+  display: none;
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: var(--ui143-accent-strong);
+  background: color-mix(in srgb, var(--ui143-accent) 18%, transparent);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.045em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ui143-search-top-track.is-now-playing .ui143-search-now-playing {
+  display: inline-flex;
 }
 
 .ui143-search-result-subtitle {
@@ -308,8 +342,8 @@
 }
 
 .ui143-search-song-art {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -342,11 +376,11 @@
 }
 
 .ui143-search-top-track .ui143-search-song-copy strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .ui143-search-top-track .ui143-search-result-subtitle {
-  font-size: 10px;
+  font-size: 10.5px;
 }
 
 .ui143-search-section {
@@ -483,13 +517,6 @@ html[data-143-ui] .image.ytmusic-immersive-header-renderer {
   margin-left: 0 !important;
 }
 
-@media (max-width: 1380px) {
-  .ui143-search-top-track-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(5, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 1050px) {
   .ui143-search-hero-grid {
     grid-template-columns: 1fr;
@@ -524,5 +551,9 @@ html[data-143-ui] .image.ytmusic-immersive-header-renderer {
 
   .ui143-search-albums .ui143-search-card-grid {
     grid-auto-columns: 148px;
+  }
+
+  .ui143-search-now-playing {
+    display: none !important;
   }
 }
