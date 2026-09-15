@@ -40,6 +40,11 @@ const normalizeLabel = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const isEpisodeLike = (item: SearchResultItem) =>
+  /\b(?:podcast|episode)\b|подкаст|эпизод|епізод/iu.test(
+    `${item.title} ${item.subtitle}`,
+  );
+
 const playCount = (item: SearchResultItem) => {
   const text = item.subtitle.toLocaleLowerCase().replaceAll('\u00a0', ' ');
   const pattern =
@@ -66,6 +71,7 @@ const playCount = (item: SearchResultItem) => {
 
 const rankTracks = (items: readonly SearchResultItem[]) =>
   items
+    .filter((item) => !isEpisodeLike(item))
     .map((item, index) => ({ item, index, plays: playCount(item) }))
     .sort((left, right) => right.plays - left.plays || left.index - right.index)
     .map(({ item }) => item);
@@ -84,12 +90,21 @@ const rankAlbums = (items: readonly SearchResultItem[]) =>
     .sort((left, right) => right.year - left.year || left.index - right.index)
     .map(({ item }) => item);
 
-const mergeAlbums = (...groups: readonly SearchResultItem[][]) => {
+const belongsToArtist = (item: SearchResultItem, artist: string) => {
+  const key = normalizeLabel(artist);
+  if (!key) return true;
+  return normalizeLabel(item.subtitle).includes(key);
+};
+
+const mergeAlbums = (
+  artist: string,
+  ...groups: readonly SearchResultItem[][]
+) => {
   const result: SearchResultItem[] = [];
   const seen = new Set<string>();
   for (const items of groups) {
     for (const item of items) {
-      if (item.kind !== 'album') continue;
+      if (item.kind !== 'album' || !belongsToArtist(item, artist)) continue;
       const key = item.browseId ?? `${item.title}\u0000${item.subtitle}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -186,9 +201,10 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
 
     const avatar = document.createElement('div');
     avatar.className = 'ui143-search-artist-avatar';
-    if (profile.avatar) {
+    const avatarSource = profile.banner || profile.avatar;
+    if (avatarSource) {
       const avatarImage = document.createElement('img');
-      avatarImage.src = profile.avatar;
+      avatarImage.src = avatarSource;
       avatarImage.alt = '';
       avatarImage.loading = 'lazy';
       avatar.append(avatarImage);
@@ -235,7 +251,8 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     section.className = 'ui143-search-featured-artist';
     const card = resultButton(item, 'ui143-search-featured-artist-card is-fallback');
     const identity = document.createElement('div');
-    identity.className = 'ui143-search-artist-identity ui143-search-artist-identity-fallback';
+    identity.className =
+      'ui143-search-artist-identity ui143-search-artist-identity-fallback';
     identity.append(image(item, 'ui143-search-artist-avatar'));
     const copy = document.createElement('div');
     copy.className = 'ui143-search-artist-copy';
@@ -291,7 +308,7 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     heading.textContent = titleText;
     const list = document.createElement('div');
     list.className = 'ui143-search-song-list';
-    for (const item of items.slice(0, limit)) {
+    for (const item of items.filter((entry) => !isEpisodeLike(entry)).slice(0, limit)) {
       const row = resultButton(item, 'ui143-search-song');
       row.append(image(item, 'ui143-search-song-art'));
       const copy = document.createElement('div');
@@ -318,7 +335,7 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     const grid = document.createElement('div');
     grid.className = 'ui143-search-card-grid';
     const limit = options.limit ?? 8;
-    for (const item of items.slice(0, limit)) {
+    for (const item of items.filter((entry) => !isEpisodeLike(entry)).slice(0, limit)) {
       const card = resultButton(item, 'ui143-search-card');
       const art = image(item, 'ui143-search-card-art');
       if (options.round) art.classList.add('is-round');
@@ -345,13 +362,21 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
 
   const render = (results: SearchCatalog) => {
     clear();
+    const rankedSongs = rankTracks(results.songs);
+    const cleanVideos = results.videos.filter((item) => !isEpisodeLike(item));
+    const cleanPlaylists = results.playlists.filter((item) => !isEpisodeLike(item));
+    const artist = results.featuredArtist?.title ?? '';
+    const artistAlbums = artist
+      ? mergeAlbums(artist, [...results.albums])
+      : rankAlbums(results.albums);
+
     hasResults = Boolean(
       results.topResult ||
-        results.songs.length ||
+        rankedSongs.length ||
         results.artists.length ||
-        results.albums.length ||
-        results.playlists.length ||
-        results.videos.length,
+        artistAlbums.length ||
+        cleanPlaylists.length ||
+        cleanVideos.length,
     );
     if (!hasResults) {
       message('Nothing found', `No results for “${results.query}”.`);
@@ -367,30 +392,19 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     heading.append(eyebrow, title);
     content.append(heading);
 
-    const rankedSongs = rankTracks(results.songs);
     const hero = document.createElement('div');
     hero.className = 'ui143-search-hero-grid';
-    if (results.featuredArtist) {
-      const artistKey = normalizeLabel(results.featuredArtist.title);
-      const matchingArtist = results.artists.find(
-        (item) => normalizeLabel(item.title) === artistKey && item.artwork,
-      );
-      hero.append(
-        renderArtistProfile(
-          matchingArtist
-            ? { ...results.featuredArtist, avatar: matchingArtist.artwork }
-            : results.featuredArtist,
-        ),
-      );
-    } else if (results.topResult) hero.append(renderTopFallback(results.topResult));
+    if (results.featuredArtist) hero.append(renderArtistProfile(results.featuredArtist));
+    else if (results.topResult && !isEpisodeLike(results.topResult))
+      hero.append(renderTopFallback(results.topResult));
     if (rankedSongs.length) hero.append(renderTopTracks(rankedSongs));
     content.append(hero);
 
-    if (results.albums.length)
+    if (artistAlbums.length)
       content.append(
-        renderCards('Albums', rankAlbums(results.albums), {
+        renderCards('Albums', artistAlbums, {
           className: 'ui143-search-albums',
-          limit: results.albums.length,
+          limit: artistAlbums.length,
         }),
       );
 
@@ -401,17 +415,16 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
       content.append(
         renderCards('Artists you may like', results.artists, { round: true }),
       );
-    if (results.playlists.length)
-      content.append(renderCards('Playlists', results.playlists));
-    if (results.videos.length)
-      content.append(renderCards('Videos', results.videos));
+    if (cleanPlaylists.length)
+      content.append(renderCards('Playlists', cleanPlaylists));
+    if (cleanVideos.length) content.append(renderCards('Videos', cleanVideos));
   };
 
   const enrichAlbums = async (results: SearchCatalog, current: number) => {
     const artist = results.featuredArtist?.title.trim();
     if (!artist) return results;
 
-    const queries = [`${artist} discography`, `${artist} альбомы`];
+    const queries = [`${artist} album`, `${artist} альбом`];
     const settled = await Promise.allSettled(
       queries.map((query) => engine.searchCatalog(query)),
     );
@@ -420,9 +433,10 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     const extraAlbums = settled.flatMap((entry) =>
       entry.status === 'fulfilled' ? [...entry.value.albums] : [],
     );
-    const albums = mergeAlbums([...results.albums], extraAlbums);
-    return albums.length === results.albums.length
-      ? results
+    const albums = mergeAlbums(artist, [...results.albums], extraAlbums);
+    const currentAlbums = mergeAlbums(artist, [...results.albums]);
+    return albums.length === currentAlbums.length
+      ? { ...results, albums: currentAlbums }
       : { ...results, albums };
   };
 
@@ -440,12 +454,15 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
         render(initial);
 
         const enriched = await enrichAlbums(initial, current);
-        if (current !== request || enriched === initial) return;
+        if (current !== request) return;
         render(enriched);
       } catch (error) {
         if (current !== request) return;
         console.error('[143 Music] Search failed', error);
-        message('Search unavailable', 'YouTube Music did not return search results.');
+        message(
+          'Search unavailable',
+          'YouTube Music did not return search results.',
+        );
       }
     },
     show() {
