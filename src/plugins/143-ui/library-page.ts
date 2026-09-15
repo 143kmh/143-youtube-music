@@ -35,7 +35,7 @@ type TrackPage = Readonly<{
 }>;
 
 const ROOT_ID = 'ui143-library-page';
-const LIKED_BROWSE_ID = 'FEmusic_liked_videos';
+const LIKED_BROWSE_ID = 'VLLM';
 const PLAYLISTS_BROWSE_ID = 'FEmusic_liked_playlists';
 
 const isRecord = (value: unknown): value is UnknownRecord =>
