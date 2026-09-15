@@ -1,16 +1,10 @@
-import { basename, resolve, extname, dirname } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { globSync } from 'glob';
 import { Project } from 'ts-morph';
 
 // HACK: DO NOT USE @ ALIAS IN THIS FILE, IT WILL CAUSE PROBLEMS
 import { Platform } from '../src/types/plugins';
-
-const kebabToCamel = (text: string) => {
-  const camel = text.replace(/-(\w)/g, (_, letter: string) => letter.toUpperCase());
-  return /^\d/.test(camel) ? `_${camel}` : camel;
-};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const globalProject = new Project({
@@ -20,38 +14,31 @@ const globalProject = new Project({
   skipFileDependencyResolution: true,
 });
 
+// 143 Music no longer discovers the inherited Pear plugin directory. These are
+// the only two feature modules that are part of the application runtime.
+const features = [
+  { name: '143-ui', path: 'src/plugins/143-ui/index.ts' },
+  {
+    name: 'force-high-audio-quality',
+    path: 'src/plugins/force-high-audio-quality/index.ts',
+  },
+] as const;
+
+const kebabToCamel = (text: string) => {
+  const camel = text.replace(/-(\w)/g, (_, letter: string) => letter.toUpperCase());
+  return /^\d/.test(camel) ? `_${camel}` : camel;
+};
+
 export const pluginVirtualModuleGenerator = (
   mode: 'main' | 'preload' | 'renderer',
 ) => {
-  const srcPath = resolve(__dirname, '..', 'src');
-  const plugins = globSync([
-    'src/plugins/*/index.{js,ts,jsx,tsx}',
-    'src/plugins/*.{js,ts,jsx,tsx}',
-    '!src/plugins/utils/**/*',
-    '!src/plugins/utils/*',
-  ]).map((path) => {
-    let name = basename(path);
-    if (
-      name === 'index.ts' ||
-      name === 'index.js' ||
-      name === 'index.jsx' ||
-      name === 'index.tsx'
-    ) {
-      name = basename(resolve(path, '..'));
-    }
-
-    name = name.replace(extname(name), '');
-
-    return { name, path };
-  });
-
+  const root = resolve(__dirname, '..');
   const src = globalProject.createSourceFile(
-    'vm:pluginIndexes',
+    'vm:coreFeatures',
     (writer) => {
-      for (const { name, path } of plugins) {
-        const absolutePath = resolve(srcPath, '..', path).replace(/\\/g, '/');
+      for (const { name, path } of features) {
+        const absolutePath = resolve(root, path).replace(/\\/g, '/');
         if (mode === 'main') {
-          // dynamic import (for main)
           writer.writeLine(
             `const ${kebabToCamel(name)}PluginImport = () => import('${absolutePath}');`,
           );
@@ -62,7 +49,6 @@ export const pluginVirtualModuleGenerator = (
             `const ${kebabToCamel(name)}PluginStub = async () => (await ${kebabToCamel(name)}PluginImport()).pluginStub;`,
           );
         } else {
-          // static import (preload does not support dynamic import)
           writer.writeLine(
             `import ${kebabToCamel(name)}PluginImport, { pluginStub as ${kebabToCamel(name)}PluginStubImport } from "${absolutePath}";`,
           );
@@ -83,53 +69,45 @@ export const pluginVirtualModuleGenerator = (
       writer.write(supportsPlatform.toString());
       writer.blankLine();
 
-      // Context-specific exports
       writer.writeLine(`let ${mode}PluginsCache = null;`);
       writer.writeLine(`export const ${mode}Plugins = async () => {`);
       writer.writeLine(
         `  if (${mode}PluginsCache) return await ${mode}PluginsCache;`,
       );
-      writer.writeLine(
-        '  const { promise, resolve } = Promise.withResolvers();',
-      );
-      writer.writeLine('  ' + `${mode}PluginsCache = promise;`);
-      writer.writeLine('  const pluginEntries = await Promise.all([');
-      for (const { name } of plugins) {
+      writer.writeLine('  const { promise, resolve } = Promise.withResolvers();');
+      writer.writeLine(`  ${mode}PluginsCache = promise;`);
+      writer.writeLine('  const featureEntries = await Promise.all([');
+      for (const { name } of features) {
         const checkMode = mode === 'main' ? 'backend' : mode;
-        // HACK: To avoid situation like importing renderer plugins in main
         writer.writeLine(
-          `    ${kebabToCamel(name)}Plugin().then((plg) => plg['${checkMode}'] ? ["${name}", plg] : null),`,
+          `    ${kebabToCamel(name)}Plugin().then((feature) => feature['${checkMode}'] ? ["${name}", feature] : null),`,
         );
       }
       writer.writeLine('  ]);');
       writer.writeLine(
-        '  resolve(pluginEntries.filter((entry) => entry && supportsPlatform(entry[1])).reduce((acc, [name, plg]) => { acc[name] = plg; return acc; }, {}));',
+        '  resolve(featureEntries.filter((entry) => entry && supportsPlatform(entry[1])).reduce((acc, [name, feature]) => { acc[name] = feature; return acc; }, {}));',
       );
       writer.writeLine(`  return await ${mode}PluginsCache;`);
       writer.writeLine('};');
       writer.blankLine();
 
-      // All plugins export (stub only) // Omit<Plugin, 'backend' | 'preload' | 'renderer'>
       writer.writeLine('let allPluginsCache = null;');
       writer.writeLine('export const allPlugins = async () => {');
       writer.writeLine('  if (allPluginsCache) return await allPluginsCache;');
-      writer.writeLine(
-        '  const { promise, resolve } = Promise.withResolvers();',
-      );
+      writer.writeLine('  const { promise, resolve } = Promise.withResolvers();');
       writer.writeLine('  allPluginsCache = promise;');
       writer.writeLine('  const stubEntries = await Promise.all([');
-      for (const { name } of plugins) {
+      for (const { name } of features) {
         writer.writeLine(
           `    ${kebabToCamel(name)}PluginStub().then((stub) => ["${name}", stub]),`,
         );
       }
       writer.writeLine('  ]);');
       writer.writeLine(
-        '  resolve(stubEntries.filter(entry => entry && supportsPlatform(entry[1])).reduce((acc, [name, plg]) => { acc[name] = plg; return acc; }, {}));',
+        '  resolve(stubEntries.filter((entry) => entry && supportsPlatform(entry[1])).reduce((acc, [name, feature]) => { acc[name] = feature; return acc; }, {}));',
       );
       writer.writeLine('  return await promise;');
       writer.writeLine('};');
-      writer.blankLine();
     },
     { overwrite: true },
   );
@@ -149,6 +127,5 @@ function supportsPlatform({ platform }: { platform: string }) {
   if (is.linux()) return (platform & Platform.Linux) !== 0;
   if (is.freebsd()) return (platform & Platform.Freebsd) !== 0;
 
-  // unknown platform
   return false;
 }
