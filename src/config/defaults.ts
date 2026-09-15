@@ -83,7 +83,7 @@ export const defaultConfig: DefaultConfig = {
     themes: [],
     discordRichPresence: {
       enabled: false,
-      applicationId: '',
+      applicationId: '1549504717527322724',
       autoReconnect: true,
       showRemainingTime: true,
       clearOnPause: true,
