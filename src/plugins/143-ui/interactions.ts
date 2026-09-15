@@ -1,6 +1,23 @@
 import type { YouTubeMusicAdapter } from './youtube-music';
 
 const NATIVE_POLISH_STYLE_ID = 'ui143-native-polish';
+const HIDDEN_SHELF_CLASS = 'ui143-native-shelf-hidden';
+
+const normalizeShelfTitle = (value: string) =>
+  value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const shouldHideNativeArtistShelf = (value: string) => {
+  const title = normalizeShelfTitle(value);
+  if (!title) return false;
+  return /^(?:albums?|альбомы?|singles?(?: and | & )?releases?|синглы(?: и)? выпуски|videos?|видео|podcasts?|подкасты?|episodes?|эпизоды?|выпуски?)$/iu.test(
+    title,
+  );
+};
 
 const mountNativePolish = () => {
   document.getElementById(NATIVE_POLISH_STYLE_ID)?.remove();
@@ -32,13 +49,72 @@ const mountNativePolish = () => {
       --ytmusic-page-padding: 24px !important;
     }
 
+    /* The native hero was effectively half a screen tall. Keep it as a compact
+       banner so the eye lands on Top tracks without losing the artist image. */
+    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
+      ytmusic-immersive-header-renderer {
+      position: relative !important;
+      height: clamp(270px, 31vh, 330px) !important;
+      min-height: 270px !important;
+      max-height: 330px !important;
+      overflow: hidden !important;
+    }
+
+    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
+      .image.ytmusic-immersive-header-renderer {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+    }
+
+    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
+      .image.ytmusic-immersive-header-renderer img,
+    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
+      .image.ytmusic-immersive-header-renderer yt-img-shadow {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      object-position: center 34% !important;
+    }
+
     html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
       ytmusic-immersive-header-renderer .content-container-wrapper {
-      width: calc(100% - 48px) !important;
+      position: relative !important;
+      z-index: 2 !important;
+      width: 100% !important;
       max-width: none !important;
-      margin-left: 24px !important;
-      margin-right: 24px !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      display: flex !important;
+      align-items: flex-end !important;
+      margin: 0 !important;
       box-sizing: border-box !important;
+    }
+
+    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
+      ytmusic-immersive-header-renderer .content-container {
+      width: 100% !important;
+      padding: 0 24px 18px !important;
+      box-sizing: border-box !important;
+    }
+
+    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
+      ytmusic-immersive-header-renderer .gradient-container {
+      position: absolute !important;
+      inset: 0 !important;
+      background: linear-gradient(180deg, transparent 28%, rgba(0, 0, 0, 0.18) 58%, rgba(0, 0, 0, 0.9) 100%) !important;
+      pointer-events: none !important;
+    }
+
+    /* Merch/social copy is useful on youtube.com, but in 143 Music it makes the
+       compact hero taller and pushes playback content below the fold. */
+    html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
+      ytmusic-immersive-header-renderer .description-container {
+      display: none !important;
     }
 
     html[data-143-ui] ytmusic-browse-response:has(ytmusic-immersive-header-renderer)
@@ -48,6 +124,12 @@ const mountNativePolish = () => {
       padding-left: 24px !important;
       padding-right: 24px !important;
       box-sizing: border-box !important;
+    }
+
+    /* The current native album/singles/video shelves render badly inside our
+       shell. Hide those fallback shelves until they are replaced by 143 views. */
+    html[data-143-ui] .${HIDDEN_SHELF_CLASS} {
+      display: none !important;
     }
 
     /* 143 Music is a music player. Keep podcast / episode surfaces out of the
@@ -64,7 +146,49 @@ const mountNativePolish = () => {
     }
   `;
   document.head.append(style);
-  return () => style.remove();
+
+  let scheduled = false;
+  const polishArtistShelves = () => {
+    scheduled = false;
+    const artistPage = document.querySelector<HTMLElement>(
+      'ytmusic-browse-response:has(ytmusic-immersive-header-renderer)',
+    );
+    for (const shelf of document.querySelectorAll<HTMLElement>(
+      `.${HIDDEN_SHELF_CLASS}`,
+    )) {
+      if (!artistPage?.contains(shelf)) shelf.classList.remove(HIDDEN_SHELF_CLASS);
+    }
+    if (!artistPage) return;
+
+    for (const shelf of artistPage.querySelectorAll<HTMLElement>(
+      'ytmusic-carousel-shelf-renderer, ytmusic-shelf-renderer',
+    )) {
+      const heading = shelf.querySelector<HTMLElement>(
+        '#title, .title, .headline, h2',
+      );
+      shelf.classList.toggle(
+        HIDDEN_SHELF_CLASS,
+        shouldHideNativeArtistShelf(heading?.textContent ?? ''),
+      );
+    }
+  };
+  const schedulePolish = () => {
+    if (scheduled) return;
+    scheduled = true;
+    window.requestAnimationFrame(polishArtistShelves);
+  };
+  const observer = new MutationObserver(schedulePolish);
+  observer.observe(document.body, { childList: true, subtree: true });
+  schedulePolish();
+
+  return () => {
+    observer.disconnect();
+    style.remove();
+    for (const shelf of document.querySelectorAll<HTMLElement>(
+      `.${HIDDEN_SHELF_CLASS}`,
+    ))
+      shelf.classList.remove(HIDDEN_SHELF_CLASS);
+  };
 };
 
 export const mountInteractions = (engine: YouTubeMusicAdapter) => {
