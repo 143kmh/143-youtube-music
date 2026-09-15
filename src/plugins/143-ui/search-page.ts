@@ -133,6 +133,25 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
   let request = 0;
   let lastQuery = '';
   let hasResults = false;
+  let currentTrackId = engine.getState().track.id;
+
+  const syncNowPlaying = () => {
+    for (const button of root.querySelectorAll<HTMLButtonElement>(
+      'button[data-video-id]',
+    )) {
+      const active = Boolean(
+        currentTrackId && button.dataset.videoId === currentTrackId,
+      );
+      button.classList.toggle('is-now-playing', active);
+      if (active) button.setAttribute('aria-current', 'true');
+      else button.removeAttribute('aria-current');
+    }
+  };
+
+  const unsubscribeState = engine.subscribe((state) => {
+    currentTrackId = state.track.id;
+    syncNowPlaying();
+  });
 
   const setVisible = (visible: boolean) => {
     root.hidden = !visible;
@@ -165,6 +184,7 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = className;
+    if (item.videoId) button.dataset.videoId = item.videoId;
     button.addEventListener('click', () => openItem(item));
     return button;
   };
@@ -290,7 +310,10 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
       const name = document.createElement('strong');
       name.textContent = item.title;
       copy.append(name, subtitle(item));
-      row.append(copy);
+      const nowPlaying = document.createElement('span');
+      nowPlaying.className = 'ui143-search-now-playing';
+      nowPlaying.textContent = 'Now playing';
+      row.append(copy, nowPlaying);
       list.append(row);
     }
     section.append(heading, list);
@@ -418,6 +441,8 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     if (cleanPlaylists.length)
       content.append(renderCards('Playlists', cleanPlaylists));
     if (cleanVideos.length) content.append(renderCards('Videos', cleanVideos));
+
+    syncNowPlaying();
   };
 
   const enrichAlbums = async (results: SearchCatalog, current: number) => {
@@ -475,6 +500,7 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     isOpen: () => !root.hidden,
     dispose() {
       ++request;
+      unsubscribeState();
       document.documentElement.classList.remove('ui143-search-open');
       root.remove();
     },
