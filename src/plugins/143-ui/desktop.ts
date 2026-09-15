@@ -13,14 +13,21 @@ import type { BackendContext } from '@/types/contexts';
 import type { PluginConfig } from '@/types/plugins';
 
 const DISCORD_APPLICATION_ID = '1549504717527322724';
+const DEFAULT_DISCORD_SETTINGS: DiscordPresenceSettings = {
+  enabled: false,
+  applicationId: DISCORD_APPLICATION_ID,
+  autoReconnect: true,
+  showRemainingTime: true,
+  clearOnPause: true,
+  pauseTimeoutMinutes: 10,
+  playButton: true,
+};
 
 export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
-  if (process.platform === 'win32')
-    window.setIcon('assets/generated/icons/win/icon.png');
-
   const presence = new DiscordRichPresence();
   const discordSettings = (): DiscordPresenceSettings => ({
-    ...config.get('options.discordRichPresence'),
+    ...DEFAULT_DISCORD_SETTINGS,
+    ...(config.get('options.discordRichPresence') ?? {}),
     applicationId: DISCORD_APPLICATION_ID,
   });
   const updateDiscordSettings = (patch: Partial<DiscordPresenceSettings>) => {
@@ -75,8 +82,8 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     } else if (key === 'discordEnabled' && typeof value === 'boolean') {
       updateDiscordSettings({ enabled: value });
     } else if (key === 'discordApplicationId' && typeof value === 'string') {
-      // The application identity is bundled with 143 Music; keep the setting
-      // read-compatible with older UI builds without allowing it to drift.
+      // Kept for compatibility with older renderer builds. The app identity is
+      // bundled with 143 Music and cannot drift through user config.
       updateDiscordSettings({ applicationId: DISCORD_APPLICATION_ID });
     } else if (
       key === 'discordAutoReconnect' &&
