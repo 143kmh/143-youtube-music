@@ -32,7 +32,6 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
   document.body.append(root);
 
   let request = 0;
-  let current: AlbumRef | null = null;
   let restoreSearch = false;
   let restoreArtist = false;
   let currentTrackId = engine.getState().track.id;
@@ -199,7 +198,6 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
 
   const openInternal = async (album: AlbumRef, options: OpenOptions = {}) => {
     if (!album.browseId) return;
-    current = album;
     restoreSearch = options.restoreSearch === true;
     restoreArtist = options.restoreArtist === true;
     const currentRequest = ++request;
@@ -224,7 +222,6 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     back() {
       if (root.hidden) return false;
       ++request;
-      current = null;
       setVisible(false);
       if (restoreArtist) {
         restoreArtist = false;
@@ -239,7 +236,6 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     },
     close() {
       ++request;
-      current = null;
       restoreSearch = false;
       restoreArtist = false;
       setVisible(false);
