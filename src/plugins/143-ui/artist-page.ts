@@ -1,8 +1,6 @@
 import type { SearchArtistProfile, SearchResultItem } from './youtube-music';
-import type {
-  ArtistCatalog,
-  CatalogYouTubeMusicAdapter,
-} from './youtube-music-catalog';
+import type { ArtistCatalog } from './youtube-music-catalog';
+import type { PlaybackContextAdapter } from './playback-context';
 
 const ROOT_ID = 'ui143-artist-page';
 
@@ -49,7 +47,7 @@ const subtitle = (item: SearchResultItem) => {
 export type ArtistPageController = ReturnType<typeof mountArtistPage>;
 
 export const mountArtistPage = (
-  engine: CatalogYouTubeMusicAdapter,
+  engine: PlaybackContextAdapter,
   onOpenAlbum?: AlbumOpenHandler,
 ) => {
   document.getElementById(ROOT_ID)?.remove();
@@ -181,7 +179,18 @@ export const mountArtistPage = (
     const list = document.createElement('div');
     list.className = 'ui143-artist-track-list';
     for (const [index, item] of items.slice(0, 10).entries()) {
-      const row = resultButton(item, 'ui143-artist-track');
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'ui143-artist-track';
+      if (item.videoId) row.dataset.videoId = item.videoId;
+      row.addEventListener('click', () => {
+        if (!current) return;
+        engine.playContext(items, index, {
+          kind: 'artist',
+          title: current.name,
+          browseId: current.browseId,
+        });
+      });
       const number = document.createElement('span');
       number.className = 'ui143-artist-track-number';
       number.textContent = String(index + 1);
