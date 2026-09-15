@@ -25,7 +25,9 @@ type EmbeddedLyricsRenderer = {
   observer?: MutationObserver;
   videoDataChange: () => Promise<void>;
   updateTimestampInterval?: NodeJS.Timeout | string | number;
-  start: (ctx: RendererContext<SyncedLyricsPluginConfig>) => Promise<void> | void;
+  start: (
+    ctx: RendererContext<SyncedLyricsPluginConfig>,
+  ) => Promise<void> | void;
   stop: () => Promise<void> | void;
   onPlayerApiReady: (api: MusicPlayer) => Promise<void> | void;
 };
@@ -33,11 +35,14 @@ type EmbeddedLyricsRenderer = {
 // createRenderer's public type is a union because plugins may also use a
 // one-function lifecycle. The synced-lyrics renderer is known to use the object
 // lifecycle above, so narrow it once here instead of leaking casts everywhere.
-const lyricsRenderer = syncedLyricsRenderer as unknown as EmbeddedLyricsRenderer;
+const lyricsRenderer =
+  syncedLyricsRenderer as unknown as EmbeddedLyricsRenderer;
 
 let styleSheet: CSSStyleSheet | null = null;
 let started = false;
 let methodsBound = false;
+let attachedPlayer: MusicPlayer | null = null;
+const removeListeners: (() => void)[] = [];
 
 const bindRendererMethods = () => {
   if (methodsBound) return;
@@ -45,7 +50,8 @@ const bindRendererMethods = () => {
 
   lyricsRenderer.observerCallback =
     lyricsRenderer.observerCallback.bind(lyricsRenderer);
-  lyricsRenderer.videoDataChange = lyricsRenderer.videoDataChange.bind(lyricsRenderer);
+  lyricsRenderer.videoDataChange =
+    lyricsRenderer.videoDataChange.bind(lyricsRenderer);
   lyricsRenderer.onPlayerApiReady =
     lyricsRenderer.onPlayerApiReady.bind(lyricsRenderer);
   lyricsRenderer.start = lyricsRenderer.start.bind(lyricsRenderer);
@@ -55,9 +61,20 @@ const bindRendererMethods = () => {
 const karaokeContext = (
   ctx: RendererContext<PluginConfig>,
 ): RendererContext<SyncedLyricsPluginConfig> => ({
-  getConfig: async () => config,
-  setConfig: async () => {},
-  ipc: ctx.ipc,
+  getConfig: () => config,
+  setConfig: () => {},
+  ipc: {
+    ...ctx.ipc,
+    on(event, listener) {
+      const wrapped = (_event: unknown, ...args: unknown[]) => {
+        if (started) (listener as (...args: unknown[]) => void)(...args);
+      };
+      window.ipcRenderer.on(event, wrapped);
+      removeListeners.push(() =>
+        window.ipcRenderer.removeListener(event, wrapped),
+      );
+    },
+  },
 });
 
 export const startKaraoke = async (ctx: RendererContext<PluginConfig>) => {
@@ -76,11 +93,25 @@ export const startKaraoke = async (ctx: RendererContext<PluginConfig>) => {
 };
 
 export const attachKaraokePlayer = async (api: MusicPlayer) => {
-  if (!started) return;
+  if (!started || attachedPlayer === api) return;
+  attachedPlayer?.removeEventListener(
+    'videodatachange',
+    lyricsRenderer.videoDataChange,
+  );
+  attachedPlayer = api;
   await lyricsRenderer.onPlayerApiReady(api);
+  if (!started) lyricsRenderer.observer?.disconnect();
 };
 
 export const stopKaraoke = () => {
+  if (!started) return;
+  started = false;
+  attachedPlayer?.removeEventListener(
+    'videodatachange',
+    lyricsRenderer.videoDataChange,
+  );
+  attachedPlayer = null;
+  removeListeners.splice(0).forEach((remove) => remove());
   lyricsRenderer.observer?.disconnect();
   if (lyricsRenderer.updateTimestampInterval) {
     clearInterval(
@@ -88,11 +119,12 @@ export const stopKaraoke = () => {
     );
     lyricsRenderer.updateTimestampInterval = undefined;
   }
-  void lyricsRenderer.stop();
+  lyricsRenderer.stop();
 
   if (styleSheet) {
-    void styleSheet.replace('');
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+      (sheet) => sheet !== styleSheet,
+    );
     styleSheet = null;
   }
-  started = false;
 };
