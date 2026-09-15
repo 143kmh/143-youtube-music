@@ -49,8 +49,12 @@ export const installPlaybackContext = (
   engine: PlaylistCatalogAdapter,
 ): PlaybackContextAdapter => {
   const originalOpenSearchResult = engine.openSearchResult.bind(engine);
+  const originalNext = engine.next.bind(engine);
   const originalPrevious = engine.previous.bind(engine);
   const originalSeek = engine.seek.bind(engine);
+  const originalToggleShuffle = engine.toggleShuffle.bind(engine);
+  const originalCycleRepeat = engine.cycleRepeat.bind(engine);
+  const originalOpenQueue = engine.openQueue.bind(engine);
   const originalGetState = engine.getState.bind(engine);
   const originalSubscribe = engine.subscribe.bind(engine);
   const originalDispose = engine.dispose.bind(engine);
@@ -360,9 +364,7 @@ export const installPlaybackContext = (
         void advance(false);
         return;
       }
-      engine.clearPlaybackContext?.();
-      const api = playerApi();
-      if (api?.nextVideo) api.nextVideo();
+      originalNext();
     },
     previous() {
       if (context) {
@@ -387,12 +389,7 @@ export const installPlaybackContext = (
     },
     toggleShuffle() {
       if (!context) {
-        engine.clearPlaybackContext?.();
-        const button = document.querySelector<HTMLElement>(
-          'ytmusic-player-bar #shuffle-button, ytmusic-player-bar .shuffle',
-        );
-        button?.click();
-        engine.refresh();
+        originalToggleShuffle();
         return;
       }
       context = { ...context, shuffle: !context.shuffle };
@@ -400,11 +397,7 @@ export const installPlaybackContext = (
     },
     cycleRepeat() {
       if (!context) {
-        const button = document.querySelector<HTMLElement>(
-          'ytmusic-player-bar #repeat-button, ytmusic-player-bar .repeat',
-        );
-        button?.click();
-        engine.refresh();
+        originalCycleRepeat();
         return;
       }
       context = {
@@ -415,11 +408,7 @@ export const installPlaybackContext = (
     },
     openQueue() {
       if (!context) {
-        const tab = document.querySelector<HTMLElement>(
-          '#tabsContent > .tab-header:nth-of-type(1)',
-        );
-        tab?.click();
-        engine.refresh();
+        originalOpenQueue();
         return;
       }
       context = { ...context, queueOpen: !context.queueOpen };
