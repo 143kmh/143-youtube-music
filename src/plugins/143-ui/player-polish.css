@@ -60,7 +60,6 @@ html[data-143-ui]
   #tab-renderer[page-type='MUSIC_PAGE_TYPE_TRACK_LYRICS'] {
   position: relative !important;
   isolation: isolate;
-  overflow: hidden;
   background:
     radial-gradient(
       ellipse at 78% 18%,
