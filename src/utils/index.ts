@@ -4,23 +4,23 @@ import type {
   RendererContext,
 } from '@/types/contexts';
 import type {
-  PluginDef,
-  PluginConfig,
-  PluginLifecycleExtra,
-  PluginLifecycleSimple,
-  PluginLifecycle,
-  RendererPluginLifecycle,
+  FeatureDef,
+  FeatureConfig,
+  FeatureLifecycleExtra,
+  FeatureLifecycleSimple,
+  FeatureLifecycle,
+  RendererFeatureLifecycle,
 } from '@/types/plugins';
 
 export const LoggerPrefix = '[YTMusic]';
 
-export const createPlugin = <
+export const createFeature = <
   BackendProperties,
   PreloadProperties,
   RendererProperties,
-  Config extends PluginConfig = PluginConfig,
+  Config extends FeatureConfig = FeatureConfig,
 >(
-  def: PluginDef<
+  def: FeatureDef<
     BackendProperties,
     PreloadProperties,
     RendererProperties,
@@ -32,52 +32,56 @@ export const createPlugin = <
   },
 ) => def;
 
+// Temporary compatibility alias for retained modules that have not yet been
+// renamed from the inherited plugin terminology.
+export const createPlugin = createFeature;
+
 export const createBackend = <
   BackendProperties,
-  Config extends PluginConfig = PluginConfig,
+  Config extends FeatureConfig = FeatureConfig,
 >(
   back: {
     [Key in keyof BackendProperties]: BackendProperties[Key];
-  } & PluginLifecycle<Config, BackendContext<Config>, BackendProperties>,
+  } & FeatureLifecycle<Config, BackendContext<Config>, BackendProperties>,
 ) => back;
 
 export const createPreload = <
   PreloadProperties,
-  Config extends PluginConfig = PluginConfig,
+  Config extends FeatureConfig = FeatureConfig,
 >(
   preload: {
     [Key in keyof PreloadProperties]: PreloadProperties[Key];
-  } & PluginLifecycle<Config, PreloadContext<Config>, PreloadProperties>,
+  } & FeatureLifecycle<Config, PreloadContext<Config>, PreloadProperties>,
 ) => preload;
 
 export const createRenderer = <
   RendererProperties,
-  Config extends PluginConfig = PluginConfig,
+  Config extends FeatureConfig = FeatureConfig,
 >(
   renderer: {
     [Key in keyof RendererProperties]: RendererProperties[Key];
-  } & RendererPluginLifecycle<
+  } & RendererFeatureLifecycle<
     Config,
     RendererContext<Config>,
     RendererProperties
   >,
 ) => renderer;
 
-type Options<Config extends PluginConfig> =
+type Options<Config extends FeatureConfig> =
   | { ctx: 'backend'; context: BackendContext<Config> }
   | { ctx: 'preload'; context: PreloadContext<Config> }
   | { ctx: 'renderer'; context: RendererContext<Config> };
 
-export const startFeature = async <Config extends PluginConfig>(
+export const startFeature = async <Config extends FeatureConfig>(
   id: string,
-  def: PluginDef<unknown, unknown, unknown, Config>,
+  def: FeatureDef<unknown, unknown, unknown, Config>,
   options: Options<Config>,
 ) => {
   const lifecycle =
     typeof def[options.ctx] === 'function'
-      ? (def[options.ctx] as PluginLifecycleSimple<Config, unknown>)
+      ? (def[options.ctx] as FeatureLifecycleSimple<Config, unknown>)
       : (
-          def[options.ctx] as PluginLifecycleExtra<
+          def[options.ctx] as FeatureLifecycleExtra<
             Config,
             typeof options.context,
             unknown
@@ -117,16 +121,16 @@ export const startFeature = async <Config extends PluginConfig>(
   }
 };
 
-export const stopFeature = async <Config extends PluginConfig>(
+export const stopFeature = async <Config extends FeatureConfig>(
   id: string,
-  def: PluginDef<unknown, unknown, unknown, Config>,
+  def: FeatureDef<unknown, unknown, unknown, Config>,
   options: Options<Config>,
 ) => {
   if (!def || !def[options.ctx]) return false;
   if (typeof def[options.ctx] === 'function') return false;
 
   const defCtx = def[options.ctx] as
-    | { stop: PluginLifecycleSimple<Config, unknown> }
+    | { stop: FeatureLifecycleSimple<Config, unknown> }
     | undefined;
   if (!defCtx?.stop) return null;
 
