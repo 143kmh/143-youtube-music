@@ -12,12 +12,20 @@ import type { QualityConfig } from '../force-high-audio-quality/preference';
 import type { BackendContext } from '@/types/contexts';
 import type { PluginConfig } from '@/types/plugins';
 
+const DISCORD_APPLICATION_ID = '1549504717527322724';
+
 export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
   const presence = new DiscordRichPresence();
-  const discordSettings = (): DiscordPresenceSettings =>
-    config.get('options.discordRichPresence');
+  const discordSettings = (): DiscordPresenceSettings => ({
+    ...config.get('options.discordRichPresence'),
+    applicationId: DISCORD_APPLICATION_ID,
+  });
   const updateDiscordSettings = (patch: Partial<DiscordPresenceSettings>) => {
-    const next = { ...discordSettings(), ...patch };
+    const next = {
+      ...discordSettings(),
+      ...patch,
+      applicationId: DISCORD_APPLICATION_ID,
+    };
     config.set('options.discordRichPresence', next);
     presence.applySettings(next);
   };
@@ -34,7 +42,7 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
         config.plugins.getOptions<QualityConfig>('force-high-audio-quality')
           ?.enabled ?? false,
       discordEnabled: discord.enabled,
-      discordApplicationId: discord.applicationId,
+      discordApplicationId: DISCORD_APPLICATION_ID,
       discordAutoReconnect: discord.autoReconnect,
       discordShowDuration: discord.showRemainingTime,
       discordClearOnPause: discord.clearOnPause,
@@ -64,10 +72,9 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     } else if (key === 'discordEnabled' && typeof value === 'boolean') {
       updateDiscordSettings({ enabled: value });
     } else if (key === 'discordApplicationId' && typeof value === 'string') {
-      const applicationId = value.trim();
-      if (applicationId && !/^\d{15,22}$/u.test(applicationId))
-        throw new Error('Discord Application ID must contain only digits.');
-      updateDiscordSettings({ applicationId });
+      // The application identity is bundled with 143 Music; keep the setting
+      // read-compatible with older UI builds without allowing it to drift.
+      updateDiscordSettings({ applicationId: DISCORD_APPLICATION_ID });
     } else if (
       key === 'discordAutoReconnect' &&
       typeof value === 'boolean'
