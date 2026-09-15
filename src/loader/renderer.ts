@@ -1,5 +1,5 @@
 import { coreFeatures } from '@/core/features';
-import { LoggerPrefix, startPlugin, stopPlugin } from '@/utils';
+import { LoggerPrefix, startFeature, stopFeature } from '@/utils';
 
 import type { RendererContext } from '@/types/contexts';
 import type { PluginConfig, PluginDef } from '@/types/plugins';
@@ -38,7 +38,7 @@ export const forceUnloadRendererPlugin = async (id: string) => {
   const feature = loadedFeatureMap[id];
   if (!feature) return;
 
-  const hasStopped = await stopPlugin(id, feature, {
+  const hasStopped = await stopFeature(id, feature, {
     ctx: 'renderer',
     context: createContext(id),
   });
@@ -59,7 +59,7 @@ export const forceLoadRendererPlugin = async (id: string) => {
   const feature = coreFeatures[id];
   if (!feature?.renderer) return;
 
-  const hasStarted = await startPlugin(id, feature, {
+  const hasStarted = await startFeature(id, feature, {
     ctx: 'renderer',
     context: createContext(id),
   });
