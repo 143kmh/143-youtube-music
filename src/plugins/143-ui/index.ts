@@ -4,6 +4,7 @@ import { createPlugin } from '@/utils';
 
 import { mountArtistPage, type ArtistPageController } from './artist-page';
 import artistPageStyle from './artist-page.css?inline';
+import { installCatalogPolish } from './catalog-polish';
 import { startDesktop } from './desktop';
 import { mountInteractions } from './interactions';
 import interactionStyle from './interactions.css?inline';
@@ -396,6 +397,7 @@ export default createPlugin({
         attach: attachKaraokePlayer,
         stop: stopKaraoke,
       });
+      installCatalogPolish(engine);
       this.engine = engine;
       engine.start();
 
