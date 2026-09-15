@@ -87,11 +87,7 @@ const labelArtistMetrics = () => {
         continue;
       }
       const label =
-        spans.length === 1
-          ? 'Audience'
-          : index === 0
-            ? 'Subscribers'
-            : 'Monthly listeners';
+        index === 0 ? 'Subscribers' : 'Monthly listeners';
       span.textContent = `${label} · ${value}`;
       span.dataset.ui143Labeled = 'true';
     }
