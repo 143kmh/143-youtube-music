@@ -35,6 +35,15 @@ export interface DefaultConfig {
     overrideUserAgent: boolean;
     usePodcastParticipantAsArtist: boolean;
     themes: string[];
+    discordRichPresence: {
+      enabled: boolean;
+      applicationId: string;
+      autoReconnect: boolean;
+      showRemainingTime: boolean;
+      clearOnPause: boolean;
+      pauseTimeoutMinutes: number;
+      playButton: boolean;
+    };
     customWindowTitle?: string;
   };
   'plugins': Record<string, unknown>;
@@ -72,6 +81,15 @@ export const defaultConfig: DefaultConfig = {
     overrideUserAgent: false,
     usePodcastParticipantAsArtist: false,
     themes: [],
+    discordRichPresence: {
+      enabled: false,
+      applicationId: '',
+      autoReconnect: true,
+      showRemainingTime: true,
+      clearOnPause: true,
+      pauseTimeoutMinutes: 10,
+      playButton: true,
+    },
   },
   'plugins': {},
 };
