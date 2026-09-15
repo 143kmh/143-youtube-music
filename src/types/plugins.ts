@@ -8,21 +8,21 @@ import type { MusicPlayer } from '@/types/music-player';
 
 type Author = string;
 
-export type PluginConfig = {
+export type FeatureConfig = {
   enabled: boolean;
 };
 
-export type PluginLifecycleSimple<Context, This> = (
+export type FeatureLifecycleSimple<Context, This> = (
   this: This,
   ctx: Context,
 ) => void | Promise<void>;
-export type PluginLifecycleExtra<Config, Context, This> = This & {
-  start?: PluginLifecycleSimple<Context, This>;
-  stop?: PluginLifecycleSimple<Context, This>;
+export type FeatureLifecycleExtra<Config, Context, This> = This & {
+  start?: FeatureLifecycleSimple<Context, This>;
+  stop?: FeatureLifecycleSimple<Context, This>;
   onConfigChange?: (this: This, newConfig: Config) => void | Promise<void>;
 };
-export type RendererPluginLifecycleExtra<Config, Context, This> = This &
-  PluginLifecycleExtra<Config, Context, This> & {
+export type RendererFeatureLifecycleExtra<Config, Context, This> = This &
+  FeatureLifecycleExtra<Config, Context, This> & {
     onPlayerApiReady?: (
       this: This,
       playerApi: MusicPlayer,
@@ -30,12 +30,12 @@ export type RendererPluginLifecycleExtra<Config, Context, This> = This &
     ) => void | Promise<void>;
   };
 
-export type PluginLifecycle<Config, Context, This> =
-  | PluginLifecycleSimple<Context, This>
-  | PluginLifecycleExtra<Config, Context, This>;
-export type RendererPluginLifecycle<Config, Context, This> =
-  | PluginLifecycleSimple<Context, This>
-  | RendererPluginLifecycleExtra<Config, Context, This>;
+export type FeatureLifecycle<Config, Context, This> =
+  | FeatureLifecycleSimple<Context, This>
+  | FeatureLifecycleExtra<Config, Context, This>;
+export type RendererFeatureLifecycle<Config, Context, This> =
+  | FeatureLifecycleSimple<Context, This>
+  | RendererFeatureLifecycleExtra<Config, Context, This>;
 
 export enum Platform {
   Windows = 1 << 0,
@@ -44,11 +44,11 @@ export enum Platform {
   Freebsd = 1 << 3,
 }
 
-export interface PluginDef<
+export interface FeatureDef<
   BackendProperties,
   PreloadProperties,
   RendererProperties,
-  Config extends PluginConfig = PluginConfig,
+  Config extends FeatureConfig = FeatureConfig,
 > {
   name: () => string;
   authors?: Author[];
@@ -67,15 +67,43 @@ export interface PluginDef<
 
   backend?: {
     [Key in keyof BackendProperties]: BackendProperties[Key];
-  } & PluginLifecycle<Config, BackendContext<Config>, BackendProperties>;
+  } & FeatureLifecycle<Config, BackendContext<Config>, BackendProperties>;
   preload?: {
     [Key in keyof PreloadProperties]: PreloadProperties[Key];
-  } & PluginLifecycle<Config, PreloadContext<Config>, PreloadProperties>;
+  } & FeatureLifecycle<Config, PreloadContext<Config>, PreloadProperties>;
   renderer?: {
     [Key in keyof RendererProperties]: RendererProperties[Key];
-  } & RendererPluginLifecycle<
+  } & RendererFeatureLifecycle<
     Config,
     RendererContext<Config>,
     RendererProperties
   >;
 }
+
+// Temporary source-compatibility aliases while the remaining retained modules
+// are moved from the inherited plugin terminology to core features.
+export type PluginConfig = FeatureConfig;
+export type PluginLifecycleSimple<Context, This> = FeatureLifecycleSimple<
+  Context,
+  This
+>;
+export type PluginLifecycleExtra<Config, Context, This> = FeatureLifecycleExtra<
+  Config,
+  Context,
+  This
+>;
+export type RendererPluginLifecycleExtra<Config, Context, This> =
+  RendererFeatureLifecycleExtra<Config, Context, This>;
+export type PluginLifecycle<Config, Context, This> = FeatureLifecycle<
+  Config,
+  Context,
+  This
+>;
+export type RendererPluginLifecycle<Config, Context, This> =
+  RendererFeatureLifecycle<Config, Context, This>;
+export type PluginDef<
+  BackendProperties,
+  PreloadProperties,
+  RendererProperties,
+  Config extends FeatureConfig = FeatureConfig,
+> = FeatureDef<BackendProperties, PreloadProperties, RendererProperties, Config>;
