@@ -6,11 +6,11 @@ import { coreFeatures } from '@/core/features';
 import { LoggerPrefix, startFeature, stopFeature } from '@/utils';
 
 import type { BackendContext } from '@/types/contexts';
-import type { PluginConfig, PluginDef } from '@/types/plugins';
+import type { FeatureConfig, FeatureDef } from '@/types/plugins';
 
 const loadedFeatureMap: Record<
   string,
-  PluginDef<unknown, unknown, unknown>
+  FeatureDef<unknown, unknown, unknown>
 > = {};
 let activeWindow: BrowserWindow | null = null;
 let configWatchInstalled = false;
@@ -19,9 +19,9 @@ const getFeatureConfig = (id: string) =>
   deepmerge(
     coreFeatures[id]?.config ?? { enabled: false },
     config.get(`plugins.${id}`) ?? {},
-  ) as PluginConfig;
+  ) as FeatureConfig;
 
-const setFeatureConfig = (id: string, newConfig: Partial<PluginConfig>) => {
+const setFeatureConfig = (id: string, newConfig: Partial<FeatureConfig>) => {
   if (!coreFeatures[id]) return;
   config.setPartial(
     `plugins.${id}`,
@@ -42,7 +42,7 @@ const broadcastFeatureConfig = () => {
 const createContext = (
   id: string,
   win: BrowserWindow,
-): BackendContext<PluginConfig> => ({
+): BackendContext<FeatureConfig> => ({
   getConfig: () => getFeatureConfig(id),
   setConfig: (newConfig) => setFeatureConfig(id, newConfig),
   ipc: {
@@ -63,7 +63,7 @@ const createContext = (
   window: win,
 });
 
-export const forceUnloadMainPlugin = async (
+export const forceUnloadMainFeature = async (
   id: string,
   win: BrowserWindow,
 ): Promise<void> => {
@@ -86,7 +86,7 @@ export const forceUnloadMainPlugin = async (
   }
 };
 
-export const forceLoadMainPlugin = async (
+export const forceLoadMainFeature = async (
   id: string,
   win: BrowserWindow,
 ): Promise<void> => {
@@ -110,7 +110,7 @@ export const forceLoadMainPlugin = async (
   }
 };
 
-export const loadAllMainPlugins = async (win: BrowserWindow) => {
+export const loadAllMainFeatures = async (win: BrowserWindow) => {
   activeWindow = win;
   if (config.get('options.autoUpdates')) config.set('options.autoUpdates', false);
   await config.plugins.enforceAllowedPlugins();
@@ -122,7 +122,7 @@ export const loadAllMainPlugins = async (win: BrowserWindow) => {
   );
   ipcMain.handle(
     'app:set-feature-config',
-    (_event, id: string, newConfig: Partial<PluginConfig>) => {
+    (_event, id: string, newConfig: Partial<FeatureConfig>) => {
       setFeatureConfig(id, newConfig);
       return getFeatureConfig(id);
     },
@@ -134,19 +134,27 @@ export const loadAllMainPlugins = async (win: BrowserWindow) => {
   }
 
   await Promise.allSettled(
-    Object.keys(coreFeatures).map((id) => forceLoadMainPlugin(id, win)),
+    Object.keys(coreFeatures).map((id) => forceLoadMainFeature(id, win)),
   );
 };
 
-export const unloadAllMainPlugins = async (win: BrowserWindow) => {
+export const unloadAllMainFeatures = async (win: BrowserWindow) => {
   for (const id of Object.keys(loadedFeatureMap)) {
-    await forceUnloadMainPlugin(id, win);
+    await forceUnloadMainFeature(id, win);
   }
   if (activeWindow === win) activeWindow = null;
 };
 
-export const getLoadedMainPlugin = (
+export const getLoadedMainFeature = (
   id: string,
-): PluginDef<unknown, unknown, unknown> | undefined => loadedFeatureMap[id];
+): FeatureDef<unknown, unknown, unknown> | undefined => loadedFeatureMap[id];
 
-export const getAllLoadedMainPlugins = () => loadedFeatureMap;
+export const getAllLoadedMainFeatures = () => loadedFeatureMap;
+
+// Temporary compatibility exports until src/index.ts moves to feature names.
+export const loadAllMainPlugins = loadAllMainFeatures;
+export const unloadAllMainPlugins = unloadAllMainFeatures;
+export const forceLoadMainPlugin = forceLoadMainFeature;
+export const forceUnloadMainPlugin = forceUnloadMainFeature;
+export const getLoadedMainPlugin = getLoadedMainFeature;
+export const getAllLoadedMainPlugins = getAllLoadedMainFeatures;
