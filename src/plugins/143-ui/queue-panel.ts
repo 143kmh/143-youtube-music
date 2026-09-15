@@ -98,6 +98,10 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
   };
 
   const unsubscribe = engine.subscribePlaybackContext(render);
+  const buttonSyncTimer = window.setInterval(
+    () => syncPlayerButton(Boolean(engine.getPlaybackContext()?.queueOpen)),
+    120,
+  );
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && engine.getPlaybackContext()?.queueOpen)
       engine.closeContextQueue();
@@ -106,6 +110,7 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
 
   return () => {
     unsubscribe();
+    window.clearInterval(buttonSyncTimer);
     window.removeEventListener('keydown', onKeyDown);
     syncPlayerButton(false);
     root.remove();
