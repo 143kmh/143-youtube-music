@@ -46,10 +46,15 @@ const normalizeLabel = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const isEpisodeLike = (item: SearchResultItem) =>
-  /\b(?:podcast|episode)\b|подкаст|эпизод|епізод/iu.test(
-    `${item.title} ${item.subtitle}`,
+const isEpisodeLike = (item: SearchResultItem) => {
+  const value = `${item.title} ${item.subtitle}`;
+  return (
+    /\b(?:podcast|episode|interview)\b/iu.test(value) ||
+    /(?:^|[\s•·—–-])(?:подкаст|эпизод|епізод|выпуск|випуск|интервью)(?=$|[\s•·—–-])/iu.test(
+      value,
+    )
   );
+};
 
 const playCount = (item: SearchResultItem) => {
   const text = item.subtitle.toLocaleLowerCase().replaceAll('\u00a0', ' ');
@@ -77,7 +82,7 @@ const playCount = (item: SearchResultItem) => {
 
 const rankTracks = (items: readonly SearchResultItem[]) =>
   items
-    .filter((item) => !isEpisodeLike(item))
+    .filter((item) => item.kind === 'song' && !isEpisodeLike(item))
     .map((item, index) => ({ item, index, plays: playCount(item) }))
     .sort((left, right) => right.plays - left.plays || left.index - right.index)
     .map(({ item }) => item);
@@ -235,7 +240,7 @@ export const mountSearchPage = (
 
     const avatar = document.createElement('div');
     avatar.className = 'ui143-search-artist-avatar';
-    const avatarSource = profile.banner || profile.avatar;
+    const avatarSource = profile.avatar || profile.banner;
     if (avatarSource) {
       const avatarImage = document.createElement('img');
       avatarImage.src = avatarSource;
@@ -400,7 +405,6 @@ export const mountSearchPage = (
   const render = (results: SearchCatalog) => {
     clear();
     const rankedSongs = rankTracks(results.songs);
-    const cleanVideos = results.videos.filter((item) => !isEpisodeLike(item));
     const cleanPlaylists = results.playlists.filter((item) => !isEpisodeLike(item));
     const artist = results.featuredArtist?.title ?? '';
     const artistAlbums = artist
@@ -412,8 +416,7 @@ export const mountSearchPage = (
         rankedSongs.length ||
         results.artists.length ||
         artistAlbums.length ||
-        cleanPlaylists.length ||
-        cleanVideos.length,
+        cleanPlaylists.length,
     );
     if (!hasResults) {
       message('Nothing found', `No results for “${results.query}”.`);
@@ -454,7 +457,6 @@ export const mountSearchPage = (
       );
     if (cleanPlaylists.length)
       content.append(renderCards('Playlists', cleanPlaylists));
-    if (cleanVideos.length) content.append(renderCards('Videos', cleanVideos));
 
     syncNowPlaying();
   };
