@@ -1,6 +1,6 @@
 import type { MusicPlayer } from '@/types/music-player';
 
-import type { SearchResultItem, YouTubeMusicAdapter } from './youtube-music';
+import type { SearchResultItem } from './youtube-music';
 import type { PlaylistCatalogAdapter } from './youtube-music-playlist';
 
 export type PlaybackContextSource = Readonly<{
