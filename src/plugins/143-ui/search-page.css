@@ -1,0 +1,282 @@
+#ui143-search-page {
+  position: fixed;
+  top: calc(8px + var(--ui143-topbar-height));
+  right: 8px;
+  bottom: var(--ui143-player-height);
+  left: calc(var(--ui143-sidebar-width) + 8px);
+  z-index: 1000;
+  overflow: auto;
+  padding: 30px 34px 54px;
+  border-radius: 0 0 9px 9px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 180px),
+    var(--ui143-panel);
+  color: var(--ui143-text);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  scrollbar-width: thin;
+  -webkit-app-region: no-drag;
+}
+
+#ui143-search-page[hidden] {
+  display: none !important;
+}
+
+.ui143-search-page-content {
+  width: min(1240px, 100%);
+  margin: 0 auto;
+}
+
+.ui143-search-heading {
+  margin-bottom: 26px;
+}
+
+.ui143-search-heading > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ui143-subtle);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.ui143-search-heading h1,
+.ui143-search-page h2 {
+  margin: 0;
+  color: #fff;
+  letter-spacing: -0.035em;
+}
+
+.ui143-search-heading h1 {
+  font-size: clamp(24px, 2.4vw, 38px);
+  font-weight: 780;
+}
+
+.ui143-search-page h2 {
+  margin-bottom: 14px;
+  font-size: 19px;
+  font-weight: 720;
+}
+
+.ui143-search-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 28px;
+  margin-bottom: 34px;
+}
+
+.ui143-search-top-card,
+.ui143-search-song,
+.ui143-search-card {
+  appearance: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui143-search-top-card {
+  width: 100%;
+  min-height: 218px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.ui143-search-top-card:hover {
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.ui143-search-top-card:active,
+.ui143-search-song:active,
+.ui143-search-card:active {
+  transform: scale(0.992);
+}
+
+.ui143-search-top-art {
+  width: 112px;
+  height: 112px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #202020;
+  color: #8c8c8c;
+  font-size: 28px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+.ui143-search-top-art img,
+.ui143-search-song-art img,
+.ui143-search-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ui143-search-top-copy {
+  min-width: 0;
+}
+
+.ui143-search-top-copy strong {
+  display: block;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(20px, 1.8vw, 30px);
+  font-weight: 780;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-search-result-subtitle {
+  overflow: hidden;
+  margin-top: 5px;
+  color: #a7a7a7;
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-search-song-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ui143-search-song {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: transparent;
+  transition: background 100ms ease, transform 100ms ease;
+}
+
+.ui143-search-song:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.ui143-search-song-art {
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: #202020;
+  color: #777;
+  font-size: 18px;
+}
+
+.ui143-search-song-copy {
+  min-width: 0;
+}
+
+.ui143-search-song-copy strong {
+  display: block;
+  overflow: hidden;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-search-section {
+  margin-top: 32px;
+}
+
+.ui143-search-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.ui143-search-card {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 9px;
+  background: transparent;
+  transition: background 110ms ease, transform 110ms ease;
+}
+
+.ui143-search-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ui143-search-card-art {
+  aspect-ratio: 1;
+  width: 100%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
+  border-radius: 7px;
+  background: #202020;
+  color: #777;
+  font-size: 26px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.ui143-search-card-art.is-round,
+.ui143-search-card-art.is-round img {
+  border-radius: 50%;
+}
+
+.ui143-search-card > strong {
+  display: block;
+  overflow: hidden;
+  color: #ededed;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-search-message {
+  min-height: 52vh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: var(--ui143-muted);
+  text-align: center;
+}
+
+.ui143-search-message strong {
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.ui143-search-message span {
+  max-width: 460px;
+  color: #858585;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .ui143-search-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #ui143-search-page {
+    padding-right: 22px;
+    padding-left: 22px;
+  }
+}
