@@ -1,6 +1,6 @@
 import type { Session } from 'electron';
 
-const FORCE_DIRECT_FLAG = '__PEARD_FORCE_DIRECT_HQ__';
+const FORCE_DIRECT_FLAG = '__YT143_FORCE_DIRECT_HQ__';
 
 export type PlayerScriptPatchStatus = {
   installed: boolean;
@@ -198,9 +198,6 @@ export const patchPlayerScript = (
     const openBrace = source.indexOf('{', match.index);
     if (openBrace < 0) continue;
 
-    // The current controller body is only a few KB. A generous bounded window
-    // avoids parsing the entire minified bundle while still locating its stable
-    // structural markers.
     const bodyWindow = source.slice(openBrace + 1, openBrace + 16_000);
     const policyKey = findPolicyKey(bodyWindow);
     if (!policyKey) continue;
@@ -221,8 +218,6 @@ export const patchPlayerScript = (
 
 const rewrittenResponse = (response: Response, body: string) => {
   const headers = new Headers(response.headers);
-  // The body has been decoded and rewritten, so stale transport metadata must
-  // not be forwarded.
   headers.delete('content-length');
   headers.delete('content-encoding');
   headers.delete('transfer-encoding');
@@ -305,9 +300,6 @@ export const installPlayerScriptPatch = async (
           cache: 'no-store',
         });
 
-        // A cached conditional response has no body to patch. Retrying without
-        // the browser cache is handled by cache:no-store above; if the server
-        // still returns no body, fail open.
         if (response.status === 204 || response.status === 304) return response;
 
         const original = await response.text();
