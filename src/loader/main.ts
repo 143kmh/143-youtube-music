@@ -12,6 +12,8 @@ const loadedFeatureMap: Record<
   string,
   PluginDef<unknown, unknown, unknown>
 > = {};
+let activeWindow: BrowserWindow | null = null;
+let configWatchInstalled = false;
 
 const getFeatureConfig = (id: string) =>
   deepmerge(
@@ -28,6 +30,15 @@ const setFeatureConfig = (id: string, newConfig: Partial<PluginConfig>) => {
   );
 };
 
+const broadcastFeatureConfig = () => {
+  const win = activeWindow;
+  if (!win || win.isDestroyed()) return;
+
+  for (const id of Object.keys(coreFeatures)) {
+    win.webContents.send('app:feature-config-changed', id, getFeatureConfig(id));
+  }
+};
+
 const createContext = (
   id: string,
   win: BrowserWindow,
@@ -39,6 +50,7 @@ const createContext = (
       win.webContents.send(event, ...args);
     },
     handle: (event: string, listener: CallableFunction) => {
+      ipcMain.removeHandler(event);
       ipcMain.handle(event, (_, ...args: unknown[]) => listener(...args));
     },
     on: (event: string, listener: CallableFunction) => {
@@ -78,6 +90,8 @@ export const forceLoadMainPlugin = async (
   id: string,
   win: BrowserWindow,
 ): Promise<void> => {
+  if (loadedFeatureMap[id]) return;
+
   const feature = coreFeatures[id];
   if (!feature?.backend) return;
 
@@ -97,6 +111,7 @@ export const forceLoadMainPlugin = async (
 };
 
 export const loadAllMainPlugins = async (win: BrowserWindow) => {
+  activeWindow = win;
   if (config.get('options.autoUpdates')) config.set('options.autoUpdates', false);
   await config.plugins.enforceAllowedPlugins();
 
@@ -113,29 +128,21 @@ export const loadAllMainPlugins = async (win: BrowserWindow) => {
     },
   );
 
-  const featureConfigs = config.plugins.getPlugins();
-  const queue: Promise<void>[] = [];
-
-  for (const [id, feature] of Object.entries(coreFeatures)) {
-    const featureConfig = deepmerge(
-      feature.config ?? { enabled: false },
-      featureConfigs[id] ?? {},
-    );
-
-    if (featureConfig.enabled && feature.backend) {
-      queue.push(forceLoadMainPlugin(id, win));
-    } else if (loadedFeatureMap[id]) {
-      queue.push(forceUnloadMainPlugin(id, win));
-    }
+  if (!configWatchInstalled) {
+    configWatchInstalled = true;
+    config.watch(() => broadcastFeatureConfig());
   }
 
-  await Promise.allSettled(queue);
+  await Promise.allSettled(
+    Object.keys(coreFeatures).map((id) => forceLoadMainPlugin(id, win)),
+  );
 };
 
 export const unloadAllMainPlugins = async (win: BrowserWindow) => {
   for (const id of Object.keys(loadedFeatureMap)) {
     await forceUnloadMainPlugin(id, win);
   }
+  if (activeWindow === win) activeWindow = null;
 };
 
 export const getLoadedMainPlugin = (
