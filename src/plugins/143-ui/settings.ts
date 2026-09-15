@@ -65,8 +65,8 @@ const installBrandTheme = () => {
   style.id = BRAND_STYLE_ID;
   style.textContent = `
     .ui143-brand {
-      gap: 8px !important;
-      padding-left: 10px !important;
+      gap: 9px !important;
+      padding-left: 22px !important;
     }
 
     .ui143-brand-mark {
@@ -90,9 +90,12 @@ const installBrandTheme = () => {
     .ui143-brand-name {
       margin-left: 1px;
       color: #fff !important;
-      font-size: 17px !important;
-      font-weight: 650 !important;
-      letter-spacing: -0.35px !important;
+      font-family: "Avenir Next", "Segoe UI Variable Display", "Inter Tight", Inter, ui-sans-serif, sans-serif !important;
+      font-size: 16px !important;
+      font-weight: 620 !important;
+      line-height: 1 !important;
+      letter-spacing: -0.18px !important;
+      transform: translateY(1px);
     }
 
     .ui143-nav-item.is-active {
@@ -114,6 +117,14 @@ const installBrandTheme = () => {
         rgba(255,255,255,.7) 55%,
         transparent 74% 100%
       ) !important;
+    }
+
+    .ui143-search-hero-grid:has(> .ui143-search-top-tracks:only-child) {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .ui143-search-hero-grid > .ui143-search-top-tracks:only-child {
+      grid-column: 1 / -1;
     }
 
     .ui143-settings-section-title {
