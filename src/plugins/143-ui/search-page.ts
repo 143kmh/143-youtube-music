@@ -3,7 +3,7 @@ import type {
   SearchCatalog,
   SearchResultItem,
 } from './youtube-music';
-import type { CatalogYouTubeMusicAdapter } from './youtube-music-catalog';
+import type { PlaybackContextAdapter } from './playback-context';
 import { resolveSearchFocus, type SearchFocus } from './search-intent';
 
 const ROOT_ID = 'ui143-search-page';
@@ -15,6 +15,12 @@ export type ArtistOpenHandler = (
 ) => void;
 
 export type AlbumOpenHandler = (
+  title: string,
+  browseId: string,
+  restoreSearch: boolean,
+) => void;
+
+export type PlaylistOpenHandler = (
   title: string,
   browseId: string,
   restoreSearch: boolean,
@@ -135,9 +141,10 @@ const mergeAlbums = (
 export type SearchPageController = ReturnType<typeof mountSearchPage>;
 
 export const mountSearchPage = (
-  engine: CatalogYouTubeMusicAdapter,
+  engine: PlaybackContextAdapter,
   onOpenArtist?: ArtistOpenHandler,
   onOpenAlbum?: AlbumOpenHandler,
+  onOpenPlaylist?: PlaylistOpenHandler,
 ) => {
   document.getElementById(ROOT_ID)?.remove();
 
@@ -208,16 +215,45 @@ export const mountSearchPage = (
       onOpenAlbum(item.title, item.browseId, true);
       return;
     }
+    if (item.kind === 'playlist' && item.browseId && onOpenPlaylist) {
+      setVisible(false);
+      onOpenPlaylist(item.title, item.browseId, true);
+      return;
+    }
     if (!engine.openSearchResult(item)) return;
     if (!item.videoId) setVisible(false);
   };
 
-  const resultButton = (item: SearchResultItem, className: string) => {
+  const playContextItem = (
+    items: readonly SearchResultItem[],
+    item: SearchResultItem,
+  ) => {
+    const songs = items.filter(
+      (candidate) => candidate.kind === 'song' && !isEpisodeLike(candidate),
+    );
+    const index = songs.findIndex(
+      (candidate) => candidate.videoId && candidate.videoId === item.videoId,
+    );
+    if (index < 0) {
+      openItem(item);
+      return;
+    }
+    engine.playContext(songs, index, {
+      kind: 'search',
+      title: lastQuery || 'Search results',
+    });
+  };
+
+  const resultButton = (
+    item: SearchResultItem,
+    className: string,
+    onClick?: () => void,
+  ) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = className;
     if (item.videoId) button.dataset.videoId = item.videoId;
-    button.addEventListener('click', () => openItem(item));
+    button.addEventListener('click', onClick ?? (() => openItem(item)));
     return button;
   };
 
@@ -331,8 +367,16 @@ export const mountSearchPage = (
 
     const list = document.createElement('div');
     list.className = 'ui143-search-top-track-list';
-    for (const [index, item] of items.slice(0, 10).entries()) {
-      const row = resultButton(item, 'ui143-search-top-track');
+    const songs = items.filter(
+      (item) => item.kind === 'song' && !isEpisodeLike(item),
+    );
+    for (const [index, item] of songs.slice(0, 10).entries()) {
+      const row = resultButton(item, 'ui143-search-top-track', () => {
+        engine.playContext(songs, index, {
+          kind: 'search',
+          title: lastQuery || 'Search results',
+        });
+      });
       const number = document.createElement('span');
       number.className = 'ui143-search-track-number';
       number.textContent = String(index + 1);
@@ -363,8 +407,13 @@ export const mountSearchPage = (
     heading.textContent = titleText;
     const list = document.createElement('div');
     list.className = 'ui143-search-song-list';
-    for (const item of items.filter((entry) => !isEpisodeLike(entry)).slice(0, limit)) {
-      const row = resultButton(item, 'ui143-search-song');
+    const songs = items
+      .filter((entry) => entry.kind === 'song' && !isEpisodeLike(entry))
+      .slice(0, limit);
+    for (const item of songs) {
+      const row = resultButton(item, 'ui143-search-song', () =>
+        playContextItem(songs, item),
+      );
       row.append(image(item, 'ui143-search-song-art'));
       const copy = document.createElement('div');
       copy.className = 'ui143-search-song-copy';
@@ -430,8 +479,15 @@ export const mountSearchPage = (
     labelText: string,
     item: SearchResultItem,
     round = false,
+    contextItems?: readonly SearchResultItem[],
   ) => {
-    const card = resultButton(item, 'ui143-search-focus-card');
+    const card = resultButton(
+      item,
+      'ui143-search-focus-card',
+      item.kind === 'song' && contextItems
+        ? () => playContextItem(contextItems, item)
+        : undefined,
+    );
     const art = image(item, 'ui143-search-focus-art');
     if (round) art.classList.add('is-round');
     const copy = document.createElement('div');
@@ -461,14 +517,15 @@ export const mountSearchPage = (
     grid.className = `ui143-search-focus-grid is-${focus.kind}`;
 
     if (focus.kind === 'song') {
-      grid.append(renderFocusCard('Track', focus.song));
+      const moreSongs = rankTracks(results.songs).filter(
+        (item) => item.videoId !== focus.song.videoId,
+      );
+      const contextSongs = [focus.song, ...moreSongs];
+      grid.append(renderFocusCard('Track', focus.song, false, contextSongs));
       if (focus.album) grid.append(renderFocusCard('Album', focus.album));
       if (focus.artist) grid.append(renderFocusArtist(focus.artist));
       content.append(grid);
 
-      const moreSongs = rankTracks(results.songs).filter(
-        (item) => item.videoId !== focus.song.videoId,
-      );
       if (moreSongs.length)
         content.append(renderSongs('More matching tracks', moreSongs, 10));
     } else {
