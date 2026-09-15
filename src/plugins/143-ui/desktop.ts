@@ -69,8 +69,6 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     '143:window',
   ] as const;
 
-  // Make backend reloads idempotent. A stale handler must never prevent the
-  // whole 143 desktop backend from starting.
   for (const channel of channels) ipc.removeHandler(channel);
 
   const discordSettings = (): DiscordPresenceSettings => ({
@@ -193,12 +191,9 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
     else if (action === 'advanced')
       Menu.getApplicationMenu()?.popup({ window });
     else if (action === 'audio-details')
-      window.webContents.send('peard:force-high-audio-quality:inspect');
+      window.webContents.send('app:audio:inspect');
   });
 
-  // Optional integrations are intentionally initialized only after the core IPC
-  // surface exists. Neither Discord nor Windows shell cosmetics may take the
-  // settings/lyrics backend down.
   applyDiscordSettings(discordSettings());
 
   if (process.platform === 'win32') {
