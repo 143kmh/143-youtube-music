@@ -36,12 +36,10 @@ const createContext = (
       win.webContents.send(event, ...args);
     },
     handle: (event: string, listener: CallableFunction) => {
-      // oxlint-disable-next-line typescript/no-unsafe-return,typescript/no-unsafe-call
       ipcMain.handle(event, (_, ...args: unknown[]) => listener(...args));
     },
     on: (event: string, listener: CallableFunction) => {
       ipcMain.on(event, (_, ...args: unknown[]) => {
-        // oxlint-disable-next-line typescript/no-unsafe-call
         listener(...args);
       });
     },
@@ -77,13 +75,13 @@ export const forceUnloadMainPlugin = async (
         t('common.console.plugins.unloaded', { pluginName: id }),
       );
       return;
-    } else {
-      const message = t('common.console.plugins.unload-failed', {
-        pluginName: id,
-      });
-      console.log(LoggerPrefix, message);
-      return Promise.reject(new Error(message));
     }
+
+    const message = t('common.console.plugins.unload-failed', {
+      pluginName: id,
+    });
+    console.log(LoggerPrefix, message);
+    return Promise.reject(new Error(message));
   } catch (err) {
     console.error(
       LoggerPrefix,
@@ -115,13 +113,14 @@ export const forceLoadMainPlugin = async (
         plugin.backend)
     ) {
       loadedPluginMap[id] = plugin;
-    } else {
-      const message = t('common.console.plugins.load-failed', {
-        pluginName: id,
-      });
-      console.log(LoggerPrefix, message);
-      return Promise.reject(new Error(message));
+      return;
     }
+
+    const message = t('common.console.plugins.load-failed', {
+      pluginName: id,
+    });
+    console.log(LoggerPrefix, message);
+    return Promise.reject(new Error(message));
   } catch (err) {
     console.error(
       LoggerPrefix,
@@ -135,8 +134,10 @@ export const forceLoadMainPlugin = async (
 export const loadAllMainPlugins = async (win: BrowserWindow) => {
   console.log(LoggerPrefix, t('common.console.plugins.load-all'));
 
-  // This fork intentionally keeps the native YouTube Music baseline and only
-  // loads features owned by 143. Persist the policy before preload/renderer run.
+  // Pear's updater points at the inherited upstream repository. 143 Music owns
+  // its release lifecycle now, so an old local config must never re-enable it.
+  if (config.get('options.autoUpdates')) config.set('options.autoUpdates', false);
+
   await config.plugins.enforceAllowedPlugins();
 
   const pluginConfigs = config.plugins.getPlugins();
@@ -162,10 +163,6 @@ export const unloadAllMainPlugins = async (win: BrowserWindow) => {
 
 export const getLoadedMainPlugin = (
   id: string,
-): PluginDef<unknown, unknown, unknown> | undefined => {
-  return loadedPluginMap[id];
-};
+): PluginDef<unknown, unknown, unknown> | undefined => loadedPluginMap[id];
 
-export const getAllLoadedMainPlugins = () => {
-  return loadedPluginMap;
-};
+export const getAllLoadedMainPlugins = () => loadedPluginMap;
