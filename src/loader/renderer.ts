@@ -2,14 +2,14 @@ import { coreFeatures } from '@/core/features';
 import { LoggerPrefix, startFeature, stopFeature } from '@/utils';
 
 import type { RendererContext } from '@/types/contexts';
-import type { PluginConfig, PluginDef } from '@/types/plugins';
+import type { FeatureConfig, FeatureDef } from '@/types/plugins';
 
 const loadedFeatureMap: Record<
   string,
-  PluginDef<unknown, unknown, unknown>
+  FeatureDef<unknown, unknown, unknown>
 > = {};
 
-export const createContext = <Config extends PluginConfig>(
+export const createContext = <Config extends FeatureConfig>(
   id: string,
 ): RendererContext<Config> => ({
   getConfig: () =>
@@ -34,7 +34,7 @@ export const createContext = <Config extends PluginConfig>(
   },
 });
 
-export const forceUnloadRendererPlugin = async (id: string) => {
+export const forceUnloadRendererFeature = async (id: string) => {
   const feature = loadedFeatureMap[id];
   if (!feature) return;
 
@@ -53,7 +53,7 @@ export const forceUnloadRendererPlugin = async (id: string) => {
   }
 };
 
-export const forceLoadRendererPlugin = async (id: string) => {
+export const forceLoadRendererFeature = async (id: string) => {
   if (loadedFeatureMap[id]) return;
 
   const feature = coreFeatures[id];
@@ -89,20 +89,28 @@ export const forceLoadRendererPlugin = async (id: string) => {
   }
 };
 
-export const loadAllRendererPlugins = async () => {
+export const loadAllRendererFeatures = async () => {
   for (const id of Object.keys(coreFeatures)) {
-    await forceLoadRendererPlugin(id);
+    await forceLoadRendererFeature(id);
   }
 };
 
-export const unloadAllRendererPlugins = async () => {
+export const unloadAllRendererFeatures = async () => {
   for (const id of Object.keys(loadedFeatureMap)) {
-    await forceUnloadRendererPlugin(id);
+    await forceUnloadRendererFeature(id);
   }
 };
 
-export const getLoadedRendererPlugin = (
+export const getLoadedRendererFeature = (
   id: string,
-): PluginDef<unknown, unknown, unknown> | undefined => loadedFeatureMap[id];
+): FeatureDef<unknown, unknown, unknown> | undefined => loadedFeatureMap[id];
 
-export const getAllLoadedRendererPlugins = () => loadedFeatureMap;
+export const getAllLoadedRendererFeatures = () => loadedFeatureMap;
+
+// Temporary compatibility exports until src/renderer.ts moves to feature names.
+export const loadAllRendererPlugins = loadAllRendererFeatures;
+export const unloadAllRendererPlugins = unloadAllRendererFeatures;
+export const forceLoadRendererPlugin = forceLoadRendererFeature;
+export const forceUnloadRendererPlugin = forceUnloadRendererFeature;
+export const getLoadedRendererPlugin = getLoadedRendererFeature;
+export const getAllLoadedRendererPlugins = getAllLoadedRendererFeatures;
