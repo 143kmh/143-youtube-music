@@ -1,10 +1,13 @@
-import type { YouTubeMusicAdapter } from './youtube-music';
+import { mountLibraryPage } from './library-page';
+
+import type { PlaybackContextAdapter } from './playback-context';
 
 const NATIVE_POLISH_STYLE_ID = 'ui143-native-polish';
 const PAGE_IDS = [
   'ui143-search-page',
   'ui143-artist-page',
   'ui143-album-page',
+  'ui143-library-page',
 ] as const;
 
 const mountNativePolish = () => {
@@ -61,7 +64,14 @@ const hideCustomPages = () => {
     'ui143-search-open',
     'ui143-artist-open',
     'ui143-album-open',
+    'ui143-library-open',
   );
+};
+
+const setActiveNav = (key: string) => {
+  document
+    .querySelectorAll<HTMLElement>('.ui143-nav-item[data-key]')
+    .forEach((item) => item.classList.toggle('is-active', item.dataset.key === key));
 };
 
 const shelfFromTarget = (target: Element) => {
@@ -199,9 +209,10 @@ const mountShelfGestures = () => {
   };
 };
 
-export const mountInteractions = (engine: YouTubeMusicAdapter) => {
+export const mountInteractions = (engine: PlaybackContextAdapter) => {
   const removeNativePolish = mountNativePolish();
   const shelfGestures = mountShelfGestures();
+  const libraryPage = mountLibraryPage(engine);
 
   // Do not synthesize /watch navigation ourselves. loadVideoById() can play a
   // track without creating all of YouTube Music's watch-page state, so asking
@@ -222,6 +233,26 @@ export const mountInteractions = (engine: YouTubeMusicAdapter) => {
     if (shelfGestures.suppressDraggedClick(event)) return;
     const target = event.target;
     if (!(target instanceof Element)) return;
+
+    const nav = target.closest<HTMLElement>('.ui143-nav-item[data-key]');
+    const navKey = nav?.dataset.key ?? '';
+    const libraryMode =
+      navKey === 'library'
+        ? 'landing'
+        : navKey === 'playlists'
+          ? 'playlists'
+          : navKey === 'songs'
+            ? 'songs'
+            : null;
+    if (libraryMode) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      hideCustomPages();
+      setActiveNav(navKey);
+      void libraryPage.open(libraryMode);
+      return;
+    }
+    if (nav && libraryPage.isOpen()) libraryPage.close();
 
     const karaoke = target.closest(
       '.ui143-player-utils button[aria-label="Karaoke"]',
@@ -244,9 +275,21 @@ export const mountInteractions = (engine: YouTubeMusicAdapter) => {
     engine.handleTrackClick(event);
   };
 
+  const onSubmit = (event: SubmitEvent) => {
+    if (
+      libraryPage.isOpen() &&
+      event.target instanceof Element &&
+      event.target.matches('.ui143-search')
+    )
+      libraryPage.close();
+  };
+
   document.addEventListener('click', onClick, true);
+  document.addEventListener('submit', onSubmit, true);
   return () => {
     document.removeEventListener('click', onClick, true);
+    document.removeEventListener('submit', onSubmit, true);
+    libraryPage.dispose();
     shelfGestures.dispose();
     removeNativePolish();
   };
