@@ -61,6 +61,9 @@ export const installPlaybackContext = (
 
   const playerApi = () =>
     document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
+  const playerMedia = () =>
+    playerApi()?.querySelector<HTMLVideoElement>('video') ??
+    document.querySelector<HTMLVideoElement>('video');
 
   let context: PlaybackContext | null = null;
   let contextToken = 0;
@@ -241,8 +244,8 @@ export const installPlaybackContext = (
       } else {
         pendingTicks++;
         if (pendingTicks < 30) return;
-        // If YouTube substituted a different playable ID, adopt it instead of
-        // destroying the custom queue and making the Queue button flicker.
+        // Some uploads can be substituted by YouTube. Wait for the requested ID
+        // first instead of immediately accepting a native autonav race.
         pendingVideoId = '';
         pendingTicks = 0;
       }
@@ -285,12 +288,21 @@ export const installPlaybackContext = (
     notifyState(baseState);
   });
 
-  const onEnded = () => {
+  const onEnded = (event: Event) => {
     if (!context) return;
+    const media = playerMedia();
+    if (media && event.target !== media) return;
+
     const id = originalGetState().track.id;
     if (!id || endedVideoId === id) return;
     const current = context.items[context.index];
     if (current?.videoId !== id) return;
+
+    // A custom 143 context owns end-of-track navigation. Block YouTube Music's
+    // native ended handlers here; otherwise native Automix can race our next
+    // loadVideoById() and replace it with an unrelated track.
+    event.preventDefault();
+    event.stopImmediatePropagation();
     endedVideoId = id;
     void advance(true);
   };
@@ -320,7 +332,9 @@ export const installPlaybackContext = (
         source,
         items: playable,
         index,
-        shuffle: options.shuffle ?? baseState.shuffle === true,
+        // Custom contexts start sequentially unless the caller explicitly asks
+        // for shuffle. This avoids inheriting stale hidden-YT shuffle state.
+        shuffle: options.shuffle ?? false,
         repeat: baseState.repeat ?? 0,
         queueOpen: false,
       };
@@ -376,8 +390,23 @@ export const installPlaybackContext = (
     seek(seconds: number) {
       if (!Number.isFinite(seconds)) return;
       const target = Math.max(0, seconds);
-      endedVideoId = '';
       const api = playerApi();
+      const liveDuration = api?.getDuration?.() ?? originalGetState().duration;
+
+      // Seeking exactly to the end can let YouTube's own autonav run before our
+      // ended handler. Treat the final fraction of a second as an explicit
+      // request for the next item and use the same deterministic 143 transition
+      // as the Next button.
+      if (context && liveDuration > 0) {
+        const endGuard = Math.max(0.6, Math.min(1.25, liveDuration * 0.003));
+        if (target >= liveDuration - endGuard) {
+          endedVideoId = originalGetState().track.id;
+          void advance(true);
+          return;
+        }
+      }
+
+      endedVideoId = '';
       if (api?.seekTo) {
         // Do not clamp against cached state.duration. Right after a track change
         // that value can belong to the previous song and causes a visible snap back.
