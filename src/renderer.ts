@@ -52,26 +52,25 @@ async function onApiLoaded() {
       window.dispatchEvent(new Event('resize')),
     );
 
-  // Compatibility media-control surface used by tray/protocol providers.
-  window.ipcRenderer.on('peard:previous-video', () => {
+  window.ipcRenderer.on('app:media:previous', () => {
     document
       .querySelector<HTMLElement>('.previous-button.ytmusic-player-bar')
       ?.click();
   });
-  window.ipcRenderer.on('peard:next-video', () => {
+  window.ipcRenderer.on('app:media:next', () => {
     document
       .querySelector<HTMLElement>('.next-button.ytmusic-player-bar')
       ?.click();
   });
-  window.ipcRenderer.on('peard:play', () => api?.playVideo());
-  window.ipcRenderer.on('peard:pause', () => api?.pauseVideo());
-  window.ipcRenderer.on('peard:toggle-play', () => {
+  window.ipcRenderer.on('app:media:play', () => api?.playVideo());
+  window.ipcRenderer.on('app:media:pause', () => api?.pauseVideo());
+  window.ipcRenderer.on('app:media:toggle-play', () => {
     if (api?.getPlayerState() === 2) api.playVideo();
     else api?.pauseVideo();
   });
-  window.ipcRenderer.on('peard:seek-to', (_, t: number) => api?.seekTo(t));
-  window.ipcRenderer.on('peard:seek-by', (_, t: number) => api?.seekBy(t));
-  window.ipcRenderer.on('peard:shuffle', () => {
+  window.ipcRenderer.on('app:media:seek-to', (_, t: number) => api?.seekTo(t));
+  window.ipcRenderer.on('app:media:seek-by', (_, t: number) => api?.seekBy(t));
+  window.ipcRenderer.on('app:media:shuffle', () => {
     document
       .querySelector<HTMLElement & { queue: { shuffle: () => void } }>(
         'ytmusic-player-bar',
@@ -84,12 +83,12 @@ async function onApiLoaded() {
       .querySelector<HTMLElement>('ytmusic-player-bar')
       ?.attributes.getNamedItem('shuffle-on') ?? null) !== null;
 
-  window.ipcRenderer.on('peard:get-shuffle', () => {
-    window.ipcRenderer.send('peard:get-shuffle-response', isShuffled());
+  window.ipcRenderer.on('app:media:get-shuffle', () => {
+    window.ipcRenderer.send('app:media:get-shuffle-response', isShuffled());
   });
 
   window.ipcRenderer.on(
-    'peard:update-like',
+    'app:media:update-like',
     (_, status: 'LIKE' | 'DISLIKE' = 'LIKE') => {
       document
         .querySelector<
@@ -98,7 +97,7 @@ async function onApiLoaded() {
         ?.updateLikeStatus(status);
     },
   );
-  window.ipcRenderer.on('peard:switch-repeat', (_, repeat = 1) => {
+  window.ipcRenderer.on('app:media:switch-repeat', (_, repeat = 1) => {
     for (let i = 0; i < repeat; i++) {
       document
         .querySelector<HTMLElement & { onRepeatButtonClick: () => void }>(
@@ -107,7 +106,7 @@ async function onApiLoaded() {
         ?.onRepeatButtonClick();
     }
   });
-  window.ipcRenderer.on('peard:update-volume', (_, volume: number) => {
+  window.ipcRenderer.on('app:media:update-volume', (_, volume: number) => {
     document
       .querySelector<HTMLElement & { updateVolume: (volume: number) => void }>(
         'ytmusic-player-bar',
@@ -131,16 +130,16 @@ async function onApiLoaded() {
     }
   };
 
-  window.ipcRenderer.on('peard:get-fullscreen', () => {
-    window.ipcRenderer.send('peard:set-fullscreen', isFullscreen());
+  window.ipcRenderer.on('app:media:get-fullscreen', () => {
+    window.ipcRenderer.send('app:media:set-fullscreen', isFullscreen());
   });
   window.ipcRenderer.on(
-    'peard:click-fullscreen-button',
+    'app:media:click-fullscreen-button',
     (_, fullscreen: boolean | undefined) => {
       clickFullscreenButton(fullscreen ?? false);
     },
   );
-  window.ipcRenderer.on('peard:toggle-mute', () => {
+  window.ipcRenderer.on('app:media:toggle-mute', () => {
     document
       .querySelector<HTMLElement & { onVolumeClick: () => void }>(
         'ytmusic-player-bar',
@@ -148,9 +147,9 @@ async function onApiLoaded() {
       ?.onVolumeClick();
   });
 
-  window.ipcRenderer.on('peard:get-queue', () => {
+  window.ipcRenderer.on('app:media:get-queue', () => {
     const queue = document.querySelector<QueueElement>('#queue');
-    window.ipcRenderer.send('peard:get-queue-response', {
+    window.ipcRenderer.send('app:media:get-queue-response', {
       items: queue?.queue.getItems(),
       autoPlaying: queue?.queue.autoPlaying,
       continuation: queue?.queue.continuation,
@@ -158,7 +157,7 @@ async function onApiLoaded() {
   });
 
   window.ipcRenderer.on(
-    'peard:add-to-queue',
+    'app:media:add-to-queue',
     (_, videoId: string, queueInsertPosition: string) => {
       const queue = document.querySelector<QueueElement>('#queue');
       const app = document.querySelector<MusicPlayerAppElement>('ytmusic-app');
@@ -213,7 +212,7 @@ async function onApiLoaded() {
     },
   );
   window.ipcRenderer.on(
-    'peard:move-in-queue',
+    'app:media:move-in-queue',
     (_, fromIndex: number, toIndex: number) => {
       document.querySelector<QueueElement>('#queue')?.dispatch({
         type: 'MOVE_ITEM',
@@ -221,19 +220,19 @@ async function onApiLoaded() {
       });
     },
   );
-  window.ipcRenderer.on('peard:remove-from-queue', (_, index: number) => {
+  window.ipcRenderer.on('app:media:remove-from-queue', (_, index: number) => {
     document.querySelector<QueueElement>('#queue')?.dispatch({
       type: 'REMOVE_ITEM',
       payload: index,
     });
   });
-  window.ipcRenderer.on('peard:set-queue-index', (_, index: number) => {
+  window.ipcRenderer.on('app:media:set-queue-index', (_, index: number) => {
     document.querySelector<QueueElement>('#queue')?.dispatch({
       type: 'SET_INDEX',
       payload: index,
     });
   });
-  window.ipcRenderer.on('peard:clear-queue', () => {
+  window.ipcRenderer.on('app:media:clear-queue', () => {
     const queue = document.querySelector<QueueElement>('#queue');
     queue?.queue.store.store.dispatch({
       type: 'SET_PLAYER_PAGE_INFO',
@@ -243,7 +242,7 @@ async function onApiLoaded() {
   });
 
   window.ipcRenderer.on(
-    'peard:search',
+    'app:media:search',
     async (_, query: string, params?: string, continuation?: string) => {
       const app = document.querySelector<MusicPlayerAppElement>('ytmusic-app');
       const searchBox =
@@ -264,7 +263,7 @@ async function onApiLoaded() {
         continuation,
         suggestStats: searchBox.getSearchboxStats(),
       });
-      window.ipcRenderer.send('peard:search-results', result);
+      window.ipcRenderer.send('app:media:search-results', result);
     },
   );
 
@@ -374,10 +373,6 @@ const defineTranslationElements = () => {
   if (!customElements.get('app-trans')) {
     customElements.define('app-trans', TranslationElement);
   }
-  // Temporary compatibility for any retained translated templates.
-  if (!customElements.get('pear-trans')) {
-    customElements.define('pear-trans', TranslationElement);
-  }
 };
 
 const preload = async () => {
@@ -393,9 +388,7 @@ const preload = async () => {
 const main = async () => {
   await loadAllRendererPlugins();
   areFeaturesLoaded = true;
-
   await listenForApiLoad();
-
   setInterval(() => (window._lact = Date.now()), 900_000);
 
   if (window.electronIs.dev()) {
