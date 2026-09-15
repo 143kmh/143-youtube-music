@@ -1,7 +1,7 @@
 import ui from '@/plugins/143-ui';
 import audio from '@/plugins/force-high-audio-quality';
 
-import type { FeatureDef } from '@/types/plugins';
+import type { FeatureDef } from '@/types/features';
 
 export const coreFeatures: Record<
   string,
