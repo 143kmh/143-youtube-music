@@ -1,5 +1,8 @@
 import type { SearchArtistProfile, SearchResultItem } from './youtube-music';
-import type { CatalogYouTubeMusicAdapter } from './youtube-music-catalog';
+import type {
+  ArtistCatalog,
+  CatalogYouTubeMusicAdapter,
+} from './youtube-music-catalog';
 
 const ROOT_ID = 'ui143-artist-page';
 
@@ -231,8 +234,7 @@ export const mountArtistPage = (
     return section;
   };
 
-  const render = async (artist: ArtistRef) => {
-    const catalog = await engine.getArtistCatalog(artist.browseId, artist.name);
+  const render = (artist: ArtistRef, catalog: ArtistCatalog) => {
     content.replaceChildren();
     content.append(renderHero(catalog.profile, artist.name));
     if (catalog.topTracks.length)
@@ -256,16 +258,16 @@ export const mountArtistPage = (
       (current.browseId !== artist.browseId || current.name !== artist.name)
     )
       history.push(current);
-    if (root.hidden && options.restoreSearch !== undefined)
-      restoreSearch = options.restoreSearch;
+    if (root.hidden) restoreSearch = options.restoreSearch === true;
     current = artist;
     const currentRequest = ++request;
     setVisible(true);
     message('Loading artist…');
 
     try {
-      await render(artist);
+      const catalog = await engine.getArtistCatalog(artist.browseId, artist.name);
       if (currentRequest !== request) return;
+      render(artist, catalog);
     } catch (error) {
       if (currentRequest !== request) return;
       console.error('[143 Music] Artist page failed', error);
