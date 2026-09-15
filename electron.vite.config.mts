@@ -107,7 +107,6 @@ export default defineConfig(({ mode }) => {
       pluginLoader('renderer'),
       viteResolve({
         'virtual:i18n': i18nImporter(),
-        'virtual:plugins': pluginVirtualModuleGenerator('renderer'),
       }),
       withFilter(solidPlugin(), {
         load: { id: [/\.(tsx|jsx)$/, '/@solid-refresh'] },
