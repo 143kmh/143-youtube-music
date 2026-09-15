@@ -7,7 +7,6 @@ import interactionStyle from './interactions.css?inline';
 import { attachKaraokePlayer, startKaraoke, stopKaraoke } from './karaoke';
 import { mountPlayer } from './player';
 import playerPolishStyle from './player-polish.css?inline';
-import { mountPlayerPolish } from './player-polish';
 import playerStyle from './player.css?inline';
 import style from './style.css?inline';
 import {
@@ -266,7 +265,6 @@ export default createPlugin({
     playerPolishStyleSheet: null as CSSStyleSheet | null,
     interactionStyleSheet: null as CSSStyleSheet | null,
     playerCleanup: null as (() => void) | null,
-    playerPolishCleanup: null as (() => void) | null,
     engine: null as YouTubeMusicAdapter | null,
     interactionCleanup: null as (() => void) | null,
 
@@ -299,9 +297,8 @@ export default createPlugin({
       this.engine = engine;
       engine.start();
       createShell(engine);
-      this.playerCleanup = mountPlayer();
-      this.playerPolishCleanup = mountPlayerPolish();
-      this.interactionCleanup = mountInteractions();
+      this.playerCleanup = mountPlayer(engine);
+      this.interactionCleanup = mountInteractions(engine);
     },
 
     async onPlayerApiReady(api: MusicPlayer) {
@@ -314,8 +311,6 @@ export default createPlugin({
       this.interactionCleanup = null;
       this.engine?.dispose();
       this.engine = null;
-      this.playerPolishCleanup?.();
-      this.playerPolishCleanup = null;
       this.playerCleanup?.();
       this.playerCleanup = null;
       document.getElementById(UI_ROOT_ID)?.remove();

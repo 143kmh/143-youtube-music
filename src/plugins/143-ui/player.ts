@@ -1,4 +1,6 @@
-import type { MusicPlayer } from '@/types/music-player';
+import { mountPlaylistPicker } from './playlist-picker';
+
+import type { YouTubeMusicAdapter } from './youtube-music';
 
 const PLAYER_ROOT_ID = 'ui143-player';
 
@@ -26,8 +28,7 @@ const icons = {
     'M17 3.6 20.4 7 17 10.4 15.6 9l1-1H8a4 4 0 0 0-4 4v1H2v-1a6 6 0 0 1 6-6h8.6l-1-1L17 3.6ZM7 20.4 3.6 17 7 13.6 8.4 15l-1 1H16a4 4 0 0 0 4-4v-1h2v1a6 6 0 0 1-6 6H7.4l1 1L7 20.4ZM11.2 9.3h1.4v5.4h-1.6v-3.8l-1 .55-.65-1.15 1.85-1Z',
   volume:
     'M4 9v6h4l5 4V5L8 9H4Zm11.5-.7a5 5 0 0 1 0 7.4l1.4 1.4a7 7 0 0 0 0-10.2l-1.4 1.4Z',
-  mute:
-    'M4 9v6h4l5 4V5L8 9H4Zm12.3.3-1.4 1.4 1.3 1.3-1.3 1.3 1.4 1.4 1.3-1.3 1.3 1.3 1.4-1.4-1.3-1.3 1.3-1.3-1.4-1.4-1.3 1.3-1.3-1.3Z',
+  mute: 'M4 9v6h4l5 4V5L8 9H4Zm12.3.3-1.4 1.4 1.3 1.3-1.3 1.3 1.4 1.4 1.3-1.3 1.3 1.3 1.4-1.4-1.3-1.3 1.3-1.3-1.4-1.4-1.3 1.3-1.3-1.3Z',
   heart:
     'M12 20.6 4.1 13A5.1 5.1 0 0 1 11.3 5.8l.7.72.7-.72A5.1 5.1 0 1 1 19.9 13L12 20.6Zm0-2.7 6.5-6.25A3.2 3.2 0 0 0 14 7.1l-2 2.05-2-2.05a3.2 3.2 0 0 0-4.5 4.55L12 17.9Z',
   heartFilled:
@@ -37,32 +38,6 @@ const icons = {
   mic: 'M12 14a3.5 3.5 0 0 0 3.5-3.5v-4a3.5 3.5 0 1 0-7 0v4A3.5 3.5 0 0 0 12 14Zm-6-3.5h2A4 4 0 0 0 12 14.5a4 4 0 0 0 4-4h2a6 6 0 0 1-5 5.92V20h3v2H8v-2h3v-3.58A6 6 0 0 1 6 10.5Z',
   queue:
     'M4 5h12v2H4V5Zm0 6h12v2H4v-2Zm0 6h8v2H4v-2Zm14-4.2V17a2.5 2.5 0 1 1-1.6-2.33V12l4.6-1.15v1.9l-3 .75v-.7Z',
-};
-
-type StatefulElement = HTMLElement & {
-  likeStatus?: string;
-  repeatMode?: number | string;
-};
-
-const nativeBar = () => document.querySelector<HTMLElement>('ytmusic-player-bar');
-const media = () => document.querySelector<HTMLVideoElement>('video');
-const playerApi = () =>
-  document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
-
-const nativeElement = (...selectors: string[]) => {
-  const bar = nativeBar();
-  for (const selector of selectors) {
-    const target = bar?.querySelector<HTMLElement>(selector);
-    if (target) return target;
-  }
-  return null;
-};
-
-const nativeClick = (...selectors: string[]) => {
-  const target = nativeElement(...selectors);
-  if (!target) return false;
-  target.click();
-  return true;
 };
 
 const formatTime = (seconds: number) => {
@@ -85,6 +60,8 @@ const button = (label: string, icon: keyof typeof icons, className = '') => {
 };
 
 const setIcon = (el: HTMLButtonElement, icon: keyof typeof icons) => {
+  if (el.dataset.icon === icon) return;
+  el.dataset.icon = icon;
   el.replaceChildren(svg(icons[icon]));
 };
 
@@ -93,177 +70,8 @@ const setActive = (el: HTMLButtonElement, active: boolean) => {
   el.setAttribute('aria-pressed', String(active));
 };
 
-const readPressed = (target: HTMLElement | null): boolean | null => {
-  if (!target) return null;
-  for (const element of [
-    target,
-    target.closest<HTMLElement>('[aria-pressed], [aria-checked]'),
-  ]) {
-    if (!element) continue;
-    const pressed = element.getAttribute('aria-pressed');
-    if (pressed === 'true') return true;
-    if (pressed === 'false') return false;
-    const checked = element.getAttribute('aria-checked');
-    if (checked === 'true') return true;
-    if (checked === 'false') return false;
-  }
-  return null;
-};
-
-const getLikeButton = () => {
-  const renderer = nativeBar()?.querySelector<HTMLElement>(
-    'ytmusic-like-button-renderer',
-  );
-  return (
-    renderer?.querySelector<HTMLElement>('#button-shape-like button') ??
-    renderer?.querySelector<HTMLElement>('#like-button button') ??
-    renderer?.querySelector<HTMLElement>('button') ??
-    renderer?.querySelector<HTMLElement>('tp-yt-paper-icon-button') ??
-    null
-  );
-};
-
-const readLikeState = (): boolean | null => {
-  const renderer = nativeBar()?.querySelector<StatefulElement>(
-    'ytmusic-like-button-renderer',
-  );
-  const raw = String(
-    renderer?.likeStatus ??
-      renderer?.getAttribute('like-status') ??
-      renderer?.getAttribute('likestatus') ??
-      '',
-  ).toUpperCase();
-
-  if (raw.includes('LIKE') && !raw.includes('INDIFFERENT')) return true;
-  if (raw.includes('INDIFFERENT') || raw.includes('DISLIKE')) return false;
-  return readPressed(getLikeButton());
-};
-
-const currentTitleText = () =>
-  nativeBar()?.querySelector<HTMLElement>('.title.ytmusic-player-bar')?.textContent?.trim() ??
-  nativeBar()?.querySelector<HTMLElement>('.title')?.textContent?.trim() ??
-  '';
-
-const currentTrackRoots = () => {
-  const title = currentTitleText().toLocaleLowerCase();
-  const preferredSelectors = [
-    'ytmusic-player-queue-item[selected]',
-    'ytmusic-player-queue-item[play-button-state="playing"]',
-    'ytmusic-responsive-list-item-renderer[play-button-state="playing"]',
-  ];
-  const roots = preferredSelectors
-    .flatMap((selector) => Array.from(document.querySelectorAll<HTMLElement>(selector)));
-
-  if (title) {
-    const queueItems = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        'ytmusic-player-queue-item, ytmusic-responsive-list-item-renderer',
-      ),
-    );
-    const matching = queueItems.find((item) =>
-      (item.textContent ?? '').toLocaleLowerCase().includes(title),
-    );
-    if (matching) roots.unshift(matching);
-  }
-
-  const bar = nativeBar();
-  if (bar) roots.push(bar);
-  return Array.from(new Set(roots));
-};
-
-const isArtistHref = (href: string) =>
-  href.includes('/channel/') || /\/browse\/UC[\w-]+/.test(href);
-
-const getArtistLinks = () => {
-  const result: HTMLAnchorElement[] = [];
-  const seen = new Set<string>();
-
-  for (const root of currentTrackRoots()) {
-    for (const link of Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href]'))) {
-      const href = link.getAttribute('href') ?? '';
-      const text = link.textContent?.replaceAll(/\s+/g, ' ').trim() ?? '';
-      if (!text || !isArtistHref(href)) continue;
-      const key = `${new URL(link.href, location.origin).pathname}|${text.toLocaleLowerCase()}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push(link);
-    }
-  }
-
-  return result;
-};
-
-const SAVE_TO_PLAYLIST_RE =
-  /save to playlist|add to playlist|сохранить в плейлист|добавить в плейлист|зберегти (до|в|у) плейлист|додати (до|в|у) плейлист/i;
-
-const findSaveToPlaylistItem = () => {
-  const items = Array.from(
-    document.querySelectorAll<HTMLElement>(
-      'ytmusic-menu-service-item-renderer, ytmusic-menu-navigation-item-renderer, tp-yt-paper-item, ytd-menu-service-item-renderer',
-    ),
-  );
-  return (
-    items.find((item) =>
-      SAVE_TO_PLAYLIST_RE.test(
-        item.textContent?.replaceAll(/\s+/g, ' ').trim() ?? '',
-      ),
-    ) ?? null
-  );
-};
-
-const findCurrentTrackMenuButton = () => {
-  const selectors = [
-    'ytmusic-menu-renderer #button-shape button',
-    'ytmusic-menu-renderer #button',
-    'ytmusic-menu-renderer button',
-    '[aria-label*="More actions" i]',
-    '[aria-label*="More" i]',
-    '[aria-label*="Ещё" i]',
-    '[aria-label*="Додатков" i]',
-  ];
-
-  for (const root of currentTrackRoots()) {
-    for (const selector of selectors) {
-      const button = root.querySelector<HTMLElement>(selector);
-      if (button) return button;
-    }
-  }
-  return null;
-};
-
-const openPlaylistPicker = () => {
-  const alreadyOpen = findSaveToPlaylistItem();
-  if (alreadyOpen) {
-    alreadyOpen.click();
-    return;
-  }
-
-  const menuButton = findCurrentTrackMenuButton();
-  if (!menuButton) return;
-  menuButton.click();
-
-  let attempts = 0;
-  const retry = () => {
-    const target = findSaveToPlaylistItem();
-    if (target) {
-      target.click();
-      return;
-    }
-    attempts += 1;
-    if (attempts < 40) window.setTimeout(retry, 50);
-  };
-  window.setTimeout(retry, 30);
-};
-
-const tabHeader = (index: number) =>
-  document.querySelector<HTMLElement>(
-    `#tabsContent > .tab-header:nth-of-type(${index})`,
-  );
-const queueTab = () => tabHeader(1);
-const lyricsTab = () => tabHeader(2);
-const defaultPlayerTab = () => tabHeader(1);
-
-export const mountPlayer = () => {
+export const mountPlayer = (engine: YouTubeMusicAdapter) => {
+  const picker = mountPlaylistPicker(engine);
   document.getElementById(PLAYER_ROOT_ID)?.remove();
 
   const root = document.createElement('div');
@@ -301,41 +109,10 @@ export const mountPlayer = () => {
   const next = button('Next', 'next');
   const repeat = button('Repeat', 'repeat');
 
-  let shuffleState = false;
-  let shuffleTouched = false;
-  let repeatState: 0 | 1 | 2 = 0;
-  let repeatTouched = false;
-  let desiredPlaying: boolean | null = null;
-
-  shuffle.addEventListener('click', () => {
-    shuffleTouched = true;
-    shuffleState = !shuffleState;
-    setActive(shuffle, shuffleState);
-    nativeClick('#shuffle-button', '.shuffle');
-  });
-  previous.addEventListener('click', () => {
-    const api = playerApi();
-    if (api) api.previousVideo();
-    else nativeClick('#previous-button', '.previous-button');
-  });
-  next.addEventListener('click', () => {
-    const api = playerApi();
-    if (api) api.nextVideo();
-    else nativeClick('#next-button', '.next-button');
-  });
-  repeat.addEventListener('click', () => {
-    repeatTouched = true;
-    repeatState = (((repeatState + 1) % 3) as 0 | 1 | 2);
-    setActive(repeat, repeatState !== 0);
-    setIcon(repeat, repeatState === 2 ? 'repeatOne' : 'repeat');
-    repeat.title =
-      repeatState === 0
-        ? 'Repeat off'
-        : repeatState === 1
-          ? 'Repeat all'
-          : 'Repeat one';
-    nativeClick('#repeat-button', '.repeat');
-  });
+  shuffle.addEventListener('click', () => engine.toggleShuffle());
+  previous.addEventListener('click', () => engine.previous());
+  next.addEventListener('click', () => engine.next());
+  repeat.addEventListener('click', () => engine.cycleRepeat());
 
   const renderPlayState = (playing: boolean) => {
     setIcon(play, playing ? 'pause' : 'play');
@@ -343,23 +120,7 @@ export const mountPlayer = () => {
     play.title = playing ? 'Pause' : 'Play';
   };
 
-  play.addEventListener('click', () => {
-    const api = playerApi();
-    const current = media();
-    const actualPlaying = api ? api.getPlayerState() === 1 : Boolean(current && !current.paused);
-    const currentlyPlaying = desiredPlaying ?? actualPlaying;
-    desiredPlaying = !currentlyPlaying;
-    renderPlayState(desiredPlaying);
-
-    if (api) {
-      if (desiredPlaying) api.playVideo();
-      else api.pauseVideo();
-      return;
-    }
-    if (!current) return;
-    if (desiredPlaying) void current.play();
-    else current.pause();
-  });
+  play.addEventListener('click', () => engine.togglePlayback());
 
   transport.append(shuffle, previous, play, next, repeat);
 
@@ -403,38 +164,17 @@ export const mountPlayer = () => {
   volume.value = '100';
   utilities.append(karaoke, queue, volumeButton, volume);
 
-  let likedState = false;
-  let likeTouched = false;
-  let activeSongKey = '';
-
-  like.addEventListener('click', () => {
-    const nativeLike = getLikeButton();
-    if (!nativeLike) return;
-    likeTouched = true;
-    likedState = !likedState;
-    setActive(like, likedState);
-    setIcon(like, likedState ? 'heartFilled' : 'heart');
-    like.title = likedState ? 'Remove from liked songs' : 'Add to liked songs';
-    nativeLike.click();
+  like.addEventListener('click', () => engine.toggleLike());
+  playlist.addEventListener('click', () => {
+    return picker.open();
   });
-  playlist.addEventListener('click', openPlaylistPicker);
-
-  karaoke.addEventListener('click', () => {
-    const lyrics = lyricsTab();
-    if (!lyrics) return;
-    const isActive = lyrics.getAttribute('aria-selected') === 'true';
-    if (isActive) defaultPlayerTab()?.click();
-    else lyrics.click();
-    setActive(karaoke, !isActive);
-  });
-  queue.addEventListener('click', () => {
-    const target = queueTab();
-    if (!target) return;
-    target.click();
-  });
+  karaoke.addEventListener('click', () => engine.toggleLyrics());
+  queue.addEventListener('click', () => engine.openQueue());
 
   let scrubbing = false;
   let previewTime = 0;
+  let pendingSeek = false;
+  let seekTrackId = '';
 
   const setProgressVisual = (ratio: number) => {
     const clamped = Math.max(0, Math.min(1, ratio));
@@ -442,15 +182,13 @@ export const mountPlayer = () => {
     progressFill.style.width = `${clamped * 100}%`;
   };
 
-  const durationSeconds = () => {
-    const api = playerApi();
-    const value = api?.getDuration() ?? media()?.duration ?? 0;
-    return Number.isFinite(value) ? value : 0;
-  };
+  const durationSeconds = () => engine.getState().duration;
 
   const updateSeekPreview = () => {
     const total = durationSeconds();
     if (total <= 0) return;
+    if (!pendingSeek) seekTrackId = engine.getState().track.id;
+    pendingSeek = true;
     const ratio = Number(progress.value) / 1000;
     previewTime = ratio * total;
     setProgressVisual(ratio);
@@ -458,13 +196,9 @@ export const mountPlayer = () => {
   };
 
   const commitSeek = () => {
-    updateSeekPreview();
-    const api = playerApi();
-    if (api) api.seekTo(previewTime);
-    else {
-      const current = media();
-      if (current) current.currentTime = previewTime;
-    }
+    if (pendingSeek && seekTrackId === engine.getState().track.id)
+      engine.seek(previewTime);
+    pendingSeek = false;
     scrubbing = false;
     progressWrap.classList.remove('is-scrubbing');
   };
@@ -486,192 +220,101 @@ export const mountPlayer = () => {
   window.addEventListener('pointercancel', finishScrub);
 
   let volumeDragging = false;
-  let lastNonZeroVolume = 100;
-
-  const applyVolume = (value: number) => {
-    const clamped = Math.max(0, Math.min(100, Math.round(value)));
-    const api = playerApi();
-    if (api) {
-      if (clamped === 0) {
-        api.mute();
-      } else {
-        api.setVolume(clamped);
-        api.unMute();
-        lastNonZeroVolume = clamped;
-      }
-    } else {
-      const current = media();
-      if (current) {
-        current.volume = clamped / 100;
-        current.muted = clamped === 0;
-      }
-    }
-    volume.value = String(clamped);
-    volume.style.setProperty('--ui143-range-progress', `${clamped}%`);
-    setIcon(volumeButton, clamped === 0 ? 'mute' : 'volume');
+  const renderVolume = (shownVolume: number) => {
+    volume.value = String(shownVolume);
+    volume.style.setProperty('--ui143-range-progress', shownVolume + '%');
+    setIcon(volumeButton, shownVolume === 0 ? 'mute' : 'volume');
   };
-
   volume.addEventListener('pointerdown', () => {
     volumeDragging = true;
   });
-  volume.addEventListener('input', () => applyVolume(Number(volume.value)));
+  volume.addEventListener('input', () => {
+    engine.setVolume(Number(volume.value));
+    renderVolume(Number(volume.value));
+  });
   const finishVolume = () => {
     volumeDragging = false;
+    const state = engine.getState();
+    renderVolume(state.muted ? 0 : state.volume);
   };
   volume.addEventListener('change', finishVolume);
   window.addEventListener('pointerup', finishVolume);
 
-  volumeButton.addEventListener('click', () => {
-    const api = playerApi();
-    if (api) {
-      if (api.isMuted() || api.getVolume() === 0) {
-        api.setVolume(lastNonZeroVolume || 100);
-        api.unMute();
-      } else {
-        lastNonZeroVolume = api.getVolume();
-        api.mute();
-      }
-      return;
-    }
-    const current = media();
-    if (current) current.muted = !current.muted;
-  });
+  volumeButton.addEventListener('click', () => engine.toggleMute());
 
   root.append(meta, center, utilities);
   document.body.append(root);
 
-  let lastArtistKey = '';
-
-  const syncMetadata = () => {
-    const bar = nativeBar();
-    let titleText = '';
-    if (bar) {
-      titleText = currentTitleText();
-      const artistText =
-        bar.querySelector<HTMLElement>('.byline.ytmusic-player-bar')?.textContent?.trim() ??
-        bar.querySelector<HTMLElement>('.byline')?.textContent?.trim() ??
-        '';
-      const image =
-        bar.querySelector<HTMLImageElement>('.thumbnail-image-wrapper img') ??
-        bar.querySelector<HTMLImageElement>('yt-img-shadow img') ??
-        bar.querySelector<HTMLImageElement>('img');
-
-      title.textContent = titleText || 'Nothing playing';
-      if (image?.src && art.src !== image.src) art.src = image.src;
-
-      const artistLinks = getArtistLinks();
-      const artistKey = artistLinks
-        .map((link) => `${link.textContent?.trim() ?? ''}|${link.href}`)
-        .join('::');
-      if (artistKey !== lastArtistKey || artist.childElementCount === 0) {
-        lastArtistKey = artistKey;
-        artist.replaceChildren();
-        if (artistLinks.length > 0) {
-          artistLinks.forEach((link, index) => {
-            if (index > 0) {
-              const separator = document.createElement('span');
-              separator.className = 'ui143-player-artist-separator';
-              separator.textContent = ', ';
-              artist.append(separator);
-            }
-            const anchor = document.createElement('a');
-            anchor.href = link.href;
-            anchor.textContent = link.textContent?.trim() ?? '';
-            anchor.className = 'ui143-player-artist-link';
-            artist.append(anchor);
-          });
-        } else {
-          artist.textContent = artistText;
+  const placeholder = document.createElement('div');
+  placeholder.className = 'ui143-player-art-placeholder';
+  placeholder.setAttribute('aria-hidden', 'true');
+  placeholder.textContent = '♪';
+  meta.insertBefore(placeholder, art);
+  let artistKey = '';
+  const unsubscribe = engine.subscribe((state) => {
+    const track = state.track;
+    root.classList.toggle('is-idle', !track.id && !track.title);
+    title.textContent = track.title || 'Nothing playing';
+    if (track.artwork) {
+      if (art.getAttribute('src') !== track.artwork) art.src = track.artwork;
+    } else art.removeAttribute('src');
+    const key = JSON.stringify([track.artists, track.byline]);
+    if (key !== artistKey) {
+      artistKey = key;
+      artist.replaceChildren();
+      if (!track.artists.length) artist.textContent = track.byline;
+      track.artists.forEach((entry, index) => {
+        if (index) {
+          const separator = document.createElement('span');
+          separator.className = 'ui143-player-artist-separator';
+          separator.textContent = ', ';
+          artist.append(separator);
         }
-      }
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'ui143-player-artist-link ui143-player-artist-button';
+        link.textContent = entry.name;
+        link.title = 'Open ' + entry.name;
+        link.addEventListener('click', () =>
+          engine.navigateArtist(entry.browseId),
+        );
+        artist.append(link);
+      });
     }
-
-    if (!shuffleTouched) {
-      const detected = readPressed(nativeElement('#shuffle-button', '.shuffle'));
-      if (detected !== null) shuffleState = detected;
-    }
-    setActive(shuffle, shuffleState);
-
-    if (!repeatTouched) {
-      const nativeRepeat = nativeElement('#repeat-button', '.repeat') as StatefulElement | null;
-      const rawMode = nativeRepeat?.repeatMode;
-      if (rawMode !== undefined && rawMode !== null) {
-        const raw = String(rawMode).toLowerCase();
-        if (raw === '2' || raw.includes('one')) repeatState = 2;
-        else if (raw === '1' || raw.includes('all')) repeatState = 1;
-        else repeatState = 0;
-      } else {
-        const detected = readPressed(nativeRepeat);
-        if (detected !== null) repeatState = detected ? 1 : 0;
-      }
-    }
-    setActive(repeat, repeatState !== 0);
-    setIcon(repeat, repeatState === 2 ? 'repeatOne' : 'repeat');
-
-    const songKey = `${location.pathname}|${new URLSearchParams(location.search).get('v') ?? ''}|${titleText}`;
-    if (songKey !== activeSongKey) {
-      activeSongKey = songKey;
-      likeTouched = false;
-    }
-    if (!likeTouched) {
-      const detectedLike = readLikeState();
-      if (detectedLike !== null) likedState = detectedLike;
-    }
-    setActive(like, likedState);
-    setIcon(like, likedState ? 'heartFilled' : 'heart');
-
-    const lyrics = lyricsTab();
-    karaoke.disabled = !lyrics;
-    karaoke.classList.toggle('is-disabled', !lyrics);
-    setActive(karaoke, lyrics?.getAttribute('aria-selected') === 'true');
-    setActive(queue, queueTab()?.getAttribute('aria-selected') === 'true');
-  };
-
-  let animationFrame = 0;
-  const syncFrame = () => {
-    const api = playerApi();
-    const current = media();
-    const totalRaw = api?.getDuration() ?? current?.duration ?? 0;
-    const timeRaw = api?.getCurrentTime() ?? current?.currentTime ?? 0;
-    const total = Number.isFinite(totalRaw) ? totalRaw : 0;
-    const now = Number.isFinite(timeRaw) ? timeRaw : 0;
-
+    setActive(shuffle, state.shuffle === true);
+    setActive(repeat, state.repeat !== null && state.repeat !== 0);
+    setIcon(repeat, state.repeat === 2 ? 'repeatOne' : 'repeat');
+    repeat.title =
+      state.repeat === 2
+        ? 'Repeat one'
+        : state.repeat === 1
+          ? 'Repeat all'
+          : 'Repeat off';
+    repeat.setAttribute('aria-label', repeat.title);
+    setActive(like, state.liked === true);
+    setIcon(like, state.liked ? 'heartFilled' : 'heart');
+    like.title = state.liked ? 'Remove from liked songs' : 'Add to liked songs';
+    like.setAttribute('aria-label', like.title);
+    karaoke.disabled = !state.lyricsAvailable;
+    karaoke.classList.toggle('is-disabled', !state.lyricsAvailable);
+    setActive(karaoke, state.lyricsActive);
+    setActive(queue, state.queueActive);
     if (!scrubbing) {
-      setProgressVisual(total > 0 ? now / total : 0);
-      elapsed.textContent = formatTime(now);
+      setProgressVisual(state.duration > 0 ? state.time / state.duration : 0);
+      elapsed.textContent = formatTime(state.time);
     }
-    duration.textContent = formatTime(total);
-
-    const actualPlaying = api ? api.getPlayerState() === 1 : Boolean(current && !current.paused);
-    if (desiredPlaying !== null && actualPlaying === desiredPlaying) desiredPlaying = null;
-    const shownPlaying = desiredPlaying ?? actualPlaying;
-    renderPlayState(shownPlaying);
-    progressWrap.classList.toggle('is-playing', shownPlaying);
-
+    duration.textContent = formatTime(state.duration);
+    renderPlayState(state.playing);
+    progressWrap.classList.toggle('is-playing', state.playing);
     if (!volumeDragging) {
-      let shownVolume = 100;
-      if (api) {
-        const logicalVolume = api.getVolume();
-        if (logicalVolume > 0) lastNonZeroVolume = logicalVolume;
-        shownVolume = api.isMuted() ? 0 : logicalVolume;
-      } else if (current) {
-        shownVolume = current.muted ? 0 : Math.round(current.volume * 100);
-      }
-      volume.value = String(shownVolume);
-      volume.style.setProperty('--ui143-range-progress', `${shownVolume}%`);
-      setIcon(volumeButton, shownVolume === 0 ? 'mute' : 'volume');
+      const shownVolume = state.muted ? 0 : state.volume;
+      renderVolume(shownVolume);
     }
-
-    animationFrame = window.requestAnimationFrame(syncFrame);
-  };
-
-  const metadataInterval = window.setInterval(syncMetadata, 250);
-  syncMetadata();
-  syncFrame();
+  });
 
   return () => {
-    window.clearInterval(metadataInterval);
-    window.cancelAnimationFrame(animationFrame);
+    unsubscribe();
+    picker.dispose();
     window.removeEventListener('pointerup', finishScrub);
     window.removeEventListener('pointercancel', finishScrub);
     window.removeEventListener('pointerup', finishVolume);
