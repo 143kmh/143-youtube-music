@@ -3,7 +3,7 @@ import { type BrowserWindow, ipcMain } from 'electron';
 
 import * as config from '@/config';
 import { coreFeatures } from '@/core/features';
-import { LoggerPrefix, startPlugin, stopPlugin } from '@/utils';
+import { LoggerPrefix, startFeature, stopFeature } from '@/utils';
 
 import type { BackendContext } from '@/types/contexts';
 import type { PluginConfig, PluginDef } from '@/types/plugins';
@@ -70,7 +70,7 @@ export const forceUnloadMainPlugin = async (
   const feature = loadedFeatureMap[id];
   if (!feature) return;
 
-  const hasStopped = await stopPlugin(id, feature, {
+  const hasStopped = await stopFeature(id, feature, {
     ctx: 'backend',
     context: createContext(id, win),
   });
@@ -95,7 +95,7 @@ export const forceLoadMainPlugin = async (
   const feature = coreFeatures[id];
   if (!feature?.backend) return;
 
-  const hasStarted = await startPlugin(id, feature, {
+  const hasStarted = await startFeature(id, feature, {
     ctx: 'backend',
     context: createContext(id, win),
   });
