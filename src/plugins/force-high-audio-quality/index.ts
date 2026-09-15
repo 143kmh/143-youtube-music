@@ -13,46 +13,9 @@ import type { AudioDiagnostics, PlaybackDetails } from './diagnostics';
 import type { QualityConfig } from './preference';
 
 export default createPlugin({
-  name: () => t('plugins.force-high-audio-quality.name'),
-  description: () => t('plugins.force-high-audio-quality.description'),
-  restartNeeded: false,
+  name: () => 'Audio Quality',
+  description: () => 'Native YouTube Music high-quality and Opus playback.',
   config: { enabled: false, quality: 'maximum' } as QualityConfig,
-
-  menu: async ({ getConfig, setConfig, window }) => {
-    const config = await getConfig();
-    const qualityOptions: {
-      quality: QualityConfig['quality'];
-      label: string;
-    }[] = [
-      {
-        quality: 'default',
-        label: t('plugins.force-high-audio-quality.default'),
-      },
-      {
-        quality: 'maximum',
-        label: t('plugins.force-high-audio-quality.maximum'),
-      },
-      {
-        quality: 'opus',
-        label: 'Maximum Opus (experimental)',
-      },
-    ];
-
-    return [
-      ...qualityOptions.map(({ quality, label }) => ({
-        label,
-        type: 'radio' as const,
-        checked: config.quality === quality,
-        click: () => setConfig({ quality }),
-      })),
-      { type: 'separator' },
-      {
-        label: t('plugins.force-high-audio-quality.inspect'),
-        click: () =>
-          window.webContents.send('peard:force-high-audio-quality:inspect'),
-      },
-    ];
-  },
 
   backend: {
     scriptPatchStatus: null as PlayerScriptPatchStatus | null,
@@ -70,7 +33,7 @@ export default createPlugin({
       this.restoreScriptPatch = scriptPatch.restore;
 
       ipc.handle(
-        'peard:force-high-audio-quality:show',
+        'app:audio:show',
         (
           stats: AudioDiagnostics &
             PlaybackDetails & {
@@ -111,7 +74,7 @@ export default createPlugin({
 
           return dialog.showMessageBox(window, {
             type: 'info',
-            title: t('plugins.force-high-audio-quality.name'),
+            title: 'Audio Quality',
             message: t('plugins.force-high-audio-quality.stats', {
               itag: stats.itag ?? unknown,
               codec: stats.codec ?? unknown,
@@ -126,7 +89,7 @@ export default createPlugin({
       );
     },
     async stop({ ipc }) {
-      ipc.removeHandler('peard:force-high-audio-quality:show');
+      ipc.removeHandler('app:audio:show');
       await this.restoreScriptPatch?.();
       this.restoreScriptPatch = null;
       this.scriptPatchStatus = null;
