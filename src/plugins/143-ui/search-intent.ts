@@ -69,6 +69,19 @@ const scoreItem = (query: string, item: SearchResultItem) => {
 
   const subtitleOverlap = overlapRatio(q, item.subtitle);
   if (subtitleOverlap > 0) score += subtitleOverlap * 18;
+
+  // Track queries are commonly "artist + song title". Reward a candidate when
+  // the words left after removing the title are actually present in its byline.
+  if (item.kind === 'song' && q.includes(title)) {
+    const titleTokens = new Set(tokens(title));
+    const remainder = tokens(q).filter((token) => !titleTokens.has(token));
+    if (remainder.length) {
+      const subtitleTokens = new Set(tokens(item.subtitle));
+      const matched = remainder.filter((token) => subtitleTokens.has(token)).length;
+      score += (matched / remainder.length) * 34;
+    }
+  }
+
   return score;
 };
 
@@ -120,15 +133,18 @@ const artistItemFromProfile = (profile: SearchArtistProfile): SearchResultItem =
   browseId: profile.browseId,
 });
 
+const artistCandidates = (catalog: SearchCatalog) =>
+  unique([
+    ...(catalog.featuredArtist ? [artistItemFromProfile(catalog.featuredArtist)] : []),
+    ...candidatesForKind(catalog, 'artist'),
+  ]).filter((item) => item.browseId);
+
 const pickArtistItem = (
   query: string,
   song: SearchResultItem,
   catalog: SearchCatalog,
 ) => {
-  const candidates = unique([
-    ...(catalog.featuredArtist ? [artistItemFromProfile(catalog.featuredArtist)] : []),
-    ...candidatesForKind(catalog, 'artist'),
-  ]).filter((item) => item.browseId);
+  const candidates = artistCandidates(catalog);
   if (!candidates.length) return null;
 
   const subtitle = normalize(song.subtitle);
@@ -160,6 +176,20 @@ const artistRemainder = (query: string, title: string) => {
   return q.replace(song, ' ').replace(/\s+/g, ' ').trim();
 };
 
+const artistAnchoredToQuery = (query: string, catalog: SearchCatalog) => {
+  const key = normalize(query);
+  if (!key) return null;
+  const candidates = artistCandidates(catalog);
+  return (
+    candidates.find((item) => normalize(item.title) === key) ??
+    candidates.find((item) => {
+      const name = normalize(item.title);
+      return Boolean(name && (key.startsWith(`${name} `) || key.endsWith(` ${name}`)));
+    }) ??
+    null
+  );
+};
+
 const loadArtistProfile = async (
   engine: CatalogYouTubeMusicAdapter,
   item: SearchResultItem | null,
@@ -187,11 +217,24 @@ const albumItemFromCatalog = (catalog: AlbumCatalog): SearchResultItem => ({
   browseId: catalog.browseId,
 });
 
-const catalogContainsSong = (catalog: AlbumCatalog, song: SearchResultItem) =>
-  Boolean(
+const isFullAlbumCandidate = (item: SearchResultItem) => {
+  const subtitle = normalize(item.subtitle);
+  if (!subtitle) return true;
+  if (/(?:^|\s)(?:single|сингл|ep|e p)(?:\s|$)/iu.test(subtitle)) return false;
+  return /(?:^|\s)(?:album|альбом)(?:\s|$)/iu.test(subtitle);
+};
+
+const catalogContainsSong = (catalog: AlbumCatalog, song: SearchResultItem) => {
+  const title = normalize(song.title);
+  return Boolean(
     song.videoId &&
-      catalog.tracks.some((track) => track.videoId === song.videoId),
+      catalog.tracks.some(
+        (track) =>
+          track.videoId === song.videoId ||
+          Boolean(title && normalize(track.title) === title),
+      ),
   );
+};
 
 const resolveSongAlbum = async (
   engine: CatalogYouTubeMusicAdapter,
@@ -227,7 +270,9 @@ const resolveSongAlbum = async (
       albumCandidates.push(entry.value.topResult);
   }
 
-  const candidates = unique(albumCandidates).filter((item) => item.browseId);
+  const candidates = unique(albumCandidates).filter(
+    (item) => item.browseId && isFullAlbumCandidate(item),
+  );
   const artistKey = normalize(artist?.title ?? '');
   candidates.sort((left, right) => {
     const leftArtist = artistKey && normalize(left.subtitle).includes(artistKey) ? 1 : 0;
@@ -236,19 +281,17 @@ const resolveSongAlbum = async (
     return scoreItem(query, right) - scoreItem(query, left);
   });
 
-  let fallback: SearchResultItem | null = null;
-  for (const candidate of candidates.slice(0, 8)) {
+  for (const candidate of candidates.slice(0, 10)) {
     if (!candidate.browseId) continue;
     try {
       const album = await engine.getAlbumCatalog(candidate.browseId, candidate.title);
-      const item = albumItemFromCatalog(album);
-      fallback ??= item;
-      if (catalogContainsSong(album, song)) return item;
+      if (catalogContainsSong(album, song)) return albumItemFromCatalog(album);
     } catch {
       // One bad candidate must not kill search.
     }
   }
-  return fallback;
+  // A missing album is better than confidently showing an unrelated release.
+  return null;
 };
 
 const resolveSongArtist = async (
@@ -257,19 +300,24 @@ const resolveSongArtist = async (
   song: SearchResultItem,
   catalog: SearchCatalog,
 ) => {
-  let artistItem = pickArtistItem(query, song, catalog);
   const remainder = artistRemainder(query, song.title);
 
   if (remainder) {
     try {
       const artistSearch = await engine.searchCatalog(remainder);
-      const exact = bestForKind(remainder, artistSearch, 'artist');
-      if (exact && exact.score >= 76) artistItem = exact.item;
+      const anchored = artistAnchoredToQuery(remainder, artistSearch);
+      const scored = bestForKind(remainder, artistSearch, 'artist');
+      const artistItem = anchored ?? (scored && scored.score >= 76 ? scored.item : null);
+      if (artistItem?.browseId) {
+        const profile = await loadArtistProfile(engine, artistItem, null);
+        if (profile) return profile;
+      }
     } catch {
-      // Keep the artist inferred from the original response.
+      // Fall through to the artist relation from the original response.
     }
   }
 
+  const artistItem = pickArtistItem(query, song, catalog);
   return loadArtistProfile(engine, artistItem, catalog.featuredArtist);
 };
 
