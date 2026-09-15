@@ -1,12 +1,14 @@
 import type { SearchResultItem } from './youtube-music';
-import type {
-  AlbumCatalog,
-  CatalogYouTubeMusicAdapter,
-} from './youtube-music-catalog';
+import type { AlbumCatalog } from './youtube-music-catalog';
+import type { PlaybackContextAdapter, PlaybackContextSource } from './playback-context';
+import type { PlaylistCatalog } from './youtube-music-playlist';
 
 const ROOT_ID = 'ui143-album-page';
 
-type AlbumRef = Readonly<{
+type PageKind = 'album' | 'playlist';
+
+type PageRef = Readonly<{
+  kind: PageKind;
   title: string;
   browseId: string;
 }>;
@@ -16,9 +18,11 @@ type OpenOptions = Readonly<{
   restoreArtist?: boolean;
 }>;
 
+type PageCatalog = AlbumCatalog | PlaylistCatalog;
+
 export type AlbumPageController = ReturnType<typeof mountAlbumPage>;
 
-export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
+export const mountAlbumPage = (engine: PlaybackContextAdapter) => {
   document.getElementById(ROOT_ID)?.remove();
 
   const root = document.createElement('main');
@@ -35,6 +39,7 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
   let restoreSearch = false;
   let restoreArtist = false;
   let currentTrackId = engine.getState().track.id;
+  let currentPage: PageRef | null = null;
 
   const setVisible = (visible: boolean) => {
     root.hidden = !visible;
@@ -74,12 +79,19 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     content.append(state);
   };
 
-  const playTrack = (item: SearchResultItem) => {
-    if (item.kind !== 'song' || !item.videoId) return;
-    engine.openSearchResult(item);
-  };
+  const sourceFor = (page: PageRef): PlaybackContextSource => ({
+    kind: page.kind,
+    title: page.title,
+    browseId: page.browseId,
+  });
 
-  const renderHero = (catalog: AlbumCatalog) => {
+  const playTrack = (
+    tracks: readonly SearchResultItem[],
+    index: number,
+    page: PageRef,
+  ) => engine.playContext(tracks, index, sourceFor(page));
+
+  const renderHero = (catalog: PageCatalog, page: PageRef) => {
     const hero = document.createElement('section');
     hero.className = 'ui143-album-hero';
 
@@ -100,18 +112,29 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     copy.className = 'ui143-album-copy';
     const label = document.createElement('span');
     label.className = 'ui143-album-label';
-    label.textContent = 'Album';
+    label.textContent = page.kind === 'playlist' ? 'Playlist' : 'Album';
     const title = document.createElement('h1');
-    title.textContent = catalog.title;
+    title.textContent = catalog.title || page.title;
 
     const meta = document.createElement('div');
     meta.className = 'ui143-album-meta';
-    const artistNames = catalog.artists.map((artist) => artist.name).filter(Boolean);
-    for (const value of [artistNames.join(', '), catalog.year]) {
-      if (!value) continue;
-      const span = document.createElement('span');
-      span.textContent = value;
-      meta.append(span);
+    if (page.kind === 'album') {
+      const album = catalog as AlbumCatalog;
+      const artistNames = album.artists.map((artist) => artist.name).filter(Boolean);
+      for (const value of [artistNames.join(', '), album.year]) {
+        if (!value) continue;
+        const span = document.createElement('span');
+        span.textContent = value;
+        meta.append(span);
+      }
+    } else {
+      const playlist = catalog as PlaylistCatalog;
+      for (const value of [playlist.subtitle, `${playlist.tracks.length} tracks`]) {
+        if (!value) continue;
+        const span = document.createElement('span');
+        span.textContent = value;
+        meta.append(span);
+      }
     }
     if (!meta.childElementCount && catalog.subtitle) {
       const span = document.createElement('span');
@@ -127,8 +150,8 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     play.textContent = 'Play';
     play.disabled = catalog.tracks.length === 0;
     play.addEventListener('click', () => {
-      const first = catalog.tracks[0];
-      if (first) playTrack(first);
+      if (!catalog.tracks.length) return;
+      engine.playContext(catalog.tracks, 0, sourceFor(page));
     });
 
     const shuffle = document.createElement('button');
@@ -138,8 +161,8 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     shuffle.disabled = catalog.tracks.length === 0;
     shuffle.addEventListener('click', () => {
       if (!catalog.tracks.length) return;
-      const item = catalog.tracks[Math.floor(Math.random() * catalog.tracks.length)];
-      if (item) playTrack(item);
+      const index = Math.floor(Math.random() * catalog.tracks.length);
+      engine.playContext(catalog.tracks, index, sourceFor(page), { shuffle: true });
     });
 
     actions.append(play, shuffle);
@@ -148,7 +171,10 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     return hero;
   };
 
-  const renderTracks = (tracks: readonly SearchResultItem[]) => {
+  const renderTracks = (
+    tracks: readonly SearchResultItem[],
+    page: PageRef,
+  ) => {
     const section = document.createElement('section');
     section.className = 'ui143-album-tracks';
     const heading = document.createElement('div');
@@ -166,7 +192,7 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
       row.type = 'button';
       row.className = 'ui143-album-track';
       if (item.videoId) row.dataset.videoId = item.videoId;
-      row.addEventListener('click', () => playTrack(item));
+      row.addEventListener('click', () => playTrack(tracks, index, page));
 
       const trackNumber = document.createElement('span');
       trackNumber.className = 'ui143-album-track-number';
@@ -189,39 +215,54 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     return section;
   };
 
-  const render = (catalog: AlbumCatalog) => {
-    content.replaceChildren(renderHero(catalog));
-    if (catalog.tracks.length) content.append(renderTracks(catalog.tracks));
-    else message('No tracks found', 'YouTube Music did not return an album track list.');
+  const render = (catalog: PageCatalog, page: PageRef) => {
+    content.replaceChildren(renderHero(catalog, page));
+    if (catalog.tracks.length) content.append(renderTracks(catalog.tracks, page));
+    else
+      message(
+        'No tracks found',
+        `YouTube Music did not return a ${page.kind} track list.`,
+      );
     syncNowPlaying();
   };
 
-  const openInternal = async (album: AlbumRef, options: OpenOptions = {}) => {
-    if (!album.browseId) return;
+  const openInternal = async (page: PageRef, options: OpenOptions = {}) => {
+    if (!page.browseId) return;
     restoreSearch = options.restoreSearch === true;
     restoreArtist = options.restoreArtist === true;
+    currentPage = page;
     const currentRequest = ++request;
     setVisible(true);
-    message('Loading album…');
+    message(page.kind === 'playlist' ? 'Loading playlist…' : 'Loading album…');
 
     try {
-      const catalog = await engine.getAlbumCatalog(album.browseId, album.title);
-      if (currentRequest !== request) return;
-      render(catalog);
+      const catalog =
+        page.kind === 'playlist'
+          ? await engine.getPlaylistCatalog(page.browseId, page.title)
+          : await engine.getAlbumCatalog(page.browseId, page.title);
+      if (currentRequest !== request || currentPage?.browseId !== page.browseId) return;
+      render(catalog, page);
     } catch (error) {
       if (currentRequest !== request) return;
-      console.error('[143 Music] Album page failed', error);
-      message('Album unavailable', 'YouTube Music did not return album data.');
+      console.error(`[143 Music] ${page.kind} page failed`, error);
+      message(
+        page.kind === 'playlist' ? 'Playlist unavailable' : 'Album unavailable',
+        `YouTube Music did not return ${page.kind} data.`,
+      );
     }
   };
 
   return {
     open(title: string, browseId: string, options: OpenOptions = {}) {
-      return openInternal({ title, browseId }, options);
+      return openInternal({ kind: 'album', title, browseId }, options);
+    },
+    openPlaylist(title: string, browseId: string, options: OpenOptions = {}) {
+      return openInternal({ kind: 'playlist', title, browseId }, options);
     },
     back() {
       if (root.hidden) return false;
       ++request;
+      currentPage = null;
       setVisible(false);
       if (restoreArtist) {
         restoreArtist = false;
@@ -236,6 +277,7 @@ export const mountAlbumPage = (engine: CatalogYouTubeMusicAdapter) => {
     },
     close() {
       ++request;
+      currentPage = null;
       restoreSearch = false;
       restoreArtist = false;
       setVisible(false);
