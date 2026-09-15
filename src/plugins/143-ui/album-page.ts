@@ -1,6 +1,15 @@
+import {
+  getAlbumLibraryState,
+  setAlbumLibraryState,
+} from './library-favorites';
+
+import type { AlbumLibraryState } from './library-favorites';
 import type { SearchResultItem } from './youtube-music';
 import type { AlbumCatalog } from './youtube-music-catalog';
-import type { PlaybackContextAdapter, PlaybackContextSource } from './playback-context';
+import type {
+  PlaybackContextAdapter,
+  PlaybackContextSource,
+} from './playback-context';
 import type { PlaylistCatalog } from './youtube-music-playlist';
 
 const ROOT_ID = 'ui143-album-page';
@@ -91,6 +100,67 @@ export const mountAlbumPage = (engine: PlaybackContextAdapter) => {
     page: PageRef,
   ) => engine.playContext(tracks, index, sourceFor(page));
 
+  const albumLibraryButton = (page: PageRef) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ui143-album-secondary-action ui143-album-library-action';
+    button.textContent = 'Add to library';
+    button.disabled = true;
+    button.hidden = page.kind !== 'album';
+    if (page.kind !== 'album') return button;
+
+    let state: AlbumLibraryState | null = null;
+    let busy = false;
+    const pageId = page.browseId;
+
+    const renderState = () => {
+      if (!state) {
+        button.textContent = 'Add to library';
+        button.disabled = true;
+        button.classList.remove('is-saved');
+        return;
+      }
+      button.textContent = state.saved ? '✓ In library' : '+ Add to library';
+      button.disabled = busy;
+      button.classList.toggle('is-saved', state.saved);
+      button.setAttribute('aria-pressed', String(state.saved));
+    };
+
+    void getAlbumLibraryState(page.browseId)
+      .then((next) => {
+        if (currentPage?.browseId !== pageId) return;
+        state = next;
+        renderState();
+      })
+      .catch((error) => {
+        console.warn('[143 Music] Could not read album library state', error);
+        if (currentPage?.browseId !== pageId) return;
+        button.textContent = '+ Add to library';
+        button.disabled = false;
+      });
+
+    button.addEventListener('click', async () => {
+      if (busy) return;
+      try {
+        if (!state) state = await getAlbumLibraryState(page.browseId);
+        if (currentPage?.browseId !== pageId) return;
+        busy = true;
+        renderState();
+        const desired = !state.saved;
+        await setAlbumLibraryState(state, desired);
+        if (currentPage?.browseId !== pageId) return;
+        state = { ...state, saved: desired };
+      } catch (error) {
+        console.error('[143 Music] Could not update album library state', error);
+      } finally {
+        busy = false;
+        if (currentPage?.browseId === pageId) renderState();
+      }
+    });
+
+    return button;
+  };
+
   const renderHero = (catalog: PageCatalog, page: PageRef) => {
     const hero = document.createElement('section');
     hero.className = 'ui143-album-hero';
@@ -165,7 +235,7 @@ export const mountAlbumPage = (engine: PlaybackContextAdapter) => {
       engine.playContext(catalog.tracks, index, sourceFor(page), { shuffle: true });
     });
 
-    actions.append(play, shuffle);
+    actions.append(play, shuffle, albumLibraryButton(page));
     copy.append(label, title, meta, actions);
     hero.append(artwork, copy);
     return hero;
@@ -192,6 +262,8 @@ export const mountAlbumPage = (engine: PlaybackContextAdapter) => {
       row.type = 'button';
       row.className = 'ui143-album-track';
       if (item.videoId) row.dataset.videoId = item.videoId;
+      row.dataset.trackTitle = item.title;
+      row.dataset.trackSubtitle = item.subtitle;
       row.addEventListener('click', () => playTrack(tracks, index, page));
 
       const trackNumber = document.createElement('span');
