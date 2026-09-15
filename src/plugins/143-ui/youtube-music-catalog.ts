@@ -574,7 +574,19 @@ const songsFrom = (section: BrowseSection | undefined) =>
     ),
   );
 
-const albumsFrom = (sections: readonly BrowseSection[]) =>
+const isFullAlbum = (item: SearchResultItem) => {
+  if (item.kind !== 'album' || isEpisodeLike(item)) return false;
+  const subtitle = normalize(item.subtitle);
+  if (!subtitle) return false;
+  if (/(?:^|\s)(?:single|сингл|ep|e p|мини альбом)(?:\s|$)/iu.test(subtitle))
+    return false;
+  return /(?:^|\s)(?:album|альбом)(?:\s|$)/iu.test(subtitle);
+};
+
+const fullAlbumsFrom = (sections: readonly BrowseSection[]) =>
+  rankReleases(sections.flatMap((section) => section.items.filter(isFullAlbum)));
+
+const releasesFrom = (sections: readonly BrowseSection[]) =>
   rankReleases(
     sections.flatMap((section) =>
       section.items.filter(
@@ -666,27 +678,28 @@ export const installBrowseCatalog = (
 
     const albumSections = sections.filter((section) => sectionMatches(section, albumPattern));
     const releaseSections = sections.filter((section) => sectionMatches(section, releasePattern));
-    let albums = albumsFrom(albumSections);
-    let singlesAndReleases = albumsFrom(releaseSections);
+    let albums = fullAlbumsFrom(albumSections);
+    let singlesAndReleases = releasesFrom(releaseSections);
 
-    for (const [sectionGroup, apply] of [
-      [albumSections, (items: SearchResultItem[]) => (albums = rankReleases([...albums, ...items]))],
-      [
-        releaseSections,
-        (items: SearchResultItem[]) =>
-          (singlesAndReleases = rankReleases([...singlesAndReleases, ...items])),
-      ],
-    ] as const) {
-      for (const section of sectionGroup) {
-        if (!section.moreBrowseId || section.moreBrowseId === browseId) continue;
-        try {
-          const items = collectAllItems(await browse(section.moreBrowseId)).filter(
-            (item) => item.kind === 'album' && !isEpisodeLike(item),
-          );
-          apply(items);
-        } catch (error) {
-          console.warn('[143 Music] Could not expand artist releases', error);
-        }
+    for (const section of albumSections) {
+      if (!section.moreBrowseId || section.moreBrowseId === browseId) continue;
+      try {
+        const items = collectAllItems(await browse(section.moreBrowseId)).filter(isFullAlbum);
+        albums = rankReleases([...albums, ...items]);
+      } catch (error) {
+        console.warn('[143 Music] Could not expand artist albums', error);
+      }
+    }
+
+    for (const section of releaseSections) {
+      if (!section.moreBrowseId || section.moreBrowseId === browseId) continue;
+      try {
+        const items = collectAllItems(await browse(section.moreBrowseId)).filter(
+          (item) => item.kind === 'album' && !isEpisodeLike(item),
+        );
+        singlesAndReleases = rankReleases([...singlesAndReleases, ...items]);
+      } catch (error) {
+        console.warn('[143 Music] Could not expand artist releases', error);
       }
     }
 
