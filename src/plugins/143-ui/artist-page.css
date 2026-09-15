@@ -1,0 +1,360 @@
+#ui143-artist-page {
+  position: fixed;
+  top: calc(8px + var(--ui143-topbar-height));
+  right: 8px;
+  bottom: var(--ui143-player-height);
+  left: var(--ui143-sidebar-width);
+  z-index: 1000;
+  overflow: auto;
+  padding: 0 24px 58px;
+  border-radius: 0 0 9px 0;
+  background: var(--ui143-panel);
+  color: var(--ui143-text);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  scrollbar-width: thin;
+  -webkit-app-region: no-drag;
+}
+
+#ui143-artist-page[hidden] {
+  display: none !important;
+}
+
+.ui143-artist-page-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.ui143-artist-hero {
+  position: relative;
+  height: clamp(210px, 27vh, 260px);
+  overflow: hidden;
+  margin: 0 -24px 26px;
+  background: #1a1a1a;
+}
+
+.ui143-artist-hero-banner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 32%;
+  filter: saturate(0.94) brightness(0.78);
+}
+
+.ui143-artist-hero-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.18) 52%, rgba(0, 0, 0, 0.08)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.04) 20%, rgba(18, 18, 18, 0.92) 100%);
+}
+
+.ui143-artist-hero-identity {
+  position: absolute;
+  inset: auto 24px 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ui143-artist-avatar {
+  width: 92px;
+  height: 92px;
+  flex: 0 0 92px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+
+.ui143-artist-hero-copy {
+  min-width: 0;
+}
+
+.ui143-artist-hero-copy > span {
+  display: block;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ui143-artist-hero-copy h1,
+.ui143-artist-section h2 {
+  margin: 0;
+  color: #fff;
+  letter-spacing: -0.035em;
+}
+
+.ui143-artist-hero-copy h1 {
+  overflow: hidden;
+  max-width: min(900px, 72vw);
+  font-size: clamp(32px, 3.4vw, 54px);
+  font-weight: 830;
+  line-height: 0.98;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-artist-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 540;
+}
+
+.ui143-artist-metrics span + span::before {
+  content: '•';
+  margin-right: 16px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.ui143-artist-section {
+  margin-top: 30px;
+}
+
+.ui143-artist-top-tracks {
+  margin-top: 0;
+}
+
+.ui143-artist-section h2 {
+  margin-bottom: 12px;
+  font-size: 20px;
+  font-weight: 740;
+}
+
+.ui143-artist-track-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-template-rows: repeat(5, minmax(0, auto));
+  gap: 2px 18px;
+}
+
+.ui143-artist-track,
+.ui143-artist-card {
+  appearance: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui143-artist-track {
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 22px 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: inset 2px 0 0 transparent;
+  transition: background 100ms ease, transform 100ms ease, box-shadow 100ms ease;
+}
+
+.ui143-artist-track:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.ui143-artist-track:active,
+.ui143-artist-card:active {
+  transform: scale(0.994);
+}
+
+.ui143-artist-track.is-now-playing {
+  background: color-mix(in srgb, var(--ui143-accent) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--ui143-accent-strong);
+}
+
+.ui143-artist-track-number {
+  color: #777;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.ui143-artist-track.is-now-playing .ui143-artist-track-number,
+.ui143-artist-track.is-now-playing .ui143-artist-track-copy strong {
+  color: var(--ui143-accent-strong);
+}
+
+.ui143-artist-track-art {
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: #202020;
+  color: #777;
+}
+
+.ui143-artist-track-art img,
+.ui143-artist-card-art img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.ui143-artist-track-copy {
+  min-width: 0;
+}
+
+.ui143-artist-track-copy strong,
+.ui143-artist-card > strong {
+  display: block;
+  overflow: hidden;
+  color: #f4f4f4;
+  font-size: 13px;
+  font-weight: 660;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-artist-subtitle {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #969696;
+  font-size: 11px;
+  font-weight: 520;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui143-artist-now-playing {
+  display: none;
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: var(--ui143-accent-strong);
+  background: color-mix(in srgb, var(--ui143-accent) 18%, transparent);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.045em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ui143-artist-track.is-now-playing .ui143-artist-now-playing {
+  display: inline-flex;
+}
+
+.ui143-artist-shelf {
+  overflow: hidden;
+}
+
+.ui143-artist-shelf-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(148px, 11.5vw, 184px);
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 2px 10px 0;
+  scroll-padding-inline: 10px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.ui143-artist-card {
+  min-width: 0;
+  width: 100%;
+  padding: 10px;
+  border-radius: 9px;
+  background: transparent;
+  scroll-snap-align: start;
+  transition: background 110ms ease, transform 110ms ease;
+}
+
+.ui143-artist-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ui143-artist-card-art {
+  aspect-ratio: 1;
+  width: 100%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
+  border-radius: 7px;
+  background: #202020;
+  color: #777;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.ui143-artist-card-art.is-round,
+.ui143-artist-card-art.is-round img {
+  border-radius: 50%;
+}
+
+.ui143-artist-message {
+  min-height: 58vh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: var(--ui143-muted);
+  text-align: center;
+}
+
+.ui143-artist-message strong {
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.ui143-artist-message span {
+  max-width: 460px;
+  color: #858585;
+  font-size: 13px;
+}
+
+@media (max-width: 1050px) {
+  .ui143-artist-track-list {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-flow: row;
+  }
+
+  .ui143-artist-hero-copy h1 {
+    max-width: 60vw;
+  }
+}
+
+@media (max-width: 760px) {
+  #ui143-artist-page {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .ui143-artist-hero {
+    margin-right: -20px;
+    margin-left: -20px;
+  }
+
+  .ui143-artist-avatar {
+    width: 76px;
+    height: 76px;
+    flex-basis: 76px;
+  }
+
+  .ui143-artist-shelf-row {
+    grid-auto-columns: 148px;
+  }
+}
