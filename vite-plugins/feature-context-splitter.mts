@@ -49,7 +49,7 @@ export default function (
       handler(id) {
         const fileContent = readFileSync(id, 'utf8');
         const src = globalProject.createSourceFile(
-          '_pf' + basename(id),
+          '_ff' + basename(id),
           fileContent,
           { overwrite: true },
         );
@@ -134,7 +134,7 @@ export default function (
           declarationKind: VariableDeclarationKind.Const,
           declarations: [
             {
-              name: 'pluginStub',
+              name: 'featureStub',
               initializer: (writer) => writer.write(objExpr.getText()),
             },
           ],
