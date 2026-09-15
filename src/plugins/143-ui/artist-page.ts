@@ -25,10 +25,15 @@ const normalize = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const isEpisodeLike = (item: SearchResultItem) =>
-  /\b(?:podcast|episode)\b|подкаст|эпизод|епізод/iu.test(
-    `${item.title} ${item.subtitle}`,
+const isEpisodeLike = (item: SearchResultItem) => {
+  const value = `${item.title} ${item.subtitle}`;
+  return (
+    /\b(?:podcast|episode|interview)\b/iu.test(value) ||
+    /(?:^|[\s•·—–-])(?:подкаст|эпизод|епізод|выпуск|випуск|интервью)(?=$|[\s•·—–-])/iu.test(
+      value,
+    )
   );
+};
 
 const playCount = (item: SearchResultItem) => {
   const text = item.subtitle.toLocaleLowerCase().replaceAll('\u00a0', ' ');
@@ -346,7 +351,6 @@ export const mountArtistPage = (engine: YouTubeMusicAdapter) => {
       ]),
     );
     const albums = releases.filter((item) => !isSingleLike(item));
-    const singles = releases.filter(isSingleLike);
     const related = mergeItems('artist', '', [base.artists]).filter(
       (item) =>
         item.browseId !== artist.browseId &&
@@ -356,7 +360,7 @@ export const mountArtistPage = (engine: YouTubeMusicAdapter) => {
     content.append(renderHero(profile, artist.name));
     if (songs.length) content.append(renderTopTracks(songs));
     if (albums.length) content.append(renderShelf('Albums', albums));
-    if (singles.length) content.append(renderShelf('Singles & releases', singles));
+    if (releases.length) content.append(renderShelf('Latest', releases));
     if (related.length)
       content.append(renderShelf('Related artists', related.slice(0, 16), true));
     syncNowPlaying();
