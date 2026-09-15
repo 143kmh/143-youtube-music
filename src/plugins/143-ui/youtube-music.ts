@@ -638,9 +638,10 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') kind = 'artist';
     else if (pageType === 'MUSIC_PAGE_TYPE_ALBUM') kind = 'album';
     else if (pageType === 'MUSIC_PAGE_TYPE_PLAYLIST') kind = 'playlist';
-    else if (videoId)
-      kind = /OMV|UGC/i.test(videoType) ? 'video' : 'song';
-    else if (browseId?.startsWith('UC')) kind = 'artist';
+    else if (videoId) {
+      if (/PODCAST|EPISODE/i.test(videoType)) kind = 'video';
+      else kind = /OMV|UGC/i.test(videoType) ? 'video' : 'song';
+    } else if (browseId?.startsWith('UC')) kind = 'artist';
     else if (browseId?.startsWith('VL')) kind = 'playlist';
     if (!kind) return null;
 
@@ -853,6 +854,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
   let generation = 0;
   let lyricsRequest = 0;
   let resolvedArtists: ArtistEntry[] = [];
+  const artworkByVideoId = new Map<string, string>();
   const listeners = new Set<(state: MusicState) => void>();
   let state: MusicState = {
     track: { id: '', title: '', byline: '', artwork: '', artists: [] },
@@ -937,6 +939,25 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
           ]
         : [];
     });
+    const playerResponse = api?.getPlayerResponse?.() as unknown as
+      | {
+          videoDetails?: {
+            videoId?: string;
+            thumbnail?: unknown;
+          };
+        }
+      | undefined;
+    const responseArtwork =
+      playerResponse?.videoDetails?.videoId === id
+        ? bestThumbnail(playerResponse.videoDetails.thumbnail)
+        : '';
+    const queueArtwork = bestThumbnail(currentQueueRenderer() as unknown);
+    const barArtwork =
+      bar?.querySelector<HTMLImageElement>(
+        '.thumbnail-image-wrapper img, yt-img-shadow img, img',
+      )?.src ?? '';
+    const artwork =
+      responseArtwork || queueArtwork || artworkByVideoId.get(id) || barArtwork;
     const volume = Math.min(
       100,
       finite(api?.getVolume?.() ?? (video ? video.volume * 100 : 100), 100),
@@ -955,10 +976,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
           data?.author ??
           bar?.querySelector('.byline')?.textContent?.trim() ??
           '',
-        artwork:
-          bar?.querySelector<HTMLImageElement>(
-            '.thumbnail-image-wrapper img, yt-img-shadow img, img',
-          )?.src ?? '',
+        artwork,
         artists: resolvedArtists,
       },
       playing: api?.getPlayerState
@@ -1066,6 +1084,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       timer = undefined;
       listeners.clear();
       artistSearchCache.clear();
+      artworkByVideoId.clear();
       lyricsBridge?.stop();
     },
     navigate,
@@ -1124,6 +1143,13 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       if (item.videoId) {
         const api = playerApi();
         if (!api?.loadVideoById) return false;
+        if (item.artwork) {
+          artworkByVideoId.set(item.videoId, item.artwork);
+          if (artworkByVideoId.size > 64) {
+            const oldest = artworkByVideoId.keys().next().value;
+            if (oldest) artworkByVideoId.delete(oldest);
+          }
+        }
         ++lyricsRequest;
         api.loadVideoById(item.videoId, 0, 'default');
         window.setTimeout(refresh, 0);
