@@ -1,0 +1,623 @@
+html[data-143-ui] {
+  --ui143-bg: #000;
+  --ui143-panel: #121212;
+  --ui143-panel-elevated: #181818;
+  --ui143-panel-hover: #242424;
+  --ui143-border: rgba(255, 255, 255, 0.08);
+  --ui143-text: #fff;
+  --ui143-muted: #b3b3b3;
+  --ui143-subtle: #7f7f7f;
+  --ui143-accent: #7567b8;
+  --ui143-accent-strong: #8a7bd1;
+  --ui143-sidebar-width: 252px;
+  --ui143-topbar-height: 64px;
+  --ui143-player-height: 88px;
+  color-scheme: dark;
+  background: var(--ui143-bg) !important;
+}
+
+html[data-143-ui],
+html[data-143-ui] body,
+html[data-143-ui] ytmusic-app,
+html[data-143-ui] ytmusic-app-layout {
+  background: var(--ui143-bg) !important;
+  color: var(--ui143-text) !important;
+}
+
+html[data-143-ui] body {
+  overflow: hidden !important;
+}
+
+html[data-143-ui] ytmusic-app-layout {
+  --ytmusic-nav-bar-height: 0px !important;
+}
+
+html[data-143-ui] ytmusic-nav-bar,
+html[data-143-ui] ytmusic-guide-renderer,
+html[data-143-ui] tp-yt-app-drawer#guide,
+html[data-143-ui] #mini-guide-background.ytmusic-app-layout {
+  display: none !important;
+}
+
+#ui143-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--ui143-text);
+}
+
+#ui143-root *,
+#ui143-root *::before,
+#ui143-root *::after {
+  box-sizing: border-box;
+}
+
+.ui143-sidebar,
+.ui143-topbar {
+  pointer-events: auto;
+}
+
+.ui143-sidebar {
+  position: fixed;
+  inset: 0 auto var(--ui143-player-height) 0;
+  width: var(--ui143-sidebar-width);
+  padding: 10px 8px 12px;
+  background: var(--ui143-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.035);
+  z-index: 1002;
+  -webkit-app-region: no-drag;
+}
+
+.ui143-brand {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  user-select: none;
+}
+
+.ui143-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--ui143-text);
+  color: #080808;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.ui143-brand-name {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 760;
+  letter-spacing: -0.45px;
+}
+
+.ui143-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ui143-nav-item {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui143-muted);
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.ui143-nav-item:hover {
+  color: var(--ui143-text);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.ui143-nav-item:active {
+  transform: scale(0.99);
+}
+
+.ui143-nav-item.is-active {
+  color: var(--ui143-text);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.ui143-nav-item.is-active .ui143-icon {
+  color: var(--ui143-text);
+}
+
+.ui143-icon {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  fill: currentColor;
+  color: currentColor;
+}
+
+.ui143-divider {
+  height: 1px;
+  margin: 4px 12px 8px;
+  background: var(--ui143-border);
+}
+
+.ui143-section-title {
+  padding: 3px 12px 5px;
+  color: var(--ui143-subtle);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.ui143-nav-secondary .ui143-nav-item {
+  min-height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ui143-nav-secondary .ui143-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.ui143-sidebar-footer {
+  margin-top: auto;
+  padding: 8px 12px 4px;
+  color: #555;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.ui143-topbar {
+  position: fixed;
+  top: 8px;
+  left: calc(var(--ui143-sidebar-width) + 8px);
+  right: 8px;
+  height: var(--ui143-topbar-height);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: 9px 9px 0 0;
+  background: rgba(18, 18, 18, 0.94);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  -webkit-app-region: drag;
+  z-index: 1001;
+}
+
+.ui143-history {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.ui143-circle-button {
+  appearance: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.58);
+  color: #d8d8d8;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.ui143-circle-button:hover {
+  background: #242424;
+  color: #fff;
+}
+
+.ui143-circle-button:active {
+  transform: scale(0.95);
+}
+
+.ui143-circle-button .ui143-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.ui143-search {
+  width: min(420px, 46vw);
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #242424;
+  color: var(--ui143-muted);
+  -webkit-app-region: no-drag;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.ui143-search:hover {
+  background: #2b2b2b;
+}
+
+.ui143-search:focus-within {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: #2b2b2b;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.ui143-search .ui143-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.ui143-search input {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  -webkit-app-region: no-drag;
+}
+
+.ui143-search input::placeholder {
+  color: #adadad;
+  opacity: 1;
+}
+
+.ui143-search input::-webkit-search-cancel-button {
+  filter: invert(1);
+  opacity: 0.65;
+}
+
+.ui143-topbar-spacer {
+  flex: 1 1 auto;
+}
+
+.ui143-product {
+  color: var(--ui143-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  user-select: none;
+  -webkit-app-region: no-drag;
+}
+
+/* Main YouTube Music view: keep the native app as the data/rendering engine. */
+html[data-143-ui] #content.ytmusic-app-layout,
+html[data-143-ui] ytmusic-app-layout #content {
+  box-sizing: border-box !important;
+  position: relative !important;
+  width: calc(100% - var(--ui143-sidebar-width) - 8px) !important;
+  max-width: none !important;
+  height: calc(100vh - var(--ui143-player-height) - 8px) !important;
+  margin: 8px 8px var(--ui143-player-height) var(--ui143-sidebar-width) !important;
+  padding-top: var(--ui143-topbar-height) !important;
+  overflow: hidden !important;
+  border-radius: 9px !important;
+  background: var(--ui143-panel) !important;
+}
+
+html[data-143-ui] #content.ytmusic-app-layout > *,
+html[data-143-ui] ytmusic-app-layout #content > * {
+  background-color: var(--ui143-panel) !important;
+}
+
+html[data-143-ui] ytmusic-browse-response,
+html[data-143-ui] ytmusic-search-page,
+html[data-143-ui] ytmusic-library-page,
+html[data-143-ui] ytmusic-playlist-detail-page,
+html[data-143-ui] ytmusic-album-release,
+html[data-143-ui] ytmusic-artist {
+  background: var(--ui143-panel) !important;
+}
+
+html[data-143-ui] #contents.ytmusic-section-list-renderer,
+html[data-143-ui] #contents.ytmusic-shelf-renderer,
+html[data-143-ui] #contents.ytmusic-carousel-shelf-renderer {
+  background: transparent !important;
+}
+
+html[data-143-ui] ytmusic-section-list-renderer,
+html[data-143-ui] ytmusic-carousel-shelf-renderer,
+html[data-143-ui] ytmusic-shelf-renderer {
+  --yt-spec-general-background-a: var(--ui143-panel);
+}
+
+/* Typography */
+html[data-143-ui] yt-formatted-string,
+html[data-143-ui] a,
+html[data-143-ui] .title,
+html[data-143-ui] .headline,
+html[data-143-ui] .strapline {
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+html[data-143-ui] .title,
+html[data-143-ui] .headline,
+html[data-143-ui] h1,
+html[data-143-ui] h2 {
+  letter-spacing: -0.025em !important;
+}
+
+/* Cards and shelves */
+html[data-143-ui] ytmusic-two-row-item-renderer,
+html[data-143-ui] ytmusic-responsive-list-item-renderer,
+html[data-143-ui] ytmusic-grid-renderer ytmusic-two-row-item-renderer {
+  border-radius: 7px !important;
+}
+
+html[data-143-ui] ytmusic-responsive-list-item-renderer {
+  transition: background-color 100ms ease !important;
+}
+
+html[data-143-ui] ytmusic-responsive-list-item-renderer:hover {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+html[data-143-ui] ytmusic-two-row-item-renderer img,
+html[data-143-ui] ytmusic-two-row-item-renderer yt-img-shadow,
+html[data-143-ui] ytmusic-responsive-list-item-renderer img,
+html[data-143-ui] ytmusic-responsive-list-item-renderer yt-img-shadow,
+html[data-143-ui] ytmusic-player-bar img,
+html[data-143-ui] ytmusic-player-bar yt-img-shadow {
+  border-radius: 5px !important;
+  overflow: hidden !important;
+}
+
+html[data-143-ui] ytmusic-carousel-shelf-renderer {
+  margin-top: 10px !important;
+}
+
+html[data-143-ui] ytmusic-carousel-shelf-renderer .header.ytmusic-carousel-shelf-renderer,
+html[data-143-ui] ytmusic-shelf-renderer .header.ytmusic-shelf-renderer {
+  margin-bottom: 12px !important;
+}
+
+/* Buttons */
+html[data-143-ui] tp-yt-paper-button,
+html[data-143-ui] yt-button-renderer,
+html[data-143-ui] ytmusic-button-renderer {
+  border-radius: 999px !important;
+}
+
+html[data-143-ui] .yt-spec-button-shape-next--filled,
+html[data-143-ui] .yt-spec-button-shape-next--tonal {
+  border-radius: 999px !important;
+}
+
+/* Bottom player bar */
+html[data-143-ui] ytmusic-player-bar {
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: var(--ui143-player-height) !important;
+  min-height: var(--ui143-player-height) !important;
+  padding: 0 14px !important;
+  box-sizing: border-box !important;
+  background: #181818 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.075) !important;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.2) !important;
+  z-index: 1100 !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .content-info-wrapper,
+html[data-143-ui] ytmusic-player-bar .middle-controls,
+html[data-143-ui] ytmusic-player-bar .right-controls {
+  align-items: center !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .thumbnail-image-wrapper,
+html[data-143-ui] ytmusic-player-bar .thumbnail,
+html[data-143-ui] ytmusic-player-bar img {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  border-radius: 5px !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .title,
+html[data-143-ui] ytmusic-player-bar .byline {
+  max-width: min(28vw, 360px) !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .title {
+  color: #fff !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .byline,
+html[data-143-ui] ytmusic-player-bar .byline a {
+  color: #aaa !important;
+  font-size: 11px !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .play-pause-button,
+html[data-143-ui] ytmusic-player-bar #play-pause-button {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  color: #000 !important;
+  transition: transform 90ms ease, background 90ms ease !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .play-pause-button:hover,
+html[data-143-ui] ytmusic-player-bar #play-pause-button:hover {
+  transform: scale(1.055) !important;
+  background: #f5f5f5 !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .previous-button,
+html[data-143-ui] ytmusic-player-bar .next-button,
+html[data-143-ui] ytmusic-player-bar .shuffle,
+html[data-143-ui] ytmusic-player-bar .repeat,
+html[data-143-ui] ytmusic-player-bar .volume {
+  color: #b3b3b3 !important;
+}
+
+html[data-143-ui] ytmusic-player-bar .previous-button:hover,
+html[data-143-ui] ytmusic-player-bar .next-button:hover,
+html[data-143-ui] ytmusic-player-bar .shuffle:hover,
+html[data-143-ui] ytmusic-player-bar .repeat:hover,
+html[data-143-ui] ytmusic-player-bar .volume:hover {
+  color: #fff !important;
+}
+
+html[data-143-ui] ytmusic-player-bar tp-yt-paper-slider {
+  --paper-slider-active-color: #fff !important;
+  --paper-slider-knob-color: #fff !important;
+  --paper-slider-container-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+html[data-143-ui] ytmusic-player-bar tp-yt-paper-slider:hover {
+  --paper-slider-active-color: var(--ui143-accent-strong) !important;
+}
+
+/* Scrollbars */
+html[data-143-ui] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html[data-143-ui] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-143-ui] ::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: padding-box;
+}
+
+html[data-143-ui] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.36);
+  background-clip: padding-box;
+}
+
+/* Menus and dialogs retain the same visual language. */
+html[data-143-ui] tp-yt-paper-dialog,
+html[data-143-ui] tp-yt-paper-listbox,
+html[data-143-ui] ytmusic-menu-popup-renderer,
+html[data-143-ui] ytmusic-popup-container {
+  --yt-spec-menu-background: #282828 !important;
+  --yt-spec-general-background-a: #282828 !important;
+}
+
+html[data-143-ui] tp-yt-paper-dialog,
+html[data-143-ui] tp-yt-paper-listbox {
+  border: 1px solid var(--ui143-border) !important;
+  border-radius: 8px !important;
+  background: #282828 !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+@media (max-width: 900px) {
+  html[data-143-ui] {
+    --ui143-sidebar-width: 84px;
+  }
+
+  .ui143-brand {
+    justify-content: center;
+    padding-inline: 4px;
+  }
+
+  .ui143-brand-name,
+  .ui143-nav-item span,
+  .ui143-section-title,
+  .ui143-sidebar-footer {
+    display: none;
+  }
+
+  .ui143-nav-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .ui143-search {
+    width: min(360px, 52vw);
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-143-ui] {
+    --ui143-sidebar-width: 68px;
+  }
+
+  .ui143-sidebar {
+    padding-inline: 5px;
+  }
+
+  .ui143-brand-mark {
+    min-width: 38px;
+    padding-inline: 6px;
+  }
+
+  .ui143-topbar {
+    gap: 8px;
+    padding-inline: 10px;
+  }
+
+  .ui143-history .ui143-circle-button:last-child,
+  .ui143-product {
+    display: none;
+  }
+
+  .ui143-search {
+    width: 100%;
+  }
+}
+
+/* The 143 shell owns window chrome; controls stay outside the drag region. */
+html[data-143-ui] #ytmd-title-bar-main-panel { display: none !important; }
+.ui143-topbar { -webkit-app-region: drag; }
+.ui143-topbar button, .ui143-topbar input, .ui143-topbar form { -webkit-app-region: no-drag; }
+.ui143-settings-button { font-size: 24px; flex-shrink: 0; }
+.ui143-window-controls { display: flex; align-items: center; -webkit-app-region: no-drag; }
+.ui143-window-controls button { width: 34px; height: 32px; border: 0; background: transparent; color: #b3b3b3; font-size: 21px; cursor: pointer; }
+.ui143-window-controls button:hover { background: #242424; color: white; }
+.ui143-window-controls button:last-child:hover { background: #b32632; }
+.ui143-settings { width: min(420px, 90vw); padding: 28px; border: 1px solid #333; border-radius: 12px; background: #181818; color: #fff; font: 14px Inter, sans-serif; }
+.ui143-settings::backdrop { background: #0009; }
+.ui143-settings h2 { margin: 0 0 24px; font-size: 22px; }
+.ui143-settings label { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
+.ui143-settings select { min-width: 0; flex: 1; }
+.ui143-settings select, .ui143-settings button { padding: 9px 12px; border: 1px solid #444; border-radius: 6px; background: #242424; color: #fff; }
+.ui143-settings button { margin: 4px 8px 0 0; cursor: pointer; }
+.ui143-settings input { accent-color: #8a7bd1; }
