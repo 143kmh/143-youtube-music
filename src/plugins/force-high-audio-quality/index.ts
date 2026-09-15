@@ -1,7 +1,7 @@
 import { dialog } from 'electron';
 
 import { t } from '@/i18n';
-import { createPlugin } from '@/utils';
+import { createFeature } from '@/utils';
 
 import renderer from './renderer';
 import {
@@ -12,7 +12,7 @@ import {
 import type { AudioDiagnostics, PlaybackDetails } from './diagnostics';
 import type { QualityConfig } from './preference';
 
-export default createPlugin({
+export default createFeature({
   name: () => 'Audio Quality',
   description: () => 'Native YouTube Music high-quality and Opus playback.',
   config: { enabled: false, quality: 'maximum' } as QualityConfig,
