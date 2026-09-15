@@ -69,6 +69,156 @@ const isEpisodeLike = (item: SearchResultItem) => {
   );
 };
 
+const isVariantVideoQuery = (query: string) =>
+  /(?:^|\s)(?:sped\s*up|speed\s*up|speedup|slowed|reverb|nightcore|remix|lyrics?|lyric\s+video|live|bass\s*boosted|8d)(?:\s|$)/iu.test(
+    normalizeLabel(query),
+  );
+
+const variantBaseQuery = (query: string) =>
+  query
+    .replace(
+      /(?:^|\s)(?:sped\s*up|speed\s*up|speedup|slowed|reverb|nightcore|remix|lyrics?|lyric\s+video|live|bass\s*boosted|8d)(?=\s|$)/giu,
+      ' ',
+    )
+    .replace(/\s*\+\s*/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+
+const variantLoadQueries = (query: string) => {
+  const normalized = normalizeLabel(query);
+  const base = variantBaseQuery(query) || query.trim();
+  const queries = new Set<string>();
+  const add = (...values: string[]) => {
+    for (const value of values) {
+      const clean = value.replace(/\s+/gu, ' ').trim();
+      if (clean && normalizeLabel(clean) !== normalizeLabel(query)) queries.add(clean);
+    }
+  };
+
+  if (/\bslowed\b/iu.test(normalized)) {
+    add(
+      `${base} slowed reverb`,
+      `${base} slowed + reverb`,
+      `${base} super slowed`,
+      `${base} ultra slowed`,
+      `${base} slowed version`,
+      `${base} slowed audio`,
+      `${base} slowed edit`,
+      `${base} slowed remix`,
+      `${base} slowed lyrics`,
+      `${base} slowed down`,
+      `${base} slowed to perfection`,
+      `${base} slowed song`,
+    );
+  }
+
+  if (/\b(?:sped\s*up|speed\s*up|speedup)\b/iu.test(normalized)) {
+    add(
+      `${base} sped up`,
+      `${base} speed up`,
+      `${base} speedup`,
+      `${base} sped up reverb`,
+      `${base} sped up + reverb`,
+      `${base} nightcore`,
+      `${base} nightcore sped up`,
+      `${base} sped up version`,
+      `${base} sped up audio`,
+      `${base} sped up edit`,
+      `${base} sped up remix`,
+      `${base} sped up lyrics`,
+    );
+  }
+
+  if (/\breverb\b/iu.test(normalized)) {
+    add(
+      `${base} reverb`,
+      `${base} slowed reverb`,
+      `${base} slowed + reverb`,
+      `${base} reverb version`,
+      `${base} reverb audio`,
+      `${base} reverb edit`,
+      `${base} reverb remix`,
+    );
+  }
+
+  if (/\bnightcore\b/iu.test(normalized)) {
+    add(
+      `${base} nightcore`,
+      `${base} nightcore sped up`,
+      `${base} nightcore reverb`,
+      `${base} nightcore version`,
+      `${base} nightcore edit`,
+    );
+  }
+
+  if (/\bremix\b/iu.test(normalized)) {
+    add(
+      `${base} remix`,
+      `${base} remix audio`,
+      `${base} remix video`,
+      `${base} remix edit`,
+      `${base} remix version`,
+    );
+  }
+
+  if (/\blyrics?\b|\blyric\s+video\b/iu.test(normalized)) {
+    add(
+      `${base} lyrics`,
+      `${base} lyric video`,
+      `${base} lyrics video`,
+      `${base} lyrics audio`,
+    );
+  }
+
+  if (/\blive\b/iu.test(normalized)) {
+    add(
+      `${base} live`,
+      `${base} live performance`,
+      `${base} live concert`,
+      `${base} live session`,
+    );
+  }
+
+  if (/\bbass\s*boosted\b/iu.test(normalized)) {
+    add(
+      `${base} bass boosted`,
+      `${base} bass boosted audio`,
+      `${base} bass boosted version`,
+    );
+  }
+
+  if (/\b8d\b/iu.test(normalized)) {
+    add(`${base} 8d`, `${base} 8d audio`, `${base} 8d version`);
+  }
+
+  // Search ranking changes with small context hints; these are intentionally
+  // loaded only after the user opens “See all”, never during the normal search.
+  for (const suffix of ['audio', 'version', 'edit', 'music', 'youtube'])
+    add(`${query} ${suffix}`);
+  for (let year = new Date().getFullYear(); year >= 2018; year--)
+    add(`${query} ${year}`);
+
+  return [...queries];
+};
+
+const requestedVariantMatches = (query: string, item: SearchResultItem) => {
+  const q = normalizeLabel(query);
+  const text = normalizeLabel(`${item.title} ${item.subtitle}`);
+  const checks: Array<[RegExp, RegExp]> = [
+    [/\b(?:sped\s*up|speed\s*up|speedup)\b/iu, /\b(?:sped\s*up|speed\s*up|speedup)\b/iu],
+    [/\bslowed\b/iu, /\bslowed\b/iu],
+    [/\breverb\b/iu, /\breverb\b/iu],
+    [/\bnightcore\b/iu, /\bnightcore\b/iu],
+    [/\bremix\b/iu, /\bremix\b/iu],
+    [/\blyrics?\b|\blyric\s+video\b/iu, /\blyrics?\b|\blyric\s+video\b/iu],
+    [/\blive\b/iu, /\blive\b/iu],
+    [/\bbass\s*boosted\b/iu, /\bbass\s*boosted\b/iu],
+    [/\b8d\b/iu, /\b8d\b/iu],
+  ];
+  const requested = checks.filter(([pattern]) => pattern.test(q));
+  return requested.length > 0 && requested.every(([, pattern]) => pattern.test(text));
+};
+
 const playCount = (item: SearchResultItem) => {
   const text = item.subtitle.toLocaleLowerCase().replaceAll('\u00a0', ' ');
   const pattern =
@@ -163,6 +313,8 @@ export const mountSearchPage = (
   let lastQuery = '';
   let hasResults = false;
   let currentTrackId = engine.getState().track.id;
+  let variantObserver: IntersectionObserver | null = null;
+  let variantViewRevision = 0;
 
   const syncNowPlaying = () => {
     for (const button of root.querySelectorAll<HTMLButtonElement>(
@@ -187,7 +339,12 @@ export const mountSearchPage = (
     document.documentElement.classList.toggle('ui143-search-open', visible);
   };
 
-  const clear = () => content.replaceChildren();
+  const clear = () => {
+    variantViewRevision++;
+    variantObserver?.disconnect();
+    variantObserver = null;
+    content.replaceChildren();
+  };
 
   const message = (title: string, detail = '') => {
     clear();
@@ -356,7 +513,10 @@ export const mountSearchPage = (
     return section;
   };
 
-  const renderTopTracks = (items: readonly SearchResultItem[]) => {
+  const renderTopTracks = (
+    items: readonly SearchResultItem[],
+    onShowAll?: () => void,
+  ) => {
     const section = document.createElement('section');
     section.className = 'ui143-search-top-tracks';
     const heading = document.createElement('div');
@@ -364,6 +524,32 @@ export const mountSearchPage = (
     const title = document.createElement('h2');
     title.textContent = 'Top tracks';
     heading.append(title);
+
+    if (onShowAll) {
+      const showAll = document.createElement('button');
+      showAll.type = 'button';
+      showAll.textContent = 'See all';
+      showAll.style.marginLeft = 'auto';
+      showAll.style.padding = '5px 9px';
+      showAll.style.border = '0';
+      showAll.style.borderRadius = '999px';
+      showAll.style.background = 'transparent';
+      showAll.style.color = 'var(--ui143-muted)';
+      showAll.style.font = 'inherit';
+      showAll.style.fontSize = '11px';
+      showAll.style.fontWeight = '700';
+      showAll.style.cursor = 'pointer';
+      showAll.addEventListener('mouseenter', () => {
+        showAll.style.color = '#fff';
+        showAll.style.background = 'rgba(255,255,255,.06)';
+      });
+      showAll.addEventListener('mouseleave', () => {
+        showAll.style.color = 'var(--ui143-muted)';
+        showAll.style.background = 'transparent';
+      });
+      showAll.addEventListener('click', onShowAll);
+      heading.append(showAll);
+    }
 
     const list = document.createElement('div');
     list.className = 'ui143-search-top-track-list';
@@ -464,11 +650,11 @@ export const mountSearchPage = (
     return section;
   };
 
-  const appendHeading = (query: string) => {
+  const appendHeading = (query: string, eyebrowText = 'Search results') => {
     const heading = document.createElement('div');
     heading.className = 'ui143-search-heading';
     const eyebrow = document.createElement('span');
-    eyebrow.textContent = 'Search results';
+    eyebrow.textContent = eyebrowText;
     const title = document.createElement('h1');
     title.textContent = query;
     heading.append(eyebrow, title);
@@ -549,9 +735,155 @@ export const mountSearchPage = (
     syncNowPlaying();
   };
 
+  const renderVariantAll = (results: SearchCatalog) => {
+    clear();
+    const token = variantViewRevision;
+    hasResults = true;
+    appendHeading(results.query, 'All alternate versions');
+
+    const toolbar = document.createElement('div');
+    toolbar.style.display = 'flex';
+    toolbar.style.alignItems = 'center';
+    toolbar.style.gap = '12px';
+    toolbar.style.margin = '-8px 0 18px';
+
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.textContent = '← Back to results';
+    back.style.padding = '7px 11px';
+    back.style.border = '1px solid rgba(255,255,255,.10)';
+    back.style.borderRadius = '999px';
+    back.style.background = 'rgba(255,255,255,.035)';
+    back.style.color = '#d0d0d0';
+    back.style.font = 'inherit';
+    back.style.fontSize = '11px';
+    back.style.fontWeight = '700';
+    back.style.cursor = 'pointer';
+    back.addEventListener('click', () => render(results));
+
+    const hint = document.createElement('span');
+    hint.textContent = 'More results load as you scroll';
+    hint.style.color = 'var(--ui143-subtle)';
+    hint.style.fontSize = '11px';
+    toolbar.append(back, hint);
+    content.append(toolbar);
+
+    const section = document.createElement('section');
+    section.className = 'ui143-search-section ui143-search-more-songs';
+    section.style.marginTop = '0';
+    const list = document.createElement('div');
+    list.className = 'ui143-search-song-list';
+    list.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+    section.append(list);
+    content.append(section);
+
+    const allItems: SearchResultItem[] = [];
+    const seen = new Set<string>();
+
+    const appendItems = (items: readonly SearchResultItem[]) => {
+      const additions = items.filter((item) => {
+        if (
+          item.kind !== 'song' ||
+          !item.videoId ||
+          isEpisodeLike(item) ||
+          !requestedVariantMatches(results.query, item) ||
+          seen.has(item.videoId)
+        )
+          return false;
+        seen.add(item.videoId);
+        return true;
+      });
+      allItems.push(...additions);
+
+      for (const item of additions) {
+        const row = resultButton(item, 'ui143-search-song', () =>
+          playContextItem(allItems, item),
+        );
+        row.append(image(item, 'ui143-search-song-art'));
+        const copy = document.createElement('div');
+        copy.className = 'ui143-search-song-copy';
+        const title = document.createElement('strong');
+        title.textContent = item.title;
+        copy.append(title, subtitle(item));
+        row.append(copy);
+        list.append(row);
+      }
+      syncNowPlaying();
+      return additions.length;
+    };
+
+    appendItems(results.songs);
+
+    const sentinel = document.createElement('div');
+    sentinel.textContent = 'Loading more…';
+    sentinel.style.gridColumn = '1 / -1';
+    sentinel.style.minHeight = '72px';
+    sentinel.style.display = 'grid';
+    sentinel.style.placeItems = 'center';
+    sentinel.style.color = 'var(--ui143-subtle)';
+    sentinel.style.fontSize = '12px';
+    sentinel.style.fontWeight = '600';
+    sentinel.style.opacity = '.8';
+    list.append(sentinel);
+
+    const queries = variantLoadQueries(results.query);
+    let cursor = 0;
+    let loading = false;
+    let emptyBatches = 0;
+
+    const loadMore = async () => {
+      if (
+        loading ||
+        token !== variantViewRevision ||
+        cursor >= queries.length
+      )
+        return;
+      loading = true;
+      sentinel.textContent = 'Loading more…';
+      const batch = queries.slice(cursor, cursor + 2);
+      cursor += batch.length;
+      const before = allItems.length;
+      try {
+        const settled = await Promise.allSettled(
+          batch.map((query) => engine.searchCatalog(query)),
+        );
+        if (token !== variantViewRevision) return;
+        for (const entry of settled) {
+          if (entry.status !== 'fulfilled') continue;
+          appendItems(entry.value.songs);
+        }
+        emptyBatches = allItems.length === before ? emptyBatches + 1 : 0;
+      } finally {
+        loading = false;
+      }
+
+      if (cursor >= queries.length || emptyBatches >= 4) {
+        variantObserver?.disconnect();
+        sentinel.textContent = 'End of results';
+        sentinel.style.opacity = '.55';
+      } else if (sentinel.getBoundingClientRect().top < root.getBoundingClientRect().bottom + 500) {
+        void loadMore();
+      }
+    };
+
+    variantObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { root, rootMargin: '500px 0px 700px', threshold: 0.01 },
+    );
+    variantObserver.observe(sentinel);
+    void loadMore();
+  };
+
   const render = (results: SearchCatalog) => {
     clear();
-    const rankedSongs = rankTracks(results.songs);
+    const variantQuery = isVariantVideoQuery(results.query);
+    const rankedSongs = variantQuery
+      ? results.songs.filter(
+          (item) => item.kind === 'song' && !isEpisodeLike(item),
+        )
+      : rankTracks(results.songs);
     const cleanPlaylists = results.playlists.filter((item) => !isEpisodeLike(item));
     const artist = results.featuredArtist?.title ?? '';
     const artistAlbums = artist
@@ -577,7 +909,13 @@ export const mountSearchPage = (
     if (results.featuredArtist) hero.append(renderArtistProfile(results.featuredArtist));
     else if (results.topResult && !isEpisodeLike(results.topResult))
       hero.append(renderTopFallback(results.topResult));
-    if (rankedSongs.length) hero.append(renderTopTracks(rankedSongs));
+    if (rankedSongs.length)
+      hero.append(
+        renderTopTracks(
+          rankedSongs,
+          variantQuery ? () => renderVariantAll(results) : undefined,
+        ),
+      );
     content.append(hero);
 
     if (artistAlbums.length)
@@ -589,7 +927,8 @@ export const mountSearchPage = (
       );
 
     const moreSongs = rankedSongs.slice(10);
-    if (moreSongs.length) content.append(renderSongs('More tracks', moreSongs));
+    if (!variantQuery && moreSongs.length)
+      content.append(renderSongs('More tracks', moreSongs));
 
     if (results.artists.length)
       content.append(
@@ -658,11 +997,13 @@ export const mountSearchPage = (
     },
     close() {
       ++request;
+      clear();
       setVisible(false);
     },
     isOpen: () => !root.hidden,
     dispose() {
       ++request;
+      clear();
       unsubscribeState();
       document.documentElement.classList.remove('ui143-search-open');
       root.remove();
