@@ -1,4 +1,6 @@
-import { Menu } from 'electron';
+import path from 'node:path';
+
+import { Menu, nativeImage } from 'electron';
 
 import * as config from '@/config';
 
@@ -13,6 +15,7 @@ import type { BackendContext } from '@/types/contexts';
 import type { PluginConfig } from '@/types/plugins';
 
 const DISCORD_APPLICATION_ID = '1549504717527322724';
+const WINDOWS_APP_ID = 'com.143aimclub.music';
 const DEFAULT_DISCORD_SETTINGS: DiscordPresenceSettings = {
   enabled: false,
   applicationId: DISCORD_APPLICATION_ID,
@@ -160,9 +163,21 @@ export const startDesktop = ({ window, ipc }: BackendContext<PluginConfig>) => {
       window.webContents.send('peard:force-high-audio-quality:inspect');
   });
 
-  // Discord is optional. Initialize it only after the core IPC surface exists,
-  // so an RPC failure can never take settings, lyrics, or window controls down.
+  // Optional integrations are intentionally initialized only after the core IPC
+  // surface exists. Neither Discord nor Windows shell cosmetics may take the
+  // settings/lyrics backend down.
   applyDiscordSettings(discordSettings());
+
+  if (process.platform === 'win32') {
+    try {
+      const iconPath = path.resolve('assets/generated/icons/win/icon.png');
+      const icon = nativeImage.createFromPath(iconPath);
+      if (!icon.isEmpty()) window.setIcon(icon);
+      window.setAppDetails({ appId: WINDOWS_APP_ID });
+    } catch (error) {
+      console.warn('[143 Music] Could not apply Windows window icon', error);
+    }
+  }
 
   return () => {
     presence.dispose();
