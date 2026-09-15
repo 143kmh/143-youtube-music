@@ -46,7 +46,10 @@ type View =
 const ROOT_ID = 'ui143-library-collections';
 const BROWSE_IDS: Record<CollectionKind, string> = {
   albums: 'FEmusic_liked_albums',
-  artists: 'FEmusic_library_corpus_track_artists',
+  // This is the subscriptions/followed-artists collection. The old
+  // FEmusic_library_corpus_track_artists page is merely artists inferred from
+  // songs/albums in the library, so following an artist would not appear there.
+  artists: 'FEmusic_library_corpus_artists',
 };
 
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -525,7 +528,7 @@ export const mountLibraryCollections = (engine: PlaybackContextAdapter) => {
         ? 'Nothing matches this filter.'
         : kind === 'albums'
           ? 'No saved albums yet.'
-          : 'No saved artists yet.';
+          : 'No followed artists yet.';
       content.append(empty);
       return;
     }
@@ -578,6 +581,8 @@ export const mountLibraryCollections = (engine: PlaybackContextAdapter) => {
       row.type = 'button';
       row.className = 'ui143-library-detail-track';
       if (item.videoId) row.dataset.videoId = item.videoId;
+      row.dataset.trackTitle = item.title;
+      row.dataset.trackSubtitle = item.subtitle;
       const number = document.createElement('span');
       number.className = 'ui143-library-detail-number';
       number.textContent = String(index + 1);
@@ -773,6 +778,20 @@ export const mountLibraryCollections = (engine: PlaybackContextAdapter) => {
     return 'library' as const;
   };
 
+  const onLibraryChanged = (event: Event) => {
+    const kind = (event as CustomEvent<{ kind?: CollectionKind }>).detail?.kind;
+    if (kind !== 'albums' && kind !== 'artists') return;
+    const state = collections[kind];
+    state.items = [];
+    state.continuation = '';
+    state.loaded = false;
+    state.loading = false;
+    if (kind === 'albums') albumCache.clear();
+    else artistCache.clear();
+    if (!root.hidden && view.kind === kind) void showView({ kind });
+  };
+  document.addEventListener('ui143:library-changed', onLibraryChanged);
+
   return {
     open,
     back,
@@ -789,6 +808,7 @@ export const mountLibraryCollections = (engine: PlaybackContextAdapter) => {
       history.length = 0;
       observer?.disconnect();
       unsubscribe();
+      document.removeEventListener('ui143:library-changed', onLibraryChanged);
       albumCache.clear();
       artistCache.clear();
       document.documentElement.classList.remove('ui143-library-collections-open');
