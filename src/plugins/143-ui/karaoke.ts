@@ -3,12 +3,12 @@ import { renderer as syncedLyricsRenderer } from '../synced-lyrics/renderer';
 import { setLyricsStore } from '../synced-lyrics/renderer/store';
 import syncedLyricsStyle from '../synced-lyrics/style.css?inline';
 
-import type { SyncedLyricsPluginConfig } from '../synced-lyrics/types';
+import type { SyncedLyricsFeatureConfig } from '../synced-lyrics/types';
 import type { RendererContext } from '@/types/contexts';
+import type { FeatureConfig } from '@/types/features';
 import type { MusicPlayer } from '@/types/music-player';
-import type { PluginConfig } from '@/types/plugins';
 
-const config: SyncedLyricsPluginConfig = {
+const config: SyncedLyricsFeatureConfig = {
   enabled: true,
   preferredProvider: ProviderNames.LRCLib,
   preciseTiming: true,
@@ -26,13 +26,13 @@ type EmbeddedLyricsRenderer = {
   videoDataChange: () => Promise<void>;
   updateTimestampInterval?: NodeJS.Timeout | string | number;
   start: (
-    ctx: RendererContext<SyncedLyricsPluginConfig>,
+    ctx: RendererContext<SyncedLyricsFeatureConfig>,
   ) => Promise<void> | void;
   stop: () => Promise<void> | void;
   onPlayerApiReady: (api: MusicPlayer) => Promise<void> | void;
 };
 
-// createRenderer's public type is a union because plugins may also use a
+// createRenderer's public type is a union because features may also use a
 // one-function lifecycle. The synced-lyrics renderer is known to use the object
 // lifecycle above, so narrow it once here instead of leaking casts everywhere.
 const lyricsRenderer =
@@ -59,8 +59,8 @@ const bindRendererMethods = () => {
 };
 
 const karaokeContext = (
-  ctx: RendererContext<PluginConfig>,
-): RendererContext<SyncedLyricsPluginConfig> => ({
+  ctx: RendererContext<FeatureConfig>,
+): RendererContext<SyncedLyricsFeatureConfig> => ({
   getConfig: () => config,
   setConfig: () => {},
   ipc: {
@@ -77,7 +77,7 @@ const karaokeContext = (
   },
 });
 
-export const startKaraoke = async (ctx: RendererContext<PluginConfig>) => {
+export const startKaraoke = async (ctx: RendererContext<FeatureConfig>) => {
   if (started) return;
   started = true;
   bindRendererMethods();
