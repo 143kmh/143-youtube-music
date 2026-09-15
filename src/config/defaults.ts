@@ -46,7 +46,7 @@ export interface DefaultConfig {
     };
     customWindowTitle?: string;
   };
-  'plugins': Record<string, unknown>;
+  'features': Record<string, unknown>;
 }
 
 export const defaultConfig: DefaultConfig = {
@@ -91,5 +91,5 @@ export const defaultConfig: DefaultConfig = {
       playButton: true,
     },
   },
-  'plugins': {},
+  'features': {},
 };
