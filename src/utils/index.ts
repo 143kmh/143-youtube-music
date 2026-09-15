@@ -32,10 +32,6 @@ export const createFeature = <
   },
 ) => def;
 
-// Temporary compatibility alias for retained modules that have not yet been
-// renamed from the inherited plugin terminology.
-export const createPlugin = createFeature;
-
 export const createBackend = <
   BackendProperties,
   Config extends FeatureConfig = FeatureConfig,
