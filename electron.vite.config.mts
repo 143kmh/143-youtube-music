@@ -27,7 +27,11 @@ const resolveAlias = {
 export default defineConfig(({ mode }) => {
   const isDev = mode === 'development';
 
-  const mainAndPreloadExcludes = ['electron', 'custom-electron-prompt', ...builtinModules];
+  const mainAndPreloadExcludes = [
+    'electron',
+    'custom-electron-prompt',
+    ...builtinModules,
+  ];
   const mainConfig: MainViteConfig = {
     plugins: [
       pluginLoader('backend'),
@@ -70,10 +74,8 @@ export default defineConfig(({ mode }) => {
 
   const preloadConfig: PreloadViteConfig = {
     plugins: [
-      pluginLoader('preload'),
       viteResolve({
         'virtual:i18n': i18nImporter(),
-        'virtual:plugins': pluginVirtualModuleGenerator('preload'),
       }),
     ],
     build: {
