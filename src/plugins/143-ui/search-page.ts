@@ -32,6 +32,36 @@ const subtitle = (item: SearchResultItem) => {
   return text;
 };
 
+const playCount = (item: SearchResultItem) => {
+  const text = item.subtitle.toLocaleLowerCase().replaceAll('\u00a0', ' ');
+  const pattern =
+    /(\d+(?:[.,]\d+)?)\s*(млрд|млн|тыс\.?|b|m|k)?\s*(?:прослушиван\p{L}*|прослуховуван\p{L}*|plays?|views?)/giu;
+  let best = -1;
+
+  for (const match of text.matchAll(pattern)) {
+    const amount = Number(match[1]?.replace(',', '.'));
+    if (!Number.isFinite(amount)) continue;
+    const suffix = match[2]?.replace('.', '').toLocaleLowerCase() ?? '';
+    const multiplier =
+      suffix === 'млрд' || suffix === 'b'
+        ? 1_000_000_000
+        : suffix === 'млн' || suffix === 'm'
+          ? 1_000_000
+          : suffix === 'тыс' || suffix === 'k'
+            ? 1_000
+            : 1;
+    best = Math.max(best, amount * multiplier);
+  }
+
+  return best;
+};
+
+const rankTracks = (items: readonly SearchResultItem[]) =>
+  items
+    .map((item, index) => ({ item, index, plays: playCount(item) }))
+    .sort((left, right) => right.plays - left.plays || left.index - right.index)
+    .map(({ item }) => item);
+
 export type SearchPageController = ReturnType<typeof mountSearchPage>;
 
 export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
@@ -141,10 +171,18 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
 
     const metrics = document.createElement('div');
     metrics.className = 'ui143-search-artist-metrics';
-    for (const value of [profile.subscribers, profile.monthlyListeners]) {
+    const metricValues: [string, 'subscribers' | 'listeners'][] = [
+      [profile.subscribers, 'subscribers'],
+      [profile.monthlyListeners, 'listeners'],
+    ];
+    for (const [value, kind] of metricValues) {
       if (!value) continue;
       const metric = document.createElement('span');
-      metric.textContent = value;
+      metric.textContent =
+        kind === 'subscribers' &&
+        !/subscriber|подпис|підпис/iu.test(value)
+          ? `${value} subscribers`
+          : value;
       metrics.append(metric);
     }
 
@@ -279,18 +317,19 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     heading.append(eyebrow, title);
     content.append(heading);
 
+    const rankedSongs = rankTracks(results.songs);
     const hero = document.createElement('div');
     hero.className = 'ui143-search-hero-grid';
     if (results.featuredArtist)
       hero.append(renderArtistProfile(results.featuredArtist));
     else if (results.topResult) hero.append(renderTopFallback(results.topResult));
-    if (results.songs.length) hero.append(renderTopTracks(results.songs));
+    if (rankedSongs.length) hero.append(renderTopTracks(rankedSongs));
     content.append(hero);
 
     if (results.albums.length)
       content.append(renderCards('Albums', results.albums));
 
-    const moreSongs = results.songs.slice(5);
+    const moreSongs = rankedSongs.slice(5);
     if (moreSongs.length) content.append(renderSongs('More tracks', moreSongs));
 
     if (results.artists.length)
