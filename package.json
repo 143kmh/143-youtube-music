@@ -1,18 +1,16 @@
 {
-
   "name": "youtube-music",
-  "desktopName": "com.github.th-ch.youtube-music",
+  "desktopName": "com.143aimclub.music",
   "productName": "YouTube Music",
   "version": "3.12.0",
-  "description": "YouTube Music Desktop App - including custom plugins",
+  "description": "YouTube Music desktop client with custom UI, high-quality audio and Discord presence",
   "main": "./dist/main/index.js",
   "type": "module",
   "license": "MIT",
-  "repository": "pear-devs/pear-desktop",
+  "repository": "143kmh/143-youtube-music",
   "author": {
-    "name": "th-ch",
-    "email": "th-ch@users.noreply.github.com",
-    "url": "https://github.com/pear-devs/pear-desktop"
+    "name": "143kmh",
+    "url": "https://github.com/143kmh"
   },
   "scripts": {
     "postinstall": "pnpm install-electron",
