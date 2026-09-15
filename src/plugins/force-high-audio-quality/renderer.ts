@@ -21,6 +21,7 @@ type MusicWindow = Window & {
   yt?: { config_?: MusicConfig };
   ytcfg?: { data_?: MusicConfig };
   __YT143_FORCE_DIRECT_HQ__?: boolean;
+  __PEARD_FORCE_DIRECT_HQ__?: boolean;
 };
 
 type RendererState = {
@@ -58,13 +59,16 @@ export default createRenderer<RendererState, QualityConfig>({
 
   apply() {
     const musicWindow = window as MusicWindow;
-    musicWindow.__YT143_FORCE_DIRECT_HQ__ = isHighMode(this.config);
+    const active = isHighMode(this.config);
+    musicWindow.__YT143_FORCE_DIRECT_HQ__ = active;
+    // Transitional alias until the injected source patch is moved to core/audio.
+    musicWindow.__PEARD_FORCE_DIRECT_HQ__ = active;
 
     this.syncPlayerProxy();
     this.restore?.();
     this.restore = null;
 
-    if (!isHighMode(this.config)) return;
+    if (!active) return;
     const config = getMusicConfig();
     if (config) this.restore = overrideAudioQuality(config);
   },
@@ -79,10 +83,11 @@ export default createRenderer<RendererState, QualityConfig>({
 
     ipc.on('app:feature-config-changed', (id: string, config: QualityConfig) => {
       if (id !== FEATURE_ID) return;
-      this.onConfigChange?.(config);
+      this.config = config;
+      this.apply();
     });
 
-    ipc.on('app:audio:inspect', () =>
+    const inspect = () =>
       ipc
         .invoke('app:audio:show', {
           ...readAudioDiagnostics(this.player),
@@ -96,8 +101,10 @@ export default createRenderer<RendererState, QualityConfig>({
         })
         .catch(() => {
           // The main process may already be shutting down.
-        }),
-    );
+        });
+
+    ipc.on('app:audio:inspect', inspect);
+    ipc.on('peard:force-high-audio-quality:inspect', inspect);
   },
 
   syncPlayerProxy() {
@@ -142,7 +149,9 @@ export default createRenderer<RendererState, QualityConfig>({
   },
 
   stop({ ipc }) {
-    (window as MusicWindow).__YT143_FORCE_DIRECT_HQ__ = false;
+    const musicWindow = window as MusicWindow;
+    musicWindow.__YT143_FORCE_DIRECT_HQ__ = false;
+    musicWindow.__PEARD_FORCE_DIRECT_HQ__ = false;
     if (this.proxyTimer !== null) clearInterval(this.proxyTimer);
     this.proxyTimer = null;
     this.proxy = null;
@@ -153,5 +162,6 @@ export default createRenderer<RendererState, QualityConfig>({
     this.player = null;
     ipc.removeAllListeners('app:feature-config-changed');
     ipc.removeAllListeners('app:audio:inspect');
+    ipc.removeAllListeners('peard:force-high-audio-quality:inspect');
   },
 });
