@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import WindowsIcon from '@assets/143-music-icon.png?asset&asarUnpack';
 import { Menu, app, nativeImage } from 'electron';
 
 import * as config from '@/config';
@@ -47,17 +48,8 @@ const createSingleImageIco = (png: Buffer, width: number, height: number) => {
 };
 
 const ensureWindowsTaskbarIcon = () => {
-  const candidates = [
-    path.resolve('assets/143-music-icon.png'),
-    path.resolve(process.resourcesPath, 'assets/143-music-icon.png'),
-  ];
-  const sourcePath = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!sourcePath) {
-    throw new Error(`Could not find Windows icon in: ${candidates.join(', ')}`);
-  }
-
-  const source = nativeImage.createFromPath(sourcePath);
-  if (source.isEmpty()) throw new Error(`Could not load ${sourcePath}`);
+  const source = nativeImage.createFromPath(WindowsIcon);
+  if (source.isEmpty()) throw new Error(`Could not load ${WindowsIcon}`);
 
   const image = source.resize({ width: 64, height: 64, quality: 'best' });
   const png = image.toPNG();
