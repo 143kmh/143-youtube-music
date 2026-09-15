@@ -188,34 +188,21 @@ export const mountInteractions = (engine: YouTubeMusicAdapter) => {
   const removeNativePolish = mountNativePolish();
   const shelfGestures = mountShelfGestures();
 
-  const routeToCurrentTrack = () => {
-    const id = engine.getState().track.id;
-    if (!id) return false;
+  // Do not synthesize /watch navigation ourselves. loadVideoById() can play a
+  // track without creating all of YouTube Music's watch-page state, so asking
+  // ytmusic-app.navigate('/watch?...') may produce an empty page. The hidden
+  // native player-bar thumbnail already owns the correct transition and keeps
+  // the current playback session intact.
+  const openNowPlayingSurface = () => {
+    if (!engine.getState().track.id) return;
     hideCustomPages();
-    return engine.navigate('/watch?v=' + encodeURIComponent(id));
+    engine.openNowPlaying();
   };
 
   const openLyricsFromAnywhere = () => {
-    const trackId = engine.getState().track.id;
-    if (!trackId) return;
+    if (!engine.getState().track.id) return;
     hideCustomPages();
-
-    const selectLyrics = (attempt = 0) => {
-      if (engine.getState().track.id !== trackId) return;
-      if (window.location.pathname === '/watch') {
-        engine.toggleLyrics();
-        return;
-      }
-      if (attempt >= 30) return;
-      window.setTimeout(() => selectLyrics(attempt + 1), 50);
-    };
-
-    if (window.location.pathname === '/watch') {
-      engine.toggleLyrics();
-      return;
-    }
-    if (!engine.navigate('/watch?v=' + encodeURIComponent(trackId))) return;
-    window.setTimeout(selectLyrics, 0);
+    engine.toggleLyrics();
   };
 
   const onClick = (event: MouseEvent) => {
@@ -238,7 +225,7 @@ export const mountInteractions = (engine: YouTubeMusicAdapter) => {
     if (meta && (!interactive || !meta.contains(interactive))) {
       event.preventDefault();
       event.stopPropagation();
-      routeToCurrentTrack();
+      openNowPlayingSurface();
       return;
     }
     engine.handleTrackClick(event);
