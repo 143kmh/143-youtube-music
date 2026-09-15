@@ -42,6 +42,11 @@ const normalize = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const isVariantVideoQuery = (query: string) =>
+  /(?:^|\s)(?:sped\s*up|speed\s*up|speedup|slowed|reverb|nightcore|remix|lyrics?|lyric\s+video|live|bass\s*boosted|8d)(?:\s|$)/iu.test(
+    normalize(query),
+  );
+
 const tokens = (value: string) =>
   normalize(value)
     .split(' ')
@@ -374,6 +379,11 @@ export const resolveSearchFocus = async (
   engine: CatalogYouTubeMusicAdapter,
   catalog: SearchCatalog,
 ): Promise<SearchFocus> => {
+  // Variant queries should remain literal YouTube-style searches. Collapsing
+  // “artist + sped up/slowed/reverb” into an artist/album focus defeats one of
+  // YouTube Music's main advantages: community and alternate video versions.
+  if (isVariantVideoQuery(catalog.query)) return null;
+
   const intent = detectSearchIntent(catalog);
   if (!intent || intent.kind === 'artist') return null;
 
