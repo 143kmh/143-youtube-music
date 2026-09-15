@@ -9,6 +9,8 @@ import { attachKaraokePlayer, startKaraoke, stopKaraoke } from './karaoke';
 import { mountPlayer } from './player';
 import playerPolishStyle from './player-polish.css?inline';
 import playerStyle from './player.css?inline';
+import { mountSearchPage, type SearchPageController } from './search-page';
+import searchPageStyle from './search-page.css?inline';
 import { mountSettings } from './settings';
 import style from './style.css?inline';
 import {
@@ -75,12 +77,19 @@ const createIcon = (name: IconName) => {
   return svg;
 };
 
+const setActiveNav = (key: string) => {
+  document
+    .querySelectorAll<HTMLElement>('.ui143-nav-item[data-key]')
+    .forEach((item) => item.classList.toggle('is-active', item.dataset.key === key));
+};
+
 const createNavButton = (
   engine: YouTubeMusicAdapter,
   label: string,
   icon: IconName,
   section: MusicSection,
   key: string,
+  beforeNavigate?: () => void,
 ) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -93,10 +102,9 @@ const createNavButton = (
   button.append(text);
 
   button.addEventListener('click', () => {
+    beforeNavigate?.();
     if (!engine.navigateSection(section)) return;
-    document
-      .querySelectorAll<HTMLElement>('.ui143-nav-item[data-key]')
-      .forEach((item) => item.classList.toggle('is-active', item === button));
+    setActiveNav(key);
   });
 
   return button;
@@ -104,6 +112,7 @@ const createNavButton = (
 
 const createHistoryButton = (
   engine: YouTubeMusicAdapter,
+  searchPage: SearchPageController,
   icon: 'back' | 'forward',
   label: string,
 ) => {
@@ -114,12 +123,19 @@ const createHistoryButton = (
   button.title = label;
   button.append(createIcon(icon));
   button.addEventListener('click', () => {
+    if (icon === 'back' && searchPage.isOpen()) {
+      searchPage.close();
+      return;
+    }
     engine.history(icon);
   });
   return button;
 };
 
-const createShell = (engine: YouTubeMusicAdapter) => {
+const createShell = (
+  engine: YouTubeMusicAdapter,
+  searchPage: SearchPageController,
+) => {
   document.getElementById(UI_ROOT_ID)?.remove();
   document.documentElement.setAttribute(UI_ATTR, '');
 
@@ -141,7 +157,14 @@ const createShell = (engine: YouTubeMusicAdapter) => {
 
   const primary = document.createElement('nav');
   primary.className = 'ui143-nav ui143-nav-primary';
-  const home = createNavButton(engine, 'Home', 'home', 'home', 'home');
+  const home = createNavButton(
+    engine,
+    'Home',
+    'home',
+    'home',
+    'home',
+    searchPage.close,
+  );
   home.classList.add('is-active');
 
   const search = document.createElement('button');
@@ -153,13 +176,22 @@ const createShell = (engine: YouTubeMusicAdapter) => {
   searchText.textContent = 'Search';
   search.append(searchText);
   search.addEventListener('click', () => {
+    searchPage.show();
+    setActiveNav('search');
     document.getElementById(UI_SEARCH_ID)?.focus();
   });
 
   primary.append(
     home,
     search,
-    createNavButton(engine, 'Your Library', 'library', 'library', 'library'),
+    createNavButton(
+      engine,
+      'Your Library',
+      'library',
+      'library',
+      'library',
+      searchPage.close,
+    ),
   );
 
   const divider = document.createElement('div');
@@ -172,10 +204,38 @@ const createShell = (engine: YouTubeMusicAdapter) => {
   const collection = document.createElement('nav');
   collection.className = 'ui143-nav ui143-nav-secondary';
   collection.append(
-    createNavButton(engine, 'Playlists', 'playlist', 'playlists', 'playlists'),
-    createNavButton(engine, 'Liked songs', 'heart', 'songs', 'songs'),
-    createNavButton(engine, 'Albums', 'album', 'albums', 'albums'),
-    createNavButton(engine, 'Artists', 'artist', 'artists', 'artists'),
+    createNavButton(
+      engine,
+      'Playlists',
+      'playlist',
+      'playlists',
+      'playlists',
+      searchPage.close,
+    ),
+    createNavButton(
+      engine,
+      'Liked songs',
+      'heart',
+      'songs',
+      'songs',
+      searchPage.close,
+    ),
+    createNavButton(
+      engine,
+      'Albums',
+      'album',
+      'albums',
+      'albums',
+      searchPage.close,
+    ),
+    createNavButton(
+      engine,
+      'Artists',
+      'artist',
+      'artists',
+      'artists',
+      searchPage.close,
+    ),
   );
 
   const footer = document.createElement('div');
@@ -190,8 +250,8 @@ const createShell = (engine: YouTubeMusicAdapter) => {
   const historyControls = document.createElement('div');
   historyControls.className = 'ui143-history';
   historyControls.append(
-    createHistoryButton(engine, 'back', 'Back'),
-    createHistoryButton(engine, 'forward', 'Forward'),
+    createHistoryButton(engine, searchPage, 'back', 'Back'),
+    createHistoryButton(engine, searchPage, 'forward', 'Forward'),
   );
 
   const searchForm = document.createElement('form');
@@ -208,12 +268,14 @@ const createShell = (engine: YouTubeMusicAdapter) => {
   searchForm.append(input);
   searchForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    // The form belongs to the 143 shell. Keep YouTube's document-level submit
-    // handlers from treating it like one of its own forms.
     event.stopPropagation();
     const query = input.value.trim();
     if (!query) return;
-    engine.search(query);
+    setActiveNav('search');
+    void searchPage.search(query);
+  });
+  input.addEventListener('search', () => {
+    if (!input.value.trim()) searchPage.close();
   });
 
   const topbarSpacer = document.createElement('div');
@@ -249,8 +311,6 @@ export default createPlugin({
         webContents.openDevTools = originalOpenDevTools;
       });
 
-      // Karaoke is a 143 feature now. We reuse the mature lyric providers from
-      // the old Pear module internally without enabling that plugin itself.
       ipc.handle(
         'synced-lyrics:fetch',
         async (url: string, init: RequestInit) => {
@@ -274,8 +334,10 @@ export default createPlugin({
     playerStyleSheet: null as CSSStyleSheet | null,
     playerPolishStyleSheet: null as CSSStyleSheet | null,
     interactionStyleSheet: null as CSSStyleSheet | null,
+    searchPageStyleSheet: null as CSSStyleSheet | null,
     settingsCleanup: null as (() => void) | null,
     playerCleanup: null as (() => void) | null,
+    searchPage: null as SearchPageController | null,
     engine: null as YouTubeMusicAdapter | null,
     interactionCleanup: null as (() => void) | null,
 
@@ -285,11 +347,13 @@ export default createPlugin({
       this.playerStyleSheet = new CSSStyleSheet();
       this.playerPolishStyleSheet = new CSSStyleSheet();
       this.interactionStyleSheet = new CSSStyleSheet();
+      this.searchPageStyleSheet = new CSSStyleSheet();
       await Promise.all([
         this.styleSheet.replace(style),
         this.playerStyleSheet.replace(playerStyle),
         this.playerPolishStyleSheet.replace(playerPolishStyle),
         this.interactionStyleSheet.replace(interactionStyle),
+        this.searchPageStyleSheet.replace(searchPageStyle),
         startKaraoke(ctx),
       ]);
       document.adoptedStyleSheets = [
@@ -298,16 +362,20 @@ export default createPlugin({
         this.playerStyleSheet,
         this.playerPolishStyleSheet,
         this.interactionStyleSheet,
+        this.searchPageStyleSheet,
       ];
       this.playerCleanup?.();
       this.interactionCleanup?.();
+      this.searchPage?.dispose();
       const engine = createYouTubeMusicAdapter({
         attach: attachKaraokePlayer,
         stop: stopKaraoke,
       });
       this.engine = engine;
       engine.start();
-      createShell(engine);
+      const searchPage = mountSearchPage(engine);
+      this.searchPage = searchPage;
+      createShell(engine, searchPage);
       this.settingsCleanup?.();
       this.settingsCleanup = mountSettings(ctx.ipc);
       this.playerCleanup = mountPlayer(engine);
@@ -324,6 +392,8 @@ export default createPlugin({
       this.settingsCleanup = null;
       this.interactionCleanup?.();
       this.interactionCleanup = null;
+      this.searchPage?.dispose();
+      this.searchPage = null;
       this.engine?.dispose();
       this.engine = null;
       this.playerCleanup?.();
@@ -335,12 +405,14 @@ export default createPlugin({
         this.playerStyleSheet?.replace(''),
         this.playerPolishStyleSheet?.replace(''),
         this.interactionStyleSheet?.replace(''),
+        this.searchPageStyleSheet?.replace(''),
       ]);
       const ownedSheets = new Set([
         this.styleSheet,
         this.playerStyleSheet,
         this.playerPolishStyleSheet,
         this.interactionStyleSheet,
+        this.searchPageStyleSheet,
       ]);
       document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
         (sheet) => !ownedSheets.has(sheet),
