@@ -301,6 +301,7 @@
   font-weight: 620 !important;
   text-shadow: 0 0 22px rgba(138, 123, 209, 0.12);
   animation: ui143-status-float 5.8s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -308,6 +309,7 @@
   .ui143-artist-message strong,
   .ui143-album-message strong {
     animation: none;
+    will-change: auto;
   }
 }
 
