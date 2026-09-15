@@ -10,7 +10,7 @@ import type {
   FeatureLifecycleSimple,
   FeatureLifecycle,
   RendererFeatureLifecycle,
-} from '@/types/plugins';
+} from '@/types/features';
 
 export const LoggerPrefix = '[YTMusic]';
 
