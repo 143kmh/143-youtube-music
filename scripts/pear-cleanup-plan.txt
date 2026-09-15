@@ -1,1 +1,0 @@
-Keep: 143-ui, force-high-audio-quality, synced-lyrics, plugins/utils. Remove inherited plugin implementations.
