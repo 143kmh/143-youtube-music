@@ -1,4 +1,5 @@
 import { Client as DiscordClient } from '@xhayper/discord-rpc';
+import { ActivityType, StatusDisplayType } from 'discord-api-types/v10';
 
 import type { SetActivity } from '@xhayper/discord-rpc/dist/structures/ClientUser';
 
@@ -244,13 +245,11 @@ export class DiscordRichPresence {
     }
 
     const activity: SetActivity = {
-      type: 2 as SetActivity['type'],
+      type: ActivityType.Listening,
+      statusDisplayType: StatusDisplayType.State,
       details: cleanText(track.title, 'Unknown track'),
       state: cleanText(track.artist, 'Unknown artist'),
       largeImageKey: track.artwork || undefined,
-      largeImageText: track.playing
-        ? 'YouTube Music'
-        : 'Paused · YouTube Music',
     };
 
     if (this.settings.playButton && track.id) {
