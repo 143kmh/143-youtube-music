@@ -2,12 +2,12 @@ import { t } from '@/i18n';
 
 import { providerNames } from './providers';
 
-import type { SyncedLyricsPluginConfig } from './types';
+import type { SyncedLyricsFeatureConfig } from './types';
 import type { MenuContext } from '@/types/contexts';
 import type { MenuItemConstructorOptions } from 'electron';
 
 export const menu = async (
-  ctx: MenuContext<SyncedLyricsPluginConfig>,
+  ctx: MenuContext<SyncedLyricsFeatureConfig>,
 ): Promise<MenuItemConstructorOptions[]> => {
   const config = await ctx.getConfig();
 
