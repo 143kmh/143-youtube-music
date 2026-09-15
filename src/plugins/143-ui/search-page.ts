@@ -32,6 +32,14 @@ const subtitle = (item: SearchResultItem) => {
   return text;
 };
 
+const normalizeLabel = (value: string) =>
+  value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const playCount = (item: SearchResultItem) => {
   const text = item.subtitle.toLocaleLowerCase().replaceAll('\u00a0', ' ');
   const pattern =
@@ -319,6 +327,18 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
       card.append(art, name, subtitle(item));
       grid.append(card);
     }
+    if (options.className === 'ui143-search-albums') {
+      grid.addEventListener(
+        'wheel',
+        (event) => {
+          if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+          if (grid.scrollWidth <= grid.clientWidth) return;
+          event.preventDefault();
+          grid.scrollLeft += event.deltaY;
+        },
+        { passive: false },
+      );
+    }
     section.append(heading, grid);
     return section;
   };
@@ -350,9 +370,19 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     const rankedSongs = rankTracks(results.songs);
     const hero = document.createElement('div');
     hero.className = 'ui143-search-hero-grid';
-    if (results.featuredArtist)
-      hero.append(renderArtistProfile(results.featuredArtist));
-    else if (results.topResult) hero.append(renderTopFallback(results.topResult));
+    if (results.featuredArtist) {
+      const artistKey = normalizeLabel(results.featuredArtist.title);
+      const matchingArtist = results.artists.find(
+        (item) => normalizeLabel(item.title) === artistKey && item.artwork,
+      );
+      hero.append(
+        renderArtistProfile(
+          matchingArtist
+            ? { ...results.featuredArtist, avatar: matchingArtist.artwork }
+            : results.featuredArtist,
+        ),
+      );
+    } else if (results.topResult) hero.append(renderTopFallback(results.topResult));
     if (rankedSongs.length) hero.append(renderTopTracks(rankedSongs));
     content.append(hero);
 
