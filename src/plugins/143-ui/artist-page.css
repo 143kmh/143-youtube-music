@@ -27,7 +27,7 @@
 
 .ui143-artist-hero {
   position: relative;
-  height: clamp(210px, 27vh, 260px);
+  height: clamp(220px, 29vh, 282px);
   overflow: hidden;
   margin: 0 -24px 26px;
   background: #1a1a1a;
@@ -115,6 +115,47 @@
   content: '•';
   margin-right: 16px;
   color: rgba(255, 255, 255, 0.35);
+}
+
+.ui143-artist-hero-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.ui143-artist-library-action {
+  appearance: none;
+  min-width: 104px;
+  padding: 8px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(16, 16, 16, 0.52);
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 720;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: background 110ms ease, border-color 110ms ease, color 110ms ease, transform 110ms ease, opacity 110ms ease;
+}
+
+.ui143-artist-library-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.ui143-artist-library-action:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.ui143-artist-library-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ui143-artist-library-action.is-saved {
+  border-color: color-mix(in srgb, var(--ui143-accent-strong) 52%, transparent);
+  background: color-mix(in srgb, var(--ui143-accent) 24%, rgba(12, 12, 12, 0.56));
+  color: var(--ui143-accent-strong);
 }
 
 .ui143-artist-section {
