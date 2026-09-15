@@ -1,6 +1,6 @@
 import type { MusicPlayer } from '@/types/music-player';
 
-import type { SearchResultItem } from './youtube-music';
+import type { MusicState, SearchResultItem } from './youtube-music';
 import type { PlaylistCatalogAdapter } from './youtube-music-playlist';
 
 export type PlaybackContextSource = Readonly<{
@@ -49,36 +49,96 @@ export const installPlaybackContext = (
   engine: PlaylistCatalogAdapter,
 ): PlaybackContextAdapter => {
   const originalOpenSearchResult = engine.openSearchResult.bind(engine);
-  const originalNext = engine.next.bind(engine);
   const originalPrevious = engine.previous.bind(engine);
-  const originalToggleShuffle = engine.toggleShuffle.bind(engine);
-  const originalCycleRepeat = engine.cycleRepeat.bind(engine);
-  const originalOpenQueue = engine.openQueue.bind(engine);
+  const originalSeek = engine.seek.bind(engine);
+  const originalGetState = engine.getState.bind(engine);
+  const originalSubscribe = engine.subscribe.bind(engine);
   const originalDispose = engine.dispose.bind(engine);
 
   const playerApi = () =>
     document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
 
   let context: PlaybackContext | null = null;
+  let contextToken = 0;
   let pendingVideoId = '';
+  let pendingTicks = 0;
   let mismatchTicks = 0;
   let endedVideoId = '';
   const history: number[] = [];
-  const listeners = new Set<(value: PlaybackContext | null) => void>();
+  const extensionSeeds = new Set<string>();
+  const contextListeners = new Set<(value: PlaybackContext | null) => void>();
+  const stateListeners = new Set<(state: MusicState) => void>();
+
+  const setNativeAutonav = (enabled: boolean) => {
+    try {
+      playerApi()?.setAutonav?.(enabled);
+    } catch {
+      // Player builds differ here; the 143 queue does not depend on this call.
+    }
+  };
+
+  const presentedState = (base: MusicState): MusicState =>
+    context
+      ? {
+          ...base,
+          shuffle: context.shuffle,
+          repeat: context.repeat,
+          queueActive: context.queueOpen,
+        }
+      : base;
+
+  const notifyState = (base = originalGetState()) => {
+    const visible = presentedState(base);
+    for (const listener of stateListeners) listener(visible);
+  };
 
   const emit = () => {
-    for (const listener of listeners) listener(context);
+    for (const listener of contextListeners) listener(context);
+    notifyState();
   };
 
   const replace = (next: PlaybackContext | null) => {
     context = next;
-    if (!next) {
-      pendingVideoId = '';
-      mismatchTicks = 0;
-      endedVideoId = '';
-      history.length = 0;
-    }
+    contextToken++;
+    pendingVideoId = '';
+    pendingTicks = 0;
+    mismatchTicks = 0;
+    endedVideoId = '';
+    history.length = 0;
+    extensionSeeds.clear();
+    setNativeAutonav(!next);
     emit();
+  };
+
+  const extendFrom = async (seedVideoId: string) => {
+    if (!context || !seedVideoId || extensionSeeds.has(seedVideoId)) return 0;
+    extensionSeeds.add(seedVideoId);
+    const token = contextToken;
+
+    try {
+      const extra = await engine.getAutoplayItems(seedVideoId);
+      if (!context || token !== contextToken) return 0;
+      const known = new Set(
+        context.items.flatMap((item) => (item.videoId ? [item.videoId] : [])),
+      );
+      const additions = playableItems(extra).filter(
+        (item) => item.videoId && !known.has(item.videoId),
+      );
+      if (!additions.length) return 0;
+      context = { ...context, items: [...context.items, ...additions] };
+      emit();
+      return additions.length;
+    } catch (error) {
+      extensionSeeds.delete(seedVideoId);
+      console.warn('[143 Music] Could not extend autoplay queue', error);
+      return 0;
+    }
+  };
+
+  const ensureTail = () => {
+    if (!context || context.items.length - context.index > 6) return;
+    const seed = context.items.at(-1)?.videoId;
+    if (seed) void extendFrom(seed);
   };
 
   const loadIndex = (index: number, recordHistory = true) => {
@@ -88,19 +148,15 @@ export const installPlaybackContext = (
     if (recordHistory && context.index !== index) history.push(context.index);
     context = { ...context, index };
     pendingVideoId = item.videoId;
+    pendingTicks = 0;
     mismatchTicks = 0;
     endedVideoId = '';
+    setNativeAutonav(false);
     emit();
 
-    // A custom 143 context must not inherit the stale native YouTube queue.
-    // The stream itself is still loaded by the existing adapter, so HQ selection
-    // remains in force-high-audio-quality.
-    try {
-      playerApi()?.clearQueue?.();
-    } catch {
-      // Some player builds expose clearQueue but reject it outside a native queue.
-    }
-    return originalOpenSearchResult(item);
+    const opened = originalOpenSearchResult(item);
+    if (opened) ensureTail();
+    return opened;
   };
 
   const randomNextIndex = () => {
@@ -111,19 +167,29 @@ export const installPlaybackContext = (
     return next;
   };
 
-  const advance = (automatic: boolean) => {
+  const advance = async (automatic: boolean) => {
     if (!context) return false;
     if (automatic && context.repeat === 2) return loadIndex(context.index, false);
 
+    const token = contextToken;
     const next = context.shuffle ? randomNextIndex() : context.index + 1;
     if (next >= 0 && next < context.items.length) return loadIndex(next, true);
+
+    const seed = context.items.at(-1)?.videoId ?? '';
+    if (seed) await extendFrom(seed);
+    if (!context || token !== contextToken) return false;
+
+    const extendedNext = context.index + 1;
+    if (!context.shuffle && extendedNext < context.items.length)
+      return loadIndex(extendedNext, true);
+
     if (context.repeat === 1 && context.items.length) return loadIndex(0, true);
 
     if (automatic) {
       try {
         playerApi()?.stopVideo?.();
       } catch {
-        // The media element is already ended; stopping is only an autonav guard.
+        // The media element is already ended; stopping only blocks native autonav.
       }
     }
     return false;
@@ -131,8 +197,10 @@ export const installPlaybackContext = (
 
   const rewind = () => {
     if (!context) return false;
-    if (engine.getState().time > 3) {
-      engine.seek(0);
+    if (originalGetState().time > 3) {
+      const api = playerApi();
+      if (api?.seekTo) api.seekTo(0);
+      else originalSeek(0);
       return true;
     }
     if (context.shuffle && history.length) {
@@ -143,21 +211,36 @@ export const installPlaybackContext = (
     if (previous >= 0) return loadIndex(previous, true);
     if (context.repeat === 1 && context.items.length)
       return loadIndex(context.items.length - 1, true);
-    engine.seek(0);
+    const api = playerApi();
+    if (api?.seekTo) api.seekTo(0);
+    else originalSeek(0);
     return true;
   };
 
-  const stateUnsubscribe = engine.subscribe((state) => {
-    if (!context) return;
-    const id = state.track.id;
-    if (!id) return;
+  const stateUnsubscribe = originalSubscribe((baseState) => {
+    if (!context) {
+      notifyState(baseState);
+      return;
+    }
+
+    const id = baseState.track.id;
+    if (!id) {
+      notifyState(baseState);
+      return;
+    }
 
     if (pendingVideoId) {
       if (id === pendingVideoId) {
         pendingVideoId = '';
+        pendingTicks = 0;
         mismatchTicks = 0;
       } else {
-        return;
+        pendingTicks++;
+        if (pendingTicks < 30) return;
+        // If YouTube substituted a different playable ID, adopt it instead of
+        // destroying the custom queue and making the Queue button flicker.
+        pendingVideoId = '';
+        pendingTicks = 0;
       }
     }
 
@@ -167,24 +250,45 @@ export const installPlaybackContext = (
       if (index !== context.index) {
         context = { ...context, index };
         emit();
+      } else {
+        notifyState(baseState);
       }
+      ensureTail();
       return;
     }
 
-    // Native clicks outside 143 are still possible while old YT surfaces exist.
-    // Once a different track is stable for ~1s, relinquish our custom context.
     mismatchTicks++;
-    if (mismatchTicks >= 10) replace(null);
+    if (mismatchTicks >= 3) {
+      const adopted: SearchResultItem = {
+        kind: 'song',
+        title: baseState.track.title || 'Autoplay',
+        subtitle: baseState.track.byline,
+        artwork: baseState.track.artwork,
+        videoId: id,
+      };
+      context = {
+        ...context,
+        items: [...context.items, adopted],
+        index: context.items.length,
+      };
+      mismatchTicks = 0;
+      endedVideoId = '';
+      emit();
+      ensureTail();
+      return;
+    }
+
+    notifyState(baseState);
   });
 
   const onEnded = () => {
     if (!context) return;
-    const id = engine.getState().track.id;
+    const id = originalGetState().track.id;
     if (!id || endedVideoId === id) return;
     const current = context.items[context.index];
     if (current?.videoId !== id) return;
     endedVideoId = id;
-    advance(true);
+    void advance(true);
   };
   document.addEventListener('ended', onEnded, true);
 
@@ -204,20 +308,22 @@ export const installPlaybackContext = (
             playable.findIndex((item) => item.videoId === selected.videoId),
           )
         : 0;
-      const state = engine.getState();
-      const shuffle = options.shuffle ?? state.shuffle === true;
-      const repeat = state.repeat ?? 0;
+      const baseState = originalGetState();
+      contextToken++;
       history.length = 0;
+      extensionSeeds.clear();
       context = {
         source,
         items: playable,
         index,
-        shuffle,
-        repeat,
+        shuffle: options.shuffle ?? baseState.shuffle === true,
+        repeat: baseState.repeat ?? 0,
         queueOpen: false,
       };
+      setNativeAutonav(false);
       emit();
-      if (options.shuffle === true && state.shuffle !== true) originalToggleShuffle();
+      const seed = playable.at(-1)?.videoId;
+      if (seed) void extendFrom(seed);
       return loadIndex(index, false);
     },
     playContextIndex(index: number) {
@@ -225,9 +331,9 @@ export const installPlaybackContext = (
     },
     getPlaybackContext: () => context,
     subscribePlaybackContext(listener: (value: PlaybackContext | null) => void) {
-      listeners.add(listener);
+      contextListeners.add(listener);
       listener(context);
-      return () => listeners.delete(listener);
+      return () => contextListeners.delete(listener);
     },
     closeContextQueue() {
       if (!context?.queueOpen) return;
@@ -237,16 +343,26 @@ export const installPlaybackContext = (
     clearPlaybackContext() {
       replace(null);
     },
+    getState() {
+      return presentedState(originalGetState());
+    },
+    subscribe(listener: (state: MusicState) => void) {
+      stateListeners.add(listener);
+      listener(presentedState(originalGetState()));
+      return () => stateListeners.delete(listener);
+    },
     openSearchResult(item: SearchResultItem) {
       replace(null);
       return originalOpenSearchResult(item);
     },
     next() {
       if (context) {
-        advance(false);
+        void advance(false);
         return;
       }
-      originalNext();
+      engine.clearPlaybackContext?.();
+      const api = playerApi();
+      if (api?.nextVideo) api.nextVideo();
     },
     previous() {
       if (context) {
@@ -255,20 +371,40 @@ export const installPlaybackContext = (
       }
       originalPrevious();
     },
+    seek(seconds: number) {
+      if (!Number.isFinite(seconds)) return;
+      const target = Math.max(0, seconds);
+      endedVideoId = '';
+      const api = playerApi();
+      if (api?.seekTo) {
+        // Do not clamp against cached state.duration. Right after a track change
+        // that value can belong to the previous song and causes a visible snap back.
+        api.seekTo(target);
+        engine.refresh();
+        return;
+      }
+      originalSeek(target);
+    },
     toggleShuffle() {
       if (!context) {
-        originalToggleShuffle();
+        engine.clearPlaybackContext?.();
+        const button = document.querySelector<HTMLElement>(
+          'ytmusic-player-bar #shuffle-button, ytmusic-player-bar .shuffle',
+        );
+        button?.click();
+        engine.refresh();
         return;
       }
       context = { ...context, shuffle: !context.shuffle };
       emit();
-      // Keep the hidden native control in sync so the existing player chrome
-      // still reflects the selected mode.
-      originalToggleShuffle();
     },
     cycleRepeat() {
       if (!context) {
-        originalCycleRepeat();
+        const button = document.querySelector<HTMLElement>(
+          'ytmusic-player-bar #repeat-button, ytmusic-player-bar .repeat',
+        );
+        button?.click();
+        engine.refresh();
         return;
       }
       context = {
@@ -276,11 +412,14 @@ export const installPlaybackContext = (
         repeat: ((context.repeat + 1) % 3) as 0 | 1 | 2,
       };
       emit();
-      originalCycleRepeat();
     },
     openQueue() {
       if (!context) {
-        originalOpenQueue();
+        const tab = document.querySelector<HTMLElement>(
+          '#tabsContent > .tab-header:nth-of-type(1)',
+        );
+        tab?.click();
+        engine.refresh();
         return;
       }
       context = { ...context, queueOpen: !context.queueOpen };
@@ -289,7 +428,8 @@ export const installPlaybackContext = (
     dispose() {
       stateUnsubscribe();
       document.removeEventListener('ended', onEnded, true);
-      listeners.clear();
+      contextListeners.clear();
+      stateListeners.clear();
       replace(null);
       originalDispose();
     },
