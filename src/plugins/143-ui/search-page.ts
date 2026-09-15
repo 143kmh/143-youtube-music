@@ -191,8 +191,6 @@ const variantLoadQueries = (query: string) => {
     add(`${base} 8d`, `${base} 8d audio`, `${base} 8d version`);
   }
 
-  // Search ranking changes with small context hints; these are intentionally
-  // loaded only after the user opens “See all”, never during the normal search.
   for (const suffix of ['audio', 'version', 'edit', 'music', 'youtube'])
     add(`${query} ${suffix}`);
   for (let year = new Date().getFullYear(); year >= 2018; year--)
@@ -339,10 +337,14 @@ export const mountSearchPage = (
     document.documentElement.classList.toggle('ui143-search-open', visible);
   };
 
-  const clear = () => {
+  const stopVariantLoading = () => {
     variantViewRevision++;
     variantObserver?.disconnect();
     variantObserver = null;
+  };
+
+  const clear = () => {
+    stopVariantLoading();
     content.replaceChildren();
   };
 
@@ -779,6 +781,7 @@ export const mountSearchPage = (
 
     const allItems: SearchResultItem[] = [];
     const seen = new Set<string>();
+    const sentinel = document.createElement('div');
 
     const appendItems = (items: readonly SearchResultItem[]) => {
       const additions = items.filter((item) => {
@@ -806,7 +809,8 @@ export const mountSearchPage = (
         title.textContent = item.title;
         copy.append(title, subtitle(item));
         row.append(copy);
-        list.append(row);
+        if (sentinel.isConnected) list.insertBefore(row, sentinel);
+        else list.append(row);
       }
       syncNowPlaying();
       return additions.length;
@@ -814,7 +818,6 @@ export const mountSearchPage = (
 
     appendItems(results.songs);
 
-    const sentinel = document.createElement('div');
     sentinel.textContent = 'Loading more…';
     sentinel.style.gridColumn = '1 / -1';
     sentinel.style.minHeight = '72px';
@@ -861,7 +864,10 @@ export const mountSearchPage = (
         variantObserver?.disconnect();
         sentinel.textContent = 'End of results';
         sentinel.style.opacity = '.55';
-      } else if (sentinel.getBoundingClientRect().top < root.getBoundingClientRect().bottom + 500) {
+      } else if (
+        sentinel.getBoundingClientRect().top <
+        root.getBoundingClientRect().bottom + 500
+      ) {
         void loadMore();
       }
     };
@@ -997,7 +1003,7 @@ export const mountSearchPage = (
     },
     close() {
       ++request;
-      clear();
+      stopVariantLoading();
       setVisible(false);
     },
     isOpen: () => !root.hidden,
