@@ -151,7 +151,7 @@
     "oxlint-tsgolint": "0.23.0",
     "ts-morph": "28.0.0",
     "typescript": "7.0.1-rc",
-    "utf-8-validate": "4.1.0",
+    "utf-8-validate": "6.0.6",
     "vite": "8.1.0",
     "vite-plugin-inspect": "11.4.1",
     "vite-plugin-resolve": "2.5.2",
