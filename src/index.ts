@@ -7,7 +7,6 @@ import {
   enhanceWebRequest,
   type BetterSession,
 } from '@jellybrick/electron-better-web-request';
-import { deepmerge } from 'deepmerge-ts';
 import {
   BrowserWindow,
   app,
@@ -23,23 +22,14 @@ import {
 import electronDebug from 'electron-debug';
 import is from 'electron-is';
 import unhandled from 'electron-unhandled';
-import electronUpdater from 'electron-updater';
-import { deepEqual } from 'fast-equals';
 import { parse } from 'node-html-parser';
 import { languageResources } from 'virtual:i18n';
-import { allPlugins, mainPlugins } from 'virtual:plugins';
 
 import * as config from '@/config';
 import { APPLICATION_NAME, loadI18n, setLanguage, t } from '@/i18n';
-import {
-  forceLoadMainPlugin,
-  forceUnloadMainPlugin,
-  getAllLoadedMainPlugins,
-  loadAllMainPlugins,
-} from '@/loader/main';
+import { loadAllMainPlugins } from '@/loader/main';
 import { refreshMenu, setApplicationMenu } from '@/menu';
 import musicPlayerCss from '@/music-player.css?inline';
-import { defaultAuthProxyConfig } from '@/plugins/auth-proxy-adapter/config';
 import { fileExists, injectCSS, injectCSSAsFile } from '@/plugins/utils/main';
 import { restart, setupAppControls } from '@/providers/app-controls';
 import {
@@ -52,22 +42,17 @@ import { setUpTray } from '@/tray';
 import { LoggerPrefix } from '@/utils';
 import { isTesting } from '@/utils/testing';
 
-import type { PluginConfig } from '@/types/plugins';
+const WINDOWS_APP_ID = 'com.143aimclub.music';
 
-// Catch errors and log them
 unhandled({
   logger: console.error,
   showDialog: false,
 });
 
-// Prevent window being garbage collected
-let mainWindow: Electron.BrowserWindow | null;
-electronUpdater.autoUpdater.autoDownload = false;
+let mainWindow: BrowserWindow | null;
 
 const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.exit();
-}
+if (!gotTheLock) app.exit();
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -97,226 +82,56 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'mailto', privileges: { standard: true } },
 ]);
 
-// Ozone platform hint: Required for Wayland support
 app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
-
-// SharedArrayBuffer: Required for downloader (@ffmpeg/core-mt)
-// OverlayScrollbar: Required for overlay scrollbars
-// UseOzonePlatform: Required for Wayland support
-// WaylandWindowDecorations: Required for Wayland decorations
 app.commandLine.appendSwitch(
   'enable-features',
   'OverlayScrollbar,SharedArrayBuffer,UseOzonePlatform,WaylandWindowDecorations',
 );
+app.commandLine.appendSwitch('disable-features', 'FluentScrollbar');
 
-// Disable Fluent Scrollbar (for OverlayScrollbar)
-const disabledFeatures = ['FluentScrollbar'];
-let disableHardwareAcceleration = config.get(
-  'options.disableHardwareAcceleration',
-);
-
-// Linux specific fixes
 if (is.linux()) {
-  // Stops chromium from launching its own MPRIS service
-  if (await config.plugins.isEnabled('shortcuts')) {
-    disabledFeatures.push('MediaSessionService');
-  }
-
-  // https://github.com/electron/electron/issues/15947
-  if (await config.plugins.isEnabled('transparent-player')) {
-    disableHardwareAcceleration = true;
-    app.commandLine.appendSwitch('enable-transparent-visuals');
-    app.commandLine.appendSwitch('enable-unsafe-swiftshader');
-  }
-
-  // Overrides WM_CLASS for X11 to correspond to icon filename
-  app.setName(
-    'com.github.th-ch.\u0079\u006f\u0075\u0074\u0075\u0062\u0065\u002d\u006d\u0075\u0073\u0069\u0063',
-  );
-  // for wayland
-  app.commandLine.appendSwitch(
-    'class',
-    'com.github.th-ch.\u0079\u006f\u0075\u0074\u0075\u0062\u0065\u002d\u006d\u0075\u0073\u0069\u0063',
-  );
+  app.setName(WINDOWS_APP_ID);
+  app.commandLine.appendSwitch('class', WINDOWS_APP_ID);
 }
 
-if (disableHardwareAcceleration) {
+if (config.get('options.disableHardwareAcceleration')) {
   if (is.dev()) console.log('Disabling hardware acceleration');
   app.disableHardwareAcceleration();
 }
 
-// Apply disabled features
-app.commandLine.appendSwitch('disable-features', disabledFeatures.join(','));
-
-if (config.get('options.proxy')) {
-  const authProxyEnabled = await config.plugins.isEnabled('auth-proxy-adapter');
-
-  let proxyToUse = '';
-  if (authProxyEnabled) {
-    // Use proxy from Auth-Proxy-Adapter plugin
-    const authProxyConfig = deepmerge(
-      defaultAuthProxyConfig,
-      config.get('plugins.auth-proxy-adapter') ?? {},
-    ) as typeof defaultAuthProxyConfig;
-
-    const { hostname, port } = authProxyConfig;
-    proxyToUse = `socks5://${hostname}:${port}`;
-  } else if (config.get('options.proxy')) {
-    // Use global proxy settings
-    proxyToUse = config.get('options.proxy');
-  }
-  console.log(LoggerPrefix, `Using proxy: ${proxyToUse}`);
-  app.commandLine.appendSwitch('proxy-server', proxyToUse);
+const proxy = config.get('options.proxy');
+if (proxy) {
+  console.log(LoggerPrefix, `Using proxy: ${proxy}`);
+  app.commandLine.appendSwitch('proxy-server', proxy);
 }
 
-// Adds debug features like hotkeys for triggering dev tools and reload
-electronDebug({
-  showDevTools: false, // Disable automatic devTools on new window
-});
+electronDebug({ showDevTools: false });
 
 let icon = 'assets/icon.png';
 if (process.platform === 'win32') {
-  icon = 'assets/generated/icons/win/icon.ico';
+  icon = 'assets/generated/icons/win/icon.png';
 } else if (process.platform === 'darwin') {
   icon = 'assets/generated/icons/mac/icon.icns';
 }
 
 function onClosed() {
-  // Dereference the window
-  // For multiple Windows store them in an array
   mainWindow = null;
 }
 
-ipcMain.handle('peard:get-main-plugin-names', async () =>
-  Object.keys(await mainPlugins()),
-);
-
-const initHook = async (win: BrowserWindow) => {
-  const allPluginStubs = await allPlugins();
-
-  ipcMain.handle(
-    'peard:get-config',
-    (_, id: string) =>
-      deepmerge(
-        allPluginStubs[id].config ?? { enabled: false },
-        config.get(`plugins.${id}`) ?? {},
-      ) as PluginConfig,
-  );
-  ipcMain.handle('peard:set-config', (_, name: string, obj: object) =>
-    config.setPartial(`plugins.${name}`, obj, allPluginStubs[name].config),
-  );
-
-  config.watch((newValue, oldValue) => {
-    const newPluginConfigList = (newValue?.plugins ?? {}) as Record<
-      string,
-      unknown
-    >;
-    const oldPluginConfigList = (oldValue?.plugins ?? {}) as Record<
-      string,
-      unknown
-    >;
-
-    Object.entries(newPluginConfigList).forEach(([id, newPluginConfig]) => {
-      const isEqual = deepEqual(oldPluginConfigList[id], newPluginConfig);
-
-      if (!isEqual) {
-        const oldConfig = oldPluginConfigList[id] as PluginConfig;
-        const config = deepmerge(
-          allPluginStubs[id].config ?? { enabled: false },
-          newPluginConfig ?? {},
-        ) as PluginConfig;
-
-        if (config.enabled !== oldConfig?.enabled) {
-          if (config.enabled) {
-            win.webContents.send('plugin:enable', id);
-            ipcMain.emit('plugin:enable', id);
-            forceLoadMainPlugin(id, win);
-          } else {
-            win.webContents.send('plugin:unload', id);
-            ipcMain.emit('plugin:unload', id);
-            forceUnloadMainPlugin(id, win);
-          }
-
-          if (allPluginStubs[id]?.restartNeeded) {
-            showNeedToRestartDialog(id);
-          }
-        }
-
-        const mainPlugin = getAllLoadedMainPlugins()[id];
-        if (mainPlugin) {
-          if (config.enabled && typeof mainPlugin.backend !== 'function') {
-            mainPlugin.backend?.onConfigChange?.call(
-              mainPlugin.backend,
-              config,
-            );
-          }
-        }
-
-        win.webContents.send('config-changed', id, config);
-      }
-    });
-  });
-};
-
-const showNeedToRestartDialog = async (id: string) => {
-  const plugin = (await allPlugins())[id];
-
-  const dialogOptions: Electron.MessageBoxOptions = {
-    type: 'info',
-    buttons: [
-      t('main.dialog.need-to-restart.buttons.restart-now'),
-      t('main.dialog.need-to-restart.buttons.later'),
-    ],
-    title: t('main.dialog.need-to-restart.title'),
-    message: t('main.dialog.need-to-restart.message', {
-      pluginName: plugin?.name?.() ?? id,
-    }),
-    detail: t('main.dialog.need-to-restart.detail', {
-      pluginName: plugin?.name?.() ?? id,
-    }),
-    defaultId: 0,
-    cancelId: 1,
-  };
-
-  let dialogPromise: Promise<Electron.MessageBoxReturnValue>;
-  if (mainWindow) {
-    dialogPromise = dialog.showMessageBox(mainWindow, dialogOptions);
-  } else {
-    dialogPromise = dialog.showMessageBox(dialogOptions);
-  }
-
-  dialogPromise.then((dialogOutput) => {
-    switch (dialogOutput.response) {
-      case 0: {
-        restart();
-        break;
-      }
-
-      // Ignore
-      default: {
-        break;
-      }
-    }
-  });
-};
-
 function initTheme(win: BrowserWindow) {
   injectCSS(win.webContents, musicPlayerCss);
-  // Load user CSS
+
   const themes: string[] = config.get('options.themes');
   if (Array.isArray(themes)) {
     for (const cssFile of themes) {
       fileExists(
         cssFile,
-        () => {
-          injectCSSAsFile(win.webContents, cssFile);
-        },
-        () => {
+        () => injectCSSAsFile(win.webContents, cssFile),
+        () =>
           console.warn(
             LoggerPrefix,
             t('main.console.theme.css-file-not-found', { cssFile }),
-          );
-        },
+          ),
       );
     }
   }
@@ -333,8 +148,6 @@ async function createMainWindow() {
   const windowSize = config.get('window-size');
   const windowMaximized = config.get('window-maximized');
   const windowPosition: Electron.Point = config.get('window-position');
-  const useInlineMenu = await config.plugins.isEnabled('in-app-menu');
-  const use143Frame = !is.macOS() && await config.plugins.isEnabled('143-ui');
 
   const defaultTitleBarOverlayOptions: Electron.TitleBarOverlay = {
     color: '#00000000',
@@ -342,30 +155,20 @@ async function createMainWindow() {
     height: 32,
   };
 
-  const decorations: Partial<BrowserWindowConstructorOptions> = {
-    frame: !is.macOS() && !useInlineMenu,
-    titleBarOverlay: defaultTitleBarOverlayOptions,
-    titleBarStyle: useInlineMenu
-      ? 'hidden'
-      : is.macOS()
-        ? 'hiddenInset'
-        : 'default',
-    autoHideMenuBar: config.get('options.hideMenu'),
-  };
+  const decorations: Partial<BrowserWindowConstructorOptions> = is.macOS()
+    ? {
+        frame: true,
+        titleBarOverlay: defaultTitleBarOverlayOptions,
+        titleBarStyle: 'hiddenInset',
+        autoHideMenuBar: true,
+      }
+    : {
+        frame: false,
+        titleBarOverlay: false,
+        autoHideMenuBar: true,
+      };
 
-  // Note: on linux, for some weird reason, having these extra properties with 'frame: false' does not work
-  if (is.linux() && useInlineMenu) {
-    delete decorations.titleBarOverlay;
-    delete decorations.titleBarStyle;
-  }
-
-  if (use143Frame) {
-    decorations.frame = false;
-    decorations.titleBarOverlay = false;
-    delete decorations.titleBarStyle;
-  }
-
-  const electronWindowSettings: Electron.BrowserWindowConstructorOptions = {
+  const electronWindowSettings: BrowserWindowConstructorOptions = {
     icon,
     width: windowSize.width,
     height: windowSize.height,
@@ -379,8 +182,6 @@ async function createMainWindow() {
       ...(isTesting()
         ? undefined
         : {
-            // Sandbox is only enabled in tests for now
-            // See https://www.electronjs.org/docs/latest/tutorial/sandbox#preload-scripts
             sandbox: false,
           }),
     },
@@ -389,9 +190,7 @@ async function createMainWindow() {
 
   const win = new BrowserWindow(electronWindowSettings);
 
-  await initHook(win);
   initTheme(win);
-
   await loadAllMainPlugins(win);
 
   if (windowPosition) {
@@ -406,16 +205,12 @@ async function createMainWindow() {
     const scaledWidth = Math.floor(windowSize.width * scaleFactor);
     const scaledHeight = Math.floor(windowSize.height * scaleFactor);
 
-    const scaledX = windowX;
-    const scaledY = windowY;
-
     if (
-      scaledX + (scaledWidth / 2) < display.bounds.x - 8 || // Left
-      scaledX + (scaledWidth / 2) > display.bounds.x + display.bounds.width || // Right
-      scaledY < display.bounds.y - 8 || // Top
-      scaledY + (scaledHeight / 2) > display.bounds.y + display.bounds.height // Bottom
+      windowX + scaledWidth / 2 < display.bounds.x - 8 ||
+      windowX + scaledWidth / 2 > display.bounds.x + display.bounds.width ||
+      windowY < display.bounds.y - 8 ||
+      windowY + scaledHeight / 2 > display.bounds.y + display.bounds.height
     ) {
-      // Window is offscreen
       if (is.dev()) {
         console.warn(
           LoggerPrefix,
@@ -428,17 +223,12 @@ async function createMainWindow() {
       }
     } else {
       win.setSize(scaledWidth, scaledHeight);
-      win.setPosition(scaledX, scaledY);
+      win.setPosition(windowX, windowY);
     }
   }
 
-  if (windowMaximized) {
-    win.maximize();
-  }
-
-  if (config.get('options.alwaysOnTop')) {
-    win.setAlwaysOnTop(true);
-  }
+  if (windowMaximized) win.maximize();
+  if (config.get('options.alwaysOnTop')) win.setAlwaysOnTop(true);
 
   const urlToLoad = config.get('options.resumeOnStart')
     ? config.get('url')
@@ -446,16 +236,12 @@ async function createMainWindow() {
   win.on('closed', onClosed);
 
   win.on('move', () => {
-    if (win.isMaximized()) {
-      return;
-    }
-
+    if (win.isMaximized()) return;
     const [x, y] = win.getPosition();
     lateSave('window-position', { x, y });
   });
 
   let winWasMaximized: boolean;
-
   win.on('resize', () => {
     const [width, height] = win.getSize();
     const isMaximized = win.isMaximized();
@@ -464,28 +250,17 @@ async function createMainWindow() {
       winWasMaximized = isMaximized;
       config.set('window-maximized', isMaximized);
     }
-
-    if (isMaximized) {
-      return;
-    }
-
-    lateSave('window-size', {
-      width,
-      height,
-    });
+    if (isMaximized) return;
+    lateSave('window-size', { width, height });
   });
 
   const savedTimeouts: Record<string, NodeJS.Timeout | undefined> = {};
-
   function lateSave(
     key: string,
     value: unknown,
     fn: (key: string, value: unknown) => void = config.set,
   ) {
-    if (savedTimeouts[key]) {
-      clearTimeout(savedTimeouts[key]);
-    }
-
+    if (savedTimeouts[key]) clearTimeout(savedTimeouts[key]);
     savedTimeouts[key] = setTimeout(() => {
       fn(key, value);
       savedTimeouts[key] = undefined;
@@ -497,49 +272,31 @@ async function createMainWindow() {
   });
 
   win.once('ready-to-show', () => {
-    if (config.get('options.appVisible')) {
-      win.show();
-    }
+    if (config.get('options.appVisible')) win.show();
   });
 
   removeContentSecurityPolicy();
 
-  win.webContents.on('dom-ready', () => {
-    if (useInlineMenu && is.windows()) {
-      win.setTitleBarOverlay({
-        ...defaultTitleBarOverlayOptions,
-        height: Math.floor(
-          defaultTitleBarOverlayOptions.height! *
-            win.webContents.getZoomFactor(),
-        ),
-      });
-    }
-  });
   win.webContents.on('will-redirect', (event) => {
-    const url = URL.parse(event.url);
-
-    // Workarounds for regions where YTM is restricted
+    const target = URL.parse(event.url);
     if (
-      url &&
-      url.hostname.endsWith('\u0079\u006f\u0075\u0074\u0075\u0062\u0065.com') &&
-      url.pathname === '/premium'
+      target &&
+      target.hostname.endsWith('youtube.com') &&
+      target.pathname === '/premium'
     ) {
       event.preventDefault();
-
       win.webContents.loadURL(
-        'https://accounts.google.com/ServiceLogin?ltmpl=music&service=\u0079\u006f\u0075\u0074\u0075\u0062\u0065&continue=https%3A%2F%2Fwww.\u0079\u006f\u0075\u0074\u0075\u0062\u0065.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3Dhttps%253A%252F%252Fmusic.\u0079\u006f\u0075\u0074\u0075\u0062\u0065.com%252F',
+        'https://accounts.google.com/ServiceLogin?ltmpl=music&service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F',
       );
     }
   });
 
   win.webContents.loadURL(urlToLoad);
-
   return win;
 }
 
 app.once('browser-window-created', (_event, win) => {
   if (config.get('options.overrideUserAgent')) {
-    // User agents are from https://developers.whatismybrowser.com/useragents/explore/
     const originalUserAgent = win.webContents.userAgent;
     const userAgents = {
       mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.152 Safari/537.36',
@@ -559,14 +316,12 @@ app.once('browser-window-created', (_event, win) => {
     app.userAgentFallback = updatedUserAgent;
 
     win.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
-      // This will only happen if login failed, and "retry" was pressed
       if (
         win.webContents.getURL().startsWith('https://accounts.google.com') &&
         details.url.startsWith('https://accounts.google.com')
       ) {
         details.requestHeaders['User-Agent'] = originalUserAgent;
       }
-
       cb({ requestHeaders: details.requestHeaders });
     });
   }
@@ -598,28 +353,21 @@ app.once('browser-window-created', (_event, win) => {
         null,
         '\t',
       );
-      if (is.dev()) {
-        console.log(log);
-      }
+      if (is.dev()) console.log(log);
 
       if (
         errorCode !== -3 &&
-        // Workaround for #2435
         !URL.parse(validatedURL)?.hostname?.includes('doubleclick.net')
       ) {
-        // -3 is a false positive
         win.webContents.send('log', log);
         win.webContents.loadFile(ErrorHtmlAsset);
       }
     },
   );
 
-  win.webContents.on('will-prevent-unload', (event) => {
-    event.preventDefault();
-  });
+  win.webContents.on('will-prevent-unload', (event) => event.preventDefault());
 
   const customWindowTitle = config.get('options.customWindowTitle');
-
   if (customWindowTitle) {
     win.on('page-title-updated', (event) => {
       event.preventDefault();
@@ -629,22 +377,13 @@ app.once('browser-window-created', (_event, win) => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-
-  // Unregister all shortcuts.
+  if (process.platform !== 'darwin') app.quit();
   globalShortcut.unregisterAll();
 });
 
 app.on('activate', async () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
-  if (mainWindow === null) {
-    mainWindow = await createMainWindow();
-  } else if (!mainWindow.isVisible()) {
-    mainWindow.show();
-  }
+  if (mainWindow === null) mainWindow = await createMainWindow();
+  else if (!mainWindow.isVisible()) mainWindow.show();
 });
 
 const getDefaultLocale = async (locale: string) =>
@@ -653,9 +392,7 @@ const getDefaultLocale = async (locale: string) =>
 app.whenReady().then(async () => {
   if (!config.get('options.language')) {
     const locale = await getDefaultLocale(app.getLocale());
-    if (locale) {
-      config.set('options.language', locale);
-    }
+    if (locale) config.set('options.language', locale);
   }
 
   await loadI18n().then(async () => {
@@ -664,7 +401,6 @@ app.whenReady().then(async () => {
   });
 
   if (config.get('options.autoResetAppCache')) {
-    // Clear cache after 20s
     const clearCacheTimeout = setTimeout(() => {
       if (is.dev()) {
         console.log(
@@ -672,20 +408,16 @@ app.whenReady().then(async () => {
           t('main.console.when-ready.clearing-cache-after-20s'),
         );
       }
-
       session.defaultSession.clearCache();
       clearTimeout(clearCacheTimeout);
     }, 20_000);
   }
 
-  // Register appID on windows
   if (is.windows()) {
-    const appID =
-      'com.github.th-ch.\u0079\u006f\u0075\u0074\u0075\u0062\u0065\u002d\u006d\u0075\u0073\u0069\u0063';
-    app.setAppUserModelId(appID);
+    app.setAppUserModelId(WINDOWS_APP_ID);
     const appLocation = process.execPath;
     const appData = app.getPath('appData');
-    // Check shortcut validity if not in dev mode / running portable app
+
     if (
       !is.dev() &&
       !appLocation.startsWith(path.join(appData, '..', 'Local', 'Temp'))
@@ -699,25 +431,24 @@ app.whenReady().then(async () => {
         `${APPLICATION_NAME}.lnk`,
       );
       try {
-        // Check if shortcut is registered and valid
-        const shortcutDetails = shell.readShortcutLink(shortcutPath); // Throw error if it doesn't exist yet
+        const shortcutDetails = shell.readShortcutLink(shortcutPath);
         if (
           shortcutDetails.target !== appLocation ||
-          shortcutDetails.appUserModelId !== appID
+          shortcutDetails.appUserModelId !== WINDOWS_APP_ID
         ) {
-          // oxlint-disable-next-line typescript/only-throw-error
-          throw 'needUpdate';
+          throw new Error('needUpdate');
         }
       } catch (error) {
-        // If not valid -> Register shortcut
         shell.writeShortcutLink(
           shortcutPath,
-          error === 'needUpdate' ? 'update' : 'create',
+          error instanceof Error && error.message === 'needUpdate'
+            ? 'update'
+            : 'create',
           {
             target: appLocation,
             cwd: path.dirname(appLocation),
-            description: `${APPLICATION_NAME} Desktop App - including custom plugins`,
-            appUserModelId: appID,
+            description: `${APPLICATION_NAME} Desktop App`,
+            appUserModelId: WINDOWS_APP_ID,
           },
         );
       }
@@ -725,10 +456,7 @@ app.whenReady().then(async () => {
   }
 
   ipcMain.on('get-renderer-script', (event) => {
-    // Inject index.html file as string using insertAdjacentHTML
-    // In dev mode, get string from process.env.VITE_DEV_SERVER_URL, else use fs.readFileSync
     if (is.dev() && process.env.ELECTRON_RENDERER_URL) {
-      // HACK: to make vite work with electron renderer (supports hot reload)
       event.returnValue = [
         null,
         `
@@ -776,7 +504,6 @@ app.whenReady().then(async () => {
   await setApplicationMenu(mainWindow);
   await refreshMenu(mainWindow);
   setUpTray(app, mainWindow);
-
   setupProtocolHandler(mainWindow);
 
   app.on('second-instance', (_, commandLine) => {
@@ -791,97 +518,22 @@ app.whenReady().then(async () => {
           t('main.console.second-instance.receive-command', { command }),
         );
       }
-
-      const splited = decodeURIComponent(command).split(' ');
-
-      handleProtocol(splited.shift()!, ...splited);
+      const split = decodeURIComponent(command).split(' ');
+      handleProtocol(split.shift()!, ...split);
       return;
     }
 
-    if (!mainWindow) {
-      return;
-    }
-
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore();
-    }
-
-    if (!mainWindow.isVisible()) {
-      mainWindow.show();
-    }
-
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();
   });
 
-  // Autostart at login
   app.setLoginItemSettings({
     openAtLogin: config.get('options.startAtLogin'),
   });
 
-  if (!is.dev() && config.get('options.autoUpdates')) {
-    const updateTimeout = setTimeout(() => {
-      electronUpdater.autoUpdater.checkForUpdatesAndNotify();
-      clearTimeout(updateTimeout);
-    }, 2000);
-    electronUpdater.autoUpdater.on('update-available', () => {
-      const downloadLink =
-        'https://github.com/pear-devs/pear-desktop/releases/latest';
-      const dialogOptions: Electron.MessageBoxOptions = {
-        type: 'info',
-        buttons: [
-          t('main.dialog.update-available.buttons.ok'),
-          t('main.dialog.update-available.buttons.download'),
-          t('main.dialog.update-available.buttons.disable'),
-        ],
-        title: t('main.dialog.update-available.title'),
-        message: t('main.dialog.update-available.message'),
-        detail: t('main.dialog.update-available.detail', { downloadLink }),
-        defaultId: 1,
-        cancelId: 0,
-      };
-
-      let dialogPromise: Promise<Electron.MessageBoxReturnValue>;
-      if (mainWindow) {
-        dialogPromise = dialog.showMessageBox(mainWindow, dialogOptions);
-      } else {
-        dialogPromise = dialog.showMessageBox(dialogOptions);
-      }
-
-      dialogPromise.then((dialogOutput) => {
-        switch (dialogOutput.response) {
-          // Download
-          case 1: {
-            shell.openExternal(downloadLink);
-            break;
-          }
-
-          // Disable updates
-          case 2: {
-            config.set('options.autoUpdates', false);
-            break;
-          }
-
-          case 0: {
-            break;
-          }
-        }
-      });
-    });
-  }
-
-  if (config.get('options.hideMenu') && !config.get('options.hideMenuWarned')) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: t('main.dialog.hide-menu-enabled.title'),
-      message: t('main.dialog.hide-menu-enabled.message'),
-    });
-    config.set('options.hideMenuWarned', true);
-  }
-
-  // Optimized for Mac OS X
-  if (is.macOS() && !config.get('options.appVisible')) {
-    app.dock?.hide();
-  }
+  if (is.macOS() && !config.get('options.appVisible')) app.dock?.hide();
 
   let forceQuit = false;
   app.on('before-quit', () => {
@@ -890,7 +542,6 @@ app.whenReady().then(async () => {
 
   if (is.macOS() || config.get('options.tray')) {
     mainWindow.on('close', (event) => {
-      // Hide the window instead of quitting (quit is available in tray options)
       if (!forceQuit) {
         event.preventDefault();
         mainWindow!.hide();
@@ -926,35 +577,20 @@ function showUnresponsiveDialog(
       cancelId: 0,
     })
     .then((result) => {
-      switch (result.response) {
-        case 1: {
-          restart();
-          break;
-        }
-
-        case 2: {
-          app.quit();
-          break;
-        }
-      }
+      if (result.response === 1) restart();
+      else if (result.response === 2) app.quit();
     });
 }
 
 function removeContentSecurityPolicy(
   betterSession: BetterSession = session.defaultSession as BetterSession,
 ) {
-  // Allows defining multiple "onHeadersReceived" listeners
-  // by enhancing the session.
-  // Some plugins (e.g. adblocker) also define a "onHeadersReceived" listener
   enhanceWebRequest(betterSession);
 
-  // Custom listener to tweak the content security policy
   betterSession.webRequest.onHeadersReceived((details, callback) => {
     details.responseHeaders ??= {};
 
-    // prettier-ignore
     if (URL.parse(details.url)?.protocol === 'https:') {
-      // Remove the content security policy
       delete details.responseHeaders['content-security-policy-report-only'];
       delete details.responseHeaders['Content-Security-Policy-Report-Only'];
       delete details.responseHeaders['content-security-policy'];
@@ -964,29 +600,24 @@ function removeContentSecurityPolicy(
         !details.responseHeaders['access-control-allow-origin'] &&
         !details.responseHeaders['Access-Control-Allow-Origin']
       ) {
-        details.responseHeaders['access-control-allow-origin'] = ['https://music.\u0079\u006f\u0075\u0074\u0075\u0062\u0065.com'];
+        details.responseHeaders['access-control-allow-origin'] = [
+          'https://music.youtube.com',
+        ];
       }
     }
 
     callback({ cancel: false, responseHeaders: details.responseHeaders });
   });
 
-  // When multiple listeners are defined, apply them all
-  betterSession.webRequest.setResolver(
-    'onHeadersReceived',
-    async (listeners) => {
-      return listeners.reduce(
-        async (accumulator, listener) => {
-          const acc = await accumulator;
-          if (acc.cancel) {
-            return acc;
-          }
-
-          const result = await listener.apply();
-          return { ...acc, ...result };
-        },
-        Promise.resolve({ cancel: false }),
-      );
-    },
+  betterSession.webRequest.setResolver('onHeadersReceived', async (listeners) =>
+    listeners.reduce(
+      async (accumulator, listener) => {
+        const acc = await accumulator;
+        if (acc.cancel) return acc;
+        const result = await listener.apply();
+        return { ...acc, ...result };
+      },
+      Promise.resolve({ cancel: false }),
+    ),
   );
 }
