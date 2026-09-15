@@ -12,8 +12,6 @@ const deepmerge = deepmergeCustom({
 
 export { defaultConfig } from './defaults';
 export * as features from './features';
-// Temporary compatibility namespace for retained inherited code.
-export * as plugins from './plugins';
 
 export const set = (key: string, value: unknown) => {
   store.set(key, value);
