@@ -21,7 +21,6 @@ type MusicWindow = Window & {
   yt?: { config_?: MusicConfig };
   ytcfg?: { data_?: MusicConfig };
   __YT143_FORCE_DIRECT_HQ__?: boolean;
-  __PEARD_FORCE_DIRECT_HQ__?: boolean;
 };
 
 type RendererState = {
@@ -61,8 +60,6 @@ export default createRenderer<RendererState, QualityConfig>({
     const musicWindow = window as MusicWindow;
     const active = isHighMode(this.config);
     musicWindow.__YT143_FORCE_DIRECT_HQ__ = active;
-    // Transitional alias until the injected source patch is moved to core/audio.
-    musicWindow.__PEARD_FORCE_DIRECT_HQ__ = active;
 
     this.syncPlayerProxy();
     this.restore?.();
@@ -104,7 +101,6 @@ export default createRenderer<RendererState, QualityConfig>({
         });
 
     ipc.on('app:audio:inspect', inspect);
-    ipc.on('peard:force-high-audio-quality:inspect', inspect);
   },
 
   syncPlayerProxy() {
@@ -151,7 +147,6 @@ export default createRenderer<RendererState, QualityConfig>({
   stop({ ipc }) {
     const musicWindow = window as MusicWindow;
     musicWindow.__YT143_FORCE_DIRECT_HQ__ = false;
-    musicWindow.__PEARD_FORCE_DIRECT_HQ__ = false;
     if (this.proxyTimer !== null) clearInterval(this.proxyTimer);
     this.proxyTimer = null;
     this.proxy = null;
@@ -162,6 +157,5 @@ export default createRenderer<RendererState, QualityConfig>({
     this.player = null;
     ipc.removeAllListeners('app:feature-config-changed');
     ipc.removeAllListeners('app:audio:inspect');
-    ipc.removeAllListeners('peard:force-high-audio-quality:inspect');
   },
 });
