@@ -1,5 +1,4 @@
 import { deepmerge } from 'deepmerge-ts';
-import { allPlugins } from 'virtual:plugins';
 
 import { restart } from '@/providers/app-controls';
 
@@ -7,97 +6,92 @@ import { store } from './store';
 
 import type { PluginConfig } from '@/types/plugins';
 
-const allowedPluginIds = new Set(['143-ui', 'force-high-audio-quality']);
+const featureDefaults: Record<string, PluginConfig> = {
+  '143-ui': { enabled: true },
+  'force-high-audio-quality': { enabled: false, quality: 'maximum' },
+};
 
-export function isAllowedPlugin(plugin: string) {
-  return allowedPluginIds.has(plugin);
+const featureIds = new Set(Object.keys(featureDefaults));
+
+export function isAllowedPlugin(feature: string) {
+  return featureIds.has(feature);
 }
 
 export function getPlugins() {
   return store.get('plugins') as Record<string, PluginConfig>;
 }
 
-export async function isEnabled(plugin: string) {
-  if (!isAllowedPlugin(plugin)) return false;
+export async function isEnabled(feature: string) {
+  if (!isAllowedPlugin(feature)) return false;
 
-  const pluginConfig = deepmerge(
-    (await allPlugins())[plugin]?.config ?? { enabled: false },
-    (store.get('plugins') as Record<string, PluginConfig>)[plugin] ?? {},
+  const featureConfig = deepmerge(
+    featureDefaults[feature],
+    (store.get('plugins') as Record<string, PluginConfig>)[feature] ?? {},
   );
-  return pluginConfig !== undefined && pluginConfig.enabled;
+  return featureConfig.enabled;
 }
 
 /**
- * Force the fork into a stock-YouTube-Music baseline by persisting every
- * upstream Pear plugin as disabled. Only the 143-owned features stay enabled.
+ * Remove inherited Pear feature state from persisted configuration. The two
+ * 143-owned modules are the only entries that remain for legacy compatibility.
  */
 export async function enforceAllowedPlugins() {
-  const plugins = store.get('plugins') as Record<string, PluginConfig>;
-  const next: Record<string, PluginConfig> = { ...plugins };
+  const stored = store.get('plugins') as Record<string, PluginConfig>;
+  const next: Record<string, PluginConfig> = {};
 
-  for (const id of Object.keys(await allPlugins())) {
-    if (isAllowedPlugin(id)) continue;
-    next[id] = {
-      ...(plugins[id] ?? { enabled: false }),
-      enabled: false,
-    };
+  for (const id of featureIds) {
+    next[id] = deepmerge(featureDefaults[id], stored[id] ?? {});
   }
 
   store.set('plugins', next);
 }
 
-/**
- * Set options for a plugin
- * @param plugin Plugin name
- * @param options Options to set
- * @param exclude Options to exclude from the options object
- */
 export function setOptions<T>(
-  plugin: string,
+  feature: string,
   options: T,
   exclude: string[] = ['enabled'],
 ) {
-  if (!isAllowedPlugin(plugin)) return;
+  if (!isAllowedPlugin(feature)) return;
 
   const plugins = store.get('plugins') as Record<string, T>;
-  // HACK: This is a workaround for preventing changed options from being overwritten
+  const nextOptions = { ...options } as T;
   exclude.forEach((key) => {
-    if (Object.prototype.hasOwnProperty.call(options, key)) {
-      delete options[key as keyof T];
+    if (Object.prototype.hasOwnProperty.call(nextOptions, key)) {
+      delete nextOptions[key as keyof T];
     }
   });
+
   store.set('plugins', {
     ...plugins,
-    [plugin]: {
-      ...plugins[plugin],
-      ...options,
+    [feature]: {
+      ...plugins[feature],
+      ...nextOptions,
     },
   });
 }
 
 export function setMenuOptions<T>(
-  plugin: string,
+  feature: string,
   options: T,
   exclude: string[] = ['enabled'],
 ) {
-  if (!isAllowedPlugin(plugin)) return;
+  if (!isAllowedPlugin(feature)) return;
 
-  setOptions(plugin, options, exclude);
-  if (store.get('options.restartOnConfigChanges')) {
-    restart();
-  }
+  setOptions(feature, options, exclude);
+  if (store.get('options.restartOnConfigChanges')) restart();
 }
 
-export function getOptions<T>(plugin: string): T {
-  return (store.get('plugins') as Record<string, T>)[plugin];
+export function getOptions<T>(feature: string): T {
+  const stored = (store.get('plugins') as Record<string, T>)[feature];
+  return stored;
 }
 
-export function enable(plugin: string) {
-  if (!isAllowedPlugin(plugin)) return;
-  setMenuOptions(plugin, { enabled: true }, []);
+export function enable(feature: string) {
+  if (!isAllowedPlugin(feature)) return;
+  setMenuOptions(feature, { enabled: true }, []);
 }
 
-export function disable(plugin: string) {
-  if (!isAllowedPlugin(plugin)) return;
-  setMenuOptions(plugin, { enabled: false }, []);
+export function disable(feature: string) {
+  if (!isAllowedPlugin(feature)) return;
+  setMenuOptions(feature, { enabled: false }, []);
 }
