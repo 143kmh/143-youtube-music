@@ -15,12 +15,15 @@ const featureDefaults: Record<string, FeatureConfig> = {
 
 const featureIds = new Set(Object.keys(featureDefaults));
 
+const readFeatureState = () =>
+  (store.get('features') ?? {}) as Record<string, FeatureConfig>;
+
 export function isAllowedFeature(feature: string) {
   return featureIds.has(feature);
 }
 
 export function getFeatures() {
-  return store.get('plugins') as Record<string, FeatureConfig>;
+  return readFeatureState();
 }
 
 export async function isEnabled(feature: string) {
@@ -28,25 +31,31 @@ export async function isEnabled(feature: string) {
 
   const featureConfig = deepmerge(
     featureDefaults[feature],
-    (store.get('plugins') as Record<string, FeatureConfig>)[feature] ?? {},
+    readFeatureState()[feature] ?? {},
   );
   return featureConfig.enabled;
 }
 
 /**
- * Keep only 143-owned feature state in persisted configuration. The underlying
- * `plugins` store key is retained temporarily so existing installs keep their
- * audio settings while the runtime itself uses feature terminology.
+ * Keep only 143-owned feature state and migrate the legacy `plugins` key once.
+ * New feature state wins if both keys exist, while old installs retain their
+ * audio/UI settings on the first launch after the migration.
  */
 export async function enforceAllowedFeatures() {
-  const stored = store.get('plugins') as Record<string, FeatureConfig>;
+  const stored = readFeatureState();
+  const legacy = (store.get('plugins') ?? {}) as Record<string, FeatureConfig>;
   const next: Record<string, FeatureConfig> = {};
 
   for (const id of featureIds) {
-    next[id] = deepmerge(featureDefaults[id], stored[id] ?? {});
+    next[id] = deepmerge(
+      featureDefaults[id],
+      legacy[id] ?? {},
+      stored[id] ?? {},
+    );
   }
 
-  store.set('plugins', next);
+  store.set('features', next);
+  store.delete('plugins');
 }
 
 export function setOptions<T>(
@@ -56,7 +65,7 @@ export function setOptions<T>(
 ) {
   if (!isAllowedFeature(feature)) return;
 
-  const features = store.get('plugins') as Record<string, T>;
+  const features = readFeatureState() as Record<string, T>;
   const nextOptions = { ...options } as T;
   exclude.forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(nextOptions, key)) {
@@ -64,7 +73,7 @@ export function setOptions<T>(
     }
   });
 
-  store.set('plugins', {
+  store.set('features', {
     ...features,
     [feature]: {
       ...features[feature],
@@ -85,7 +94,7 @@ export function setMenuOptions<T>(
 }
 
 export function getOptions<T>(feature: string): T {
-  return (store.get('plugins') as Record<string, T>)[feature];
+  return readFeatureState()[feature] as T;
 }
 
 export function enable(feature: string) {
