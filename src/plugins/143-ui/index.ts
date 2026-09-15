@@ -8,6 +8,7 @@ import { mountArtistPage, type ArtistPageController } from './artist-page';
 import artistPageStyle from './artist-page.css?inline';
 import { installCatalogPolish } from './catalog-polish';
 import { startDesktop } from './desktop';
+import { mountDiscordPresenceBridge } from './discord-presence-renderer';
 import { mountInteractions } from './interactions';
 import interactionStyle from './interactions.css?inline';
 import { attachKaraokePlayer, startKaraoke, stopKaraoke } from './karaoke';
@@ -391,6 +392,7 @@ export default createPlugin({
     albumPageStyleSheet: null as CSSStyleSheet | null,
     settingsCleanup: null as (() => void) | null,
     playerCleanup: null as (() => void) | null,
+    discordPresenceCleanup: null as (() => void) | null,
     searchPage: null as SearchPageController | null,
     artistPage: null as ArtistPageController | null,
     albumPage: null as AlbumPageController | null,
@@ -441,6 +443,8 @@ export default createPlugin({
       const engine = installPlaybackContext(playlistEngine);
       this.engine = engine;
       engine.start();
+      this.discordPresenceCleanup?.();
+      this.discordPresenceCleanup = mountDiscordPresenceBridge(engine, ctx.ipc);
 
       const albumPage = mountAlbumPage(engine);
       this.albumPage = albumPage;
@@ -494,6 +498,8 @@ export default createPlugin({
       stopKaraoke();
       this.settingsCleanup?.();
       this.settingsCleanup = null;
+      this.discordPresenceCleanup?.();
+      this.discordPresenceCleanup = null;
       this.interactionCleanup?.();
       this.interactionCleanup = null;
       this.searchPage?.dispose();
