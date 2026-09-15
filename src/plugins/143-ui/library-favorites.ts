@@ -96,6 +96,14 @@ const findRenderer = (root: unknown, keys: readonly string[]) => {
   return found;
 };
 
+const explicitBoolean = (root: UnknownRecord | null, keys: readonly string[]) => {
+  if (!root) return null;
+  for (const key of keys) {
+    if (typeof root[key] === 'boolean') return root[key] as boolean;
+  }
+  return null;
+};
+
 const findArtistState = (
   root: unknown,
   fallbackBrowseId: string,
@@ -107,14 +115,13 @@ const findArtistState = (
   const channelId =
     findStringByKey(renderer ?? root, ['channelId', 'channelID']) ||
     (fallbackBrowseId.startsWith('UC') ? fallbackBrowseId : '');
-  const raw = renderer ?? {};
-  const strings = collectStrings(raw).join(' ').toLocaleLowerCase();
-  const saved =
-    raw.subscribed === true ||
-    raw.isSubscribed === true ||
-    raw.isToggled === true ||
-    /unsubscribe|subscribed|following|вы подписаны|підписан/iu.test(strings);
-  return { saved, channelId };
+  const explicit = explicitBoolean(renderer, [
+    'subscribed',
+    'isSubscribed',
+    'isToggled',
+    'isSelected',
+  ]);
+  return { saved: explicit ?? false, channelId };
 };
 
 const findPlaylistId = (root: unknown) => {
@@ -182,15 +189,16 @@ const findAlbumState = (root: unknown): AlbumLibraryState => {
   visit(root);
 
   const scope = toggle ?? root;
-  const strings = collectStrings(scope).join(' ').toLocaleLowerCase();
-  const saved =
-    Boolean(toggle?.isToggled) ||
-    Boolean(toggle?.isSelected) ||
-    Boolean(toggle?.isChecked) ||
-    /library_saved|remove from library|saved to library|в библиотеке|у бібліотеці/iu.test(
-      strings,
-    );
-  return { saved, playlistId: findPlaylistId(scope) || findPlaylistId(root) };
+  const explicit = explicitBoolean(toggle, [
+    'isToggled',
+    'isSelected',
+    'isChecked',
+    'toggled',
+  ]);
+  return {
+    saved: explicit ?? false,
+    playlistId: findPlaylistId(scope) || findPlaylistId(root),
+  };
 };
 
 const validateMutation = (raw: unknown) => {
