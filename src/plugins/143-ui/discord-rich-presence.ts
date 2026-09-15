@@ -48,7 +48,10 @@ const normalizeSettings = (
   clearOnPause: Boolean(value.clearOnPause),
   pauseTimeoutMinutes: Math.max(
     0,
-    Math.min(1440, Number.isFinite(value.pauseTimeoutMinutes) ? value.pauseTimeoutMinutes : 10),
+    Math.min(
+      1440,
+      Number.isFinite(value.pauseTimeoutMinutes) ? value.pauseTimeoutMinutes : 10,
+    ),
   ),
   playButton: Boolean(value.playButton),
 });
@@ -129,7 +132,10 @@ export class DiscordRichPresence {
       this.pauseStartedAt = Date.now();
     }
 
-    if (!this.settings.enabled || !validApplicationId(this.settings.applicationId))
+    if (
+      !this.settings.enabled ||
+      !validApplicationId(this.settings.applicationId)
+    )
       return;
 
     if (!this.ready) {
@@ -199,7 +205,10 @@ export class DiscordRichPresence {
       this.connecting = false;
       this.status = 'disconnected';
       this.destroyClient();
-      if (this.settings.enabled && validApplicationId(this.settings.applicationId))
+      if (
+        this.settings.enabled &&
+        validApplicationId(this.settings.applicationId)
+      )
         this.createClient(this.settings.applicationId);
       this.scheduleReconnect();
     });
@@ -239,7 +248,9 @@ export class DiscordRichPresence {
       details: cleanText(track.title, 'Unknown track'),
       state: cleanText(track.artist, 'Unknown artist'),
       largeImageKey: track.artwork || undefined,
-      largeImageText: track.playing ? '143 Music' : 'Paused · 143 Music',
+      largeImageText: track.playing
+        ? 'YouTube Music'
+        : 'Paused · YouTube Music',
     };
 
     if (this.settings.playButton && track.id) {
