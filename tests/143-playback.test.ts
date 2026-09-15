@@ -1,16 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { Window } from 'happy-dom';
-import { createYouTubeMusicAdapter } from '../src/plugins/143-ui/youtube-music';
-import { installBrowseCatalog } from '../src/plugins/143-ui/youtube-music-catalog';
-import { installPlaylistCatalog } from '../src/plugins/143-ui/youtube-music-playlist';
-import { installPlaybackContext } from '../src/plugins/143-ui/playback-context';
-import { mountPlayer } from '../src/plugins/143-ui/player';
-import { mountInteractions } from '../src/plugins/143-ui/interactions';
+import { createYouTubeMusicAdapter } from '../src/features/143-ui/youtube-music';
+import { installBrowseCatalog } from '../src/features/143-ui/youtube-music-catalog';
+import { installPlaylistCatalog } from '../src/features/143-ui/youtube-music-playlist';
+import { installPlaybackContext } from '../src/features/143-ui/playback-context';
+import { mountPlayer } from '../src/features/143-ui/player';
+import { mountInteractions } from '../src/features/143-ui/interactions';
 import {
   playlistEditPayload,
   validatePlaylistEdit,
   PlaylistEditUnconfirmedError,
-} from '../src/plugins/143-ui/native-player';
+} from '../src/features/143-ui/native-player';
 
 let dom: Window;
 let engine: ReturnType<typeof installPlaybackContext>;
