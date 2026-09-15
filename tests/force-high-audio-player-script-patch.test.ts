@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { patchPlayerScript } from '../src/plugins/force-high-audio-quality/player-script-patch';
+import { patchPlayerScript } from '../src/features/force-high-audio-quality/player-script-patch';
 
 const makeSource = (key = 'K') => `
 class Pmt {
@@ -20,7 +20,7 @@ test('patches the playback initialize structurally and detects the current minif
   expect(result.patched).toBe(true);
   expect(result.policyKey).toBe('K');
   expect(result.source).toContain(
-    'globalThis.__PEARD_FORCE_DIRECT_HQ__===true',
+    'globalThis.__YT143_FORCE_DIRECT_HQ__===true',
   );
   expect(result.source).toContain('this.policy.K=false');
 });
@@ -53,7 +53,7 @@ test('fails open when the videoTrack structural marker is missing', () => {
 test('injects before the original initialize body', () => {
   const result = patchPlayerScript(makeSource());
   const injection = result.source.indexOf(
-    'globalThis.__PEARD_FORCE_DIRECT_HQ__',
+    'globalThis.__YT143_FORCE_DIRECT_HQ__',
   );
   const originalFirstStatement = result.source.indexOf('K=K||0');
   expect(injection).toBeGreaterThan(-1);
