@@ -1,4 +1,5 @@
 import type {
+  SearchArtistProfile,
   SearchCatalog,
   SearchResultItem,
   YouTubeMusicAdapter,
@@ -26,7 +27,8 @@ const image = (item: SearchResultItem, className: string) => {
 const subtitle = (item: SearchResultItem) => {
   const text = document.createElement('div');
   text.className = 'ui143-search-result-subtitle';
-  text.textContent = item.subtitle || item.kind[0].toUpperCase() + item.kind.slice(1);
+  text.textContent =
+    item.subtitle || item.kind[0].toUpperCase() + item.kind.slice(1);
   return text;
 };
 
@@ -85,31 +87,136 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     return button;
   };
 
-  const renderTop = (item: SearchResultItem) => {
+  const artistItem = (profile: SearchArtistProfile): SearchResultItem => ({
+    kind: 'artist',
+    title: profile.title,
+    subtitle: profile.monthlyListeners,
+    artwork: profile.avatar,
+    browseId: profile.browseId,
+  });
+
+  const renderArtistProfile = (profile: SearchArtistProfile) => {
     const section = document.createElement('section');
-    section.className = 'ui143-search-top';
-    const heading = document.createElement('h2');
-    heading.textContent = 'Top result';
-    const card = resultButton(item, 'ui143-search-top-card');
-    card.append(image(item, 'ui143-search-top-art'));
+    section.className = 'ui143-search-featured-artist';
+
+    const card = resultButton(
+      artistItem(profile),
+      'ui143-search-featured-artist-card',
+    );
+
+    const banner = document.createElement('div');
+    banner.className = 'ui143-search-artist-banner';
+    if (profile.banner) {
+      const bannerImage = document.createElement('img');
+      bannerImage.src = profile.banner;
+      bannerImage.alt = '';
+      bannerImage.loading = 'lazy';
+      banner.append(bannerImage);
+    }
+
+    const identity = document.createElement('div');
+    identity.className = 'ui143-search-artist-identity';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'ui143-search-artist-avatar';
+    if (profile.avatar) {
+      const avatarImage = document.createElement('img');
+      avatarImage.src = profile.avatar;
+      avatarImage.alt = '';
+      avatarImage.loading = 'lazy';
+      avatar.append(avatarImage);
+    } else {
+      const fallback = document.createElement('span');
+      fallback.textContent = '●';
+      avatar.append(fallback);
+    }
+
     const copy = document.createElement('div');
-    copy.className = 'ui143-search-top-copy';
+    copy.className = 'ui143-search-artist-copy';
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'ui143-search-artist-label';
+    eyebrow.textContent = 'Artist';
     const title = document.createElement('strong');
-    title.textContent = item.title;
-    copy.append(title, subtitle(item));
-    card.append(copy);
-    section.append(heading, card);
+    title.textContent = profile.title;
+
+    const metrics = document.createElement('div');
+    metrics.className = 'ui143-search-artist-metrics';
+    for (const value of [profile.subscribers, profile.monthlyListeners]) {
+      if (!value) continue;
+      const metric = document.createElement('span');
+      metric.textContent = value;
+      metrics.append(metric);
+    }
+
+    copy.append(eyebrow, title, metrics);
+    identity.append(avatar, copy);
+    card.append(banner, identity);
+    section.append(card);
     return section;
   };
 
-  const renderSongs = (items: readonly SearchResultItem[]) => {
+  const renderTopFallback = (item: SearchResultItem) => {
     const section = document.createElement('section');
-    section.className = 'ui143-search-songs';
+    section.className = 'ui143-search-featured-artist';
+    const card = resultButton(item, 'ui143-search-featured-artist-card is-fallback');
+    const identity = document.createElement('div');
+    identity.className = 'ui143-search-artist-identity ui143-search-artist-identity-fallback';
+    identity.append(image(item, 'ui143-search-artist-avatar'));
+    const copy = document.createElement('div');
+    copy.className = 'ui143-search-artist-copy';
+    const label = document.createElement('span');
+    label.className = 'ui143-search-artist-label';
+    label.textContent = 'Top result';
+    const title = document.createElement('strong');
+    title.textContent = item.title;
+    copy.append(label, title, subtitle(item));
+    identity.append(copy);
+    card.append(identity);
+    section.append(card);
+    return section;
+  };
+
+  const renderTopTracks = (items: readonly SearchResultItem[]) => {
+    const section = document.createElement('section');
+    section.className = 'ui143-search-top-tracks';
+    const heading = document.createElement('div');
+    heading.className = 'ui143-search-section-heading';
+    const title = document.createElement('h2');
+    title.textContent = 'Top tracks';
+    heading.append(title);
+
+    const list = document.createElement('div');
+    list.className = 'ui143-search-top-track-list';
+    for (const [index, item] of items.slice(0, 5).entries()) {
+      const row = resultButton(item, 'ui143-search-top-track');
+      const number = document.createElement('span');
+      number.className = 'ui143-search-track-number';
+      number.textContent = String(index + 1);
+      row.append(number, image(item, 'ui143-search-song-art'));
+      const copy = document.createElement('div');
+      copy.className = 'ui143-search-song-copy';
+      const name = document.createElement('strong');
+      name.textContent = item.title;
+      copy.append(name, subtitle(item));
+      row.append(copy);
+      list.append(row);
+    }
+    section.append(heading, list);
+    return section;
+  };
+
+  const renderSongs = (
+    titleText: string,
+    items: readonly SearchResultItem[],
+    limit = 10,
+  ) => {
+    const section = document.createElement('section');
+    section.className = 'ui143-search-section ui143-search-more-songs';
     const heading = document.createElement('h2');
-    heading.textContent = 'Songs';
+    heading.textContent = titleText;
     const list = document.createElement('div');
     list.className = 'ui143-search-song-list';
-    for (const item of items.slice(0, 8)) {
+    for (const item of items.slice(0, limit)) {
       const row = resultButton(item, 'ui143-search-song');
       row.append(image(item, 'ui143-search-song-art'));
       const copy = document.createElement('div');
@@ -172,17 +279,22 @@ export const mountSearchPage = (engine: YouTubeMusicAdapter) => {
     heading.append(eyebrow, title);
     content.append(heading);
 
-    if (results.topResult || results.songs.length) {
-      const hero = document.createElement('div');
-      hero.className = 'ui143-search-hero-grid';
-      if (results.topResult) hero.append(renderTop(results.topResult));
-      if (results.songs.length) hero.append(renderSongs(results.songs));
-      content.append(hero);
-    }
-    if (results.artists.length)
-      content.append(renderCards('Artists', results.artists, true));
+    const hero = document.createElement('div');
+    hero.className = 'ui143-search-hero-grid';
+    if (results.featuredArtist)
+      hero.append(renderArtistProfile(results.featuredArtist));
+    else if (results.topResult) hero.append(renderTopFallback(results.topResult));
+    if (results.songs.length) hero.append(renderTopTracks(results.songs));
+    content.append(hero);
+
     if (results.albums.length)
       content.append(renderCards('Albums', results.albums));
+
+    const moreSongs = results.songs.slice(5);
+    if (moreSongs.length) content.append(renderSongs('More tracks', moreSongs));
+
+    if (results.artists.length)
+      content.append(renderCards('Artists you may like', results.artists, true));
     if (results.playlists.length)
       content.append(renderCards('Playlists', results.playlists));
     if (results.videos.length)
