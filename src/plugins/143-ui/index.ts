@@ -208,6 +208,9 @@ const createShell = (engine: YouTubeMusicAdapter) => {
   searchForm.append(input);
   searchForm.addEventListener('submit', (event) => {
     event.preventDefault();
+    // The form belongs to the 143 shell. Keep YouTube's document-level submit
+    // handlers from treating it like one of its own forms.
+    event.stopPropagation();
     const query = input.value.trim();
     if (!query) return;
     engine.search(query);
