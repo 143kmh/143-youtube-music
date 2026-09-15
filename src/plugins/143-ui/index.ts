@@ -11,9 +11,14 @@ import { startDesktop } from './desktop';
 import { mountInteractions } from './interactions';
 import interactionStyle from './interactions.css?inline';
 import { attachKaraokePlayer, startKaraoke, stopKaraoke } from './karaoke';
+import {
+  installPlaybackContext,
+  type PlaybackContextAdapter,
+} from './playback-context';
 import { mountPlayer } from './player';
 import playerPolishStyle from './player-polish.css?inline';
 import playerStyle from './player.css?inline';
+import { mountQueuePanel } from './queue-panel';
 import { mountSearchPage, type SearchPageController } from './search-page';
 import searchPageStyle from './search-page.css?inline';
 import { mountSettings } from './settings';
@@ -23,10 +28,8 @@ import {
   type YouTubeMusicAdapter,
   type MusicSection,
 } from './youtube-music';
-import {
-  installBrowseCatalog,
-  type CatalogYouTubeMusicAdapter,
-} from './youtube-music-catalog';
+import { installBrowseCatalog } from './youtube-music-catalog';
+import { installPlaylistCatalog } from './youtube-music-playlist';
 
 import type { MusicPlayer } from '@/types/music-player';
 
@@ -391,7 +394,7 @@ export default createPlugin({
     searchPage: null as SearchPageController | null,
     artistPage: null as ArtistPageController | null,
     albumPage: null as AlbumPageController | null,
-    engine: null as CatalogYouTubeMusicAdapter | null,
+    engine: null as PlaybackContextAdapter | null,
     interactionCleanup: null as (() => void) | null,
 
     async start(ctx) {
@@ -433,7 +436,9 @@ export default createPlugin({
         stop: stopKaraoke,
       });
       installCatalogPolish(baseEngine);
-      const engine = installBrowseCatalog(baseEngine);
+      const catalogEngine = installBrowseCatalog(baseEngine);
+      const playlistEngine = installPlaylistCatalog(catalogEngine);
+      const engine = installPlaybackContext(playlistEngine);
       this.engine = engine;
       engine.start();
 
@@ -457,17 +462,27 @@ export default createPlugin({
           setActiveNav('');
           void albumPage.open(title, browseId, { restoreSearch });
         },
+        (title, browseId, restoreSearch) => {
+          artistPage.close();
+          setActiveNav('');
+          void albumPage.openPlaylist(title, browseId, { restoreSearch });
+        },
       );
       this.searchPage = searchPage;
       createShell(engine, searchPage, artistPage, albumPage);
       this.settingsCleanup?.();
       this.settingsCleanup = mountSettings(ctx.ipc);
-      this.playerCleanup = mountPlayer(engine, (name, browseId) => {
+      const playerCleanup = mountPlayer(engine, (name, browseId) => {
         searchPage.close();
         albumPage.close();
         setActiveNav('');
         void artistPage.open(name, browseId);
       });
+      const queueCleanup = mountQueuePanel(engine);
+      this.playerCleanup = () => {
+        queueCleanup();
+        playerCleanup();
+      };
       this.interactionCleanup = mountInteractions(engine);
     },
 
