@@ -47,11 +47,10 @@ export const renderer = createRenderer<
 
   async onPlayerApiReady(api: MusicPlayer) {
     _ytAPI = api;
-
     api.addEventListener('videodatachange', this.videoDataChange);
-
     await this.videoDataChange();
   },
+
   async videoDataChange() {
     if (!this.updateTimestampInterval) {
       this.updateTimestampInterval = setInterval(
@@ -64,12 +63,9 @@ export const renderer = createRenderer<
     this.observer ??= new MutationObserver(this.observerCallback);
     this.observer.disconnect();
 
-    // Force the lyrics tab to be enabled at all times.
     const header = await waitForElement<HTMLElement>(selectors.head);
-    {
-      header.removeAttribute('disabled');
-      tabStates[header.ariaSelected ?? 'false']();
-    }
+    header.removeAttribute('disabled');
+    tabStates[header.ariaSelected ?? 'false']();
 
     this.observer.observe(header, { attributes: true });
     header.removeAttribute('disabled');
@@ -77,10 +73,9 @@ export const renderer = createRenderer<
 
   async start(ctx: RendererContext<SyncedLyricsPluginConfig>) {
     netFetch = ctx.ipc.invoke.bind(ctx.ipc, 'synced-lyrics:fetch');
-
     setConfig(await ctx.getConfig());
 
-    ctx.ipc.on('peard:update-song-info', (info: SongInfo) => {
+    ctx.ipc.on('app:song:info', (info: SongInfo) => {
       fetchLyrics(info);
     });
   },
