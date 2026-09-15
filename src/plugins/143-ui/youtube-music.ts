@@ -1121,8 +1121,14 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       return { ...catalog, featuredArtist: profile };
     },
     openSearchResult(item: SearchResultItem) {
-      if (item.videoId)
-        return navigate('/watch?v=' + encodeURIComponent(item.videoId));
+      if (item.videoId) {
+        const api = playerApi();
+        if (!api?.loadVideoById) return false;
+        ++lyricsRequest;
+        api.loadVideoById(item.videoId, 0, 'default');
+        window.setTimeout(refresh, 0);
+        return true;
+      }
       if (!item.browseId) return false;
       return navigateBrowseId(item.browseId);
     },
