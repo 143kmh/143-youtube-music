@@ -2,8 +2,9 @@ import type {
   SearchArtistProfile,
   SearchCatalog,
   SearchResultItem,
-  YouTubeMusicAdapter,
 } from './youtube-music';
+import type { CatalogYouTubeMusicAdapter } from './youtube-music-catalog';
+import { resolveSearchFocus, type SearchFocus } from './search-intent';
 
 const ROOT_ID = 'ui143-search-page';
 
@@ -134,7 +135,7 @@ const mergeAlbums = (
 export type SearchPageController = ReturnType<typeof mountSearchPage>;
 
 export const mountSearchPage = (
-  engine: YouTubeMusicAdapter,
+  engine: CatalogYouTubeMusicAdapter,
   onOpenArtist?: ArtistOpenHandler,
   onOpenAlbum?: AlbumOpenHandler,
 ) => {
@@ -223,7 +224,7 @@ export const mountSearchPage = (
   const artistItem = (profile: SearchArtistProfile): SearchResultItem => ({
     kind: 'artist',
     title: profile.title,
-    subtitle: profile.monthlyListeners,
+    subtitle: profile.monthlyListeners || profile.subscribers,
     artwork: profile.avatar,
     browseId: profile.browseId,
   });
@@ -414,6 +415,83 @@ export const mountSearchPage = (
     return section;
   };
 
+  const appendHeading = (query: string) => {
+    const heading = document.createElement('div');
+    heading.className = 'ui143-search-heading';
+    const eyebrow = document.createElement('span');
+    eyebrow.textContent = 'Search results';
+    const title = document.createElement('h1');
+    title.textContent = query;
+    heading.append(eyebrow, title);
+    content.append(heading);
+  };
+
+  const renderFocusCard = (
+    labelText: string,
+    item: SearchResultItem,
+    round = false,
+  ) => {
+    const card = resultButton(item, 'ui143-search-focus-card');
+    const art = image(item, 'ui143-search-focus-art');
+    if (round) art.classList.add('is-round');
+    const copy = document.createElement('div');
+    copy.className = 'ui143-search-focus-copy';
+    const label = document.createElement('span');
+    label.className = 'ui143-search-focus-label';
+    label.textContent = labelText;
+    const title = document.createElement('strong');
+    title.textContent = item.title;
+    const nowPlaying = document.createElement('span');
+    nowPlaying.className = 'ui143-search-now-playing';
+    nowPlaying.textContent = 'Now playing';
+    copy.append(label, title, subtitle(item), nowPlaying);
+    card.append(art, copy);
+    return card;
+  };
+
+  const renderFocusArtist = (profile: SearchArtistProfile) =>
+    renderFocusCard('Artist', artistItem(profile), true);
+
+  const renderFocus = (results: SearchCatalog, focus: Exclude<SearchFocus, null>) => {
+    clear();
+    hasResults = true;
+    appendHeading(results.query);
+
+    const grid = document.createElement('div');
+    grid.className = `ui143-search-focus-grid is-${focus.kind}`;
+
+    if (focus.kind === 'song') {
+      grid.append(renderFocusCard('Track', focus.song));
+      if (focus.album) grid.append(renderFocusCard('Album', focus.album));
+      if (focus.artist) grid.append(renderFocusArtist(focus.artist));
+      content.append(grid);
+
+      const moreSongs = rankTracks(results.songs).filter(
+        (item) => item.videoId !== focus.song.videoId,
+      );
+      if (moreSongs.length)
+        content.append(renderSongs('More matching tracks', moreSongs, 10));
+    } else {
+      grid.append(renderFocusCard('Album', focus.album));
+      if (focus.artist) grid.append(renderFocusArtist(focus.artist));
+      if (focus.tracks.length) grid.append(renderTopTracks(focus.tracks));
+      content.append(grid);
+
+      const otherAlbums = results.albums.filter(
+        (item) => item.browseId !== focus.album.browseId,
+      );
+      if (otherAlbums.length)
+        content.append(
+          renderCards('More albums', rankAlbums(otherAlbums), {
+            className: 'ui143-search-albums',
+            limit: otherAlbums.length,
+          }),
+        );
+    }
+
+    syncNowPlaying();
+  };
+
   const render = (results: SearchCatalog) => {
     clear();
     const rankedSongs = rankTracks(results.songs);
@@ -435,14 +513,7 @@ export const mountSearchPage = (
       return;
     }
 
-    const heading = document.createElement('div');
-    heading.className = 'ui143-search-heading';
-    const eyebrow = document.createElement('span');
-    eyebrow.textContent = 'Search results';
-    const title = document.createElement('h1');
-    title.textContent = results.query;
-    heading.append(eyebrow, title);
-    content.append(heading);
+    appendHeading(results.query);
 
     const hero = document.createElement('div');
     hero.className = 'ui143-search-hero-grid';
@@ -504,8 +575,15 @@ export const mountSearchPage = (
       try {
         const initial = await engine.searchCatalog(value);
         if (current !== request) return;
-        render(initial);
 
+        const focus = await resolveSearchFocus(engine, initial);
+        if (current !== request) return;
+        if (focus) {
+          renderFocus(initial, focus);
+          return;
+        }
+
+        render(initial);
         const enriched = await enrichAlbums(initial, current);
         if (current !== request) return;
         render(enriched);
