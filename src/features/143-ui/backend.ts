@@ -7,6 +7,8 @@ import { createBackend } from '@/utils';
 import { startDesktop } from './desktop';
 
 const YOUTUBE_MUSIC_URL = 'https://music.youtube.com/';
+const ACCOUNT_CHOOSER_URL =
+  'https://accounts.google.com/AccountChooser?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F';
 const AUTH_COOKIE_NAMES = new Set([
   'SAPISID',
   'APISID',
@@ -42,12 +44,41 @@ const hasYouTubeAuthCookies = async (targetSession: Electron.Session) => {
   );
 };
 
+const copyGoogleYouTubeCookies = async (
+  source: Electron.Session,
+  target: Electron.Session,
+) => {
+  const cookies = await source.cookies.get({});
+  for (const cookie of cookies) {
+    if (!isGoogleOrYouTubeDomain(cookie.domain)) continue;
+    const host = cookie.domain.replace(/^\./u, '');
+    const scheme = cookie.secure ? 'https' : 'http';
+    const cookiePath = cookie.path || '/';
+    const details: Electron.CookiesSetDetails = {
+      url: `${scheme}://${host}${cookiePath}`,
+      name: cookie.name,
+      value: cookie.value,
+      path: cookiePath,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite,
+    };
+    if (!cookie.hostOnly) details.domain = cookie.domain;
+    if (cookie.expirationDate !== undefined)
+      details.expirationDate = cookie.expirationDate;
+    await target.cookies.set(details);
+  }
+  await target.cookies.flushStore();
+};
+
 export default createBackend<{
   desktopCleanup: (() => void) | null;
   authWindow: BrowserWindow | null;
+  authNavigationCleanup: (() => void) | null;
 }>({
   desktopCleanup: null,
   authWindow: null,
+  authNavigationCleanup: null,
 
   start(ctx) {
     const { window, ipc } = ctx;
@@ -60,8 +91,8 @@ export default createBackend<{
       webContents.openDevTools = originalOpenDevTools;
     });
 
-    ipc.removeHandler('143:auth:sign-in');
-    ipc.handle('143:auth:sign-in', async () => {
+    const openAuthWindow = async (mode: unknown = 'sign-in') => {
+      const switchingAccount = mode === 'switch';
       if (this.authWindow && !this.authWindow.isDestroyed()) {
         this.authWindow.show();
         this.authWindow.focus();
@@ -91,7 +122,9 @@ export default createBackend<{
         show: false,
         autoHideMenuBar: true,
         backgroundColor: '#ffffff',
-        title: 'Sign in to 143 Music',
+        title: switchingAccount
+          ? 'Switch Google account · 143 Music'
+          : 'Sign in to 143 Music',
         webPreferences: {
           partition: authPartition,
           preload: path.join(__dirname, '..', 'preload', 'preload.cjs'),
@@ -127,30 +160,6 @@ export default createBackend<{
         callback({ requestHeaders: headers });
       });
 
-      const copyAuthCookies = async () => {
-        const cookies = await authSession.cookies.get({});
-        for (const cookie of cookies) {
-          if (!isGoogleOrYouTubeDomain(cookie.domain)) continue;
-          const host = cookie.domain.replace(/^\./u, '');
-          const scheme = cookie.secure ? 'https' : 'http';
-          const cookiePath = cookie.path || '/';
-          const details: Electron.CookiesSetDetails = {
-            url: `${scheme}://${host}${cookiePath}`,
-            name: cookie.name,
-            value: cookie.value,
-            path: cookiePath,
-            secure: cookie.secure,
-            httpOnly: cookie.httpOnly,
-            sameSite: cookie.sameSite,
-          };
-          if (!cookie.hostOnly) details.domain = cookie.domain;
-          if (cookie.expirationDate !== undefined)
-            details.expirationDate = cookie.expirationDate;
-          await webContents.session.cookies.set(details);
-        }
-        await webContents.session.cookies.flushStore();
-      };
-
       const authWindowIsActuallySignedIn = async () => {
         if (authWindow.isDestroyed()) return false;
         if (hostname(authWindow.webContents.getURL()) !== 'music.youtube.com')
@@ -172,7 +181,7 @@ export default createBackend<{
         if (!(await authWindowIsActuallySignedIn())) return;
         completed = true;
         try {
-          await copyAuthCookies();
+          await copyGoogleYouTubeCookies(authSession, webContents.session);
           if (!(await hasYouTubeAuthCookies(webContents.session))) {
             throw new Error('YouTube auth cookies were not transferred');
           }
@@ -186,10 +195,6 @@ export default createBackend<{
         if (!authWindow.isDestroyed()) authWindow.close();
       };
 
-      // Do not treat the mere presence of SAPISID-like cookies as a successful
-      // login. Google can set some of them before YouTube itself considers the
-      // session authenticated. Wait until YouTube Music's own runtime reports
-      // LOGGED_IN=true, then transfer the session.
       authStatePoll = setInterval(() => {
         void completeSignIn();
       }, 700);
@@ -212,15 +217,43 @@ export default createBackend<{
       });
 
       try {
-        // Start at the real YouTube Music page and use its native Sign in action.
-        await authWindow.loadURL(YOUTUBE_MUSIC_URL);
+        // For account switching, seed the clean auth partition with the current
+        // account cookies so Google's chooser can show the active account. The
+        // browser identity remains isolated and Chrome-like, avoiding the 401
+        // that occurs when accounts.google.com loads in the main Electron window.
+        if (switchingAccount)
+          await copyGoogleYouTubeCookies(webContents.session, authSession);
+        await authWindow.loadURL(
+          switchingAccount ? ACCOUNT_CHOOSER_URL : YOUTUBE_MUSIC_URL,
+        );
       } catch (error) {
         if (!authWindow.isDestroyed()) authWindow.close();
         throw error;
       }
 
       return true;
-    });
+    };
+
+    ipc.removeHandler('143:auth:sign-in');
+    ipc.handle('143:auth:sign-in', openAuthWindow);
+
+    // Never let the real 143 Music window navigate to Google Accounts. The
+    // custom avatar/native YouTube account button can both trigger that route;
+    // reroute it into the clean auth window instead.
+    const interceptAccountNavigation = (
+      event: { preventDefault: () => void },
+      url: string,
+    ) => {
+      if (hostname(url) !== 'accounts.google.com') return;
+      event.preventDefault();
+      void openAuthWindow('switch');
+    };
+    webContents.on('will-navigate', interceptAccountNavigation);
+    webContents.on('will-redirect', interceptAccountNavigation);
+    this.authNavigationCleanup = () => {
+      webContents.off('will-navigate', interceptAccountNavigation);
+      webContents.off('will-redirect', interceptAccountNavigation);
+    };
 
     ipc.handle(
       'synced-lyrics:fetch',
@@ -238,6 +271,8 @@ export default createBackend<{
   stop({ ipc }) {
     ipc.removeHandler('143:auth:sign-in');
     ipc.removeHandler('synced-lyrics:fetch');
+    this.authNavigationCleanup?.();
+    this.authNavigationCleanup = null;
     if (this.authWindow && !this.authWindow.isDestroyed()) this.authWindow.close();
     this.authWindow = null;
     this.desktopCleanup?.();
