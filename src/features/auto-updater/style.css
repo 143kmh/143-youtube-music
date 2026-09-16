@@ -1,0 +1,86 @@
+#ui143-update-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px 14px 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 10px;
+  background: rgba(255,255,255,.024);
+}
+
+.ui143-update-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui143-update-copy strong {
+  color: #f3f3f4;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.ui143-update-copy span {
+  color: #8d8d91;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.ui143-update-copy small {
+  max-width: 520px;
+  color: #c77878;
+  font-size: 9.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+#ui143-update-card > button {
+  min-width: 122px;
+  min-height: 34px;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.055) !important;
+  color: #e8e8e9 !important;
+  font-size: 10.5px;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+#ui143-update-card > button:hover:not(:disabled) {
+  background: rgba(255,255,255,.09) !important;
+  border-color: rgba(255,255,255,.14) !important;
+}
+
+#ui143-update-card > button:disabled {
+  opacity: .48;
+  cursor: default;
+}
+
+.ui143-update-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: rgba(255,255,255,.035);
+}
+
+.ui143-update-progress[hidden] {
+  display: none !important;
+}
+
+.ui143-update-progress > i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--ui143-accent-strong, #8f82c9);
+  box-shadow: 0 0 10px var(--ui143-accent-glow, rgba(96,81,155,.45));
+  transition: width 180ms linear;
+}

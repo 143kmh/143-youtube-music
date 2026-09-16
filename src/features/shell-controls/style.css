@@ -1,0 +1,162 @@
+.ui143-player-play {
+  transform: none !important;
+  transition:
+    background 75ms ease,
+    color 75ms ease,
+    box-shadow 75ms ease !important;
+}
+
+.ui143-player-play:hover,
+.ui143-player-play:active {
+  transform: none !important;
+}
+
+.ui143-player-play .ui143-player-icon {
+  width: 23px !important;
+  height: 23px !important;
+}
+
+.ui143-player-play[aria-label='Play'] .ui143-player-icon {
+  transform: translateX(1px);
+}
+
+/*
+ * Queue is now a launcher for the 143 Now Playing playlist tab. Do not reflect
+ * the native YouTube Music queue-tab state here: it briefly reports active
+ * during startup and used to make this control flash once.
+ */
+#ui143-player .ui143-player-utils button[aria-label='Queue'].is-active {
+  color: #a7a7a7 !important;
+}
+
+#ui143-player .ui143-player-utils button[aria-label='Queue'].is-active::after {
+  display: none !important;
+}
+
+.ui143-account-button {
+  position: relative;
+  flex: 0 0 34px;
+  overflow: hidden;
+  padding: 0 !important;
+  background: rgba(0, 0, 0, 0.58) !important;
+  color: #d8d8d8;
+  -webkit-app-region: no-drag;
+}
+
+.ui143-account-button:hover {
+  background: #242424 !important;
+}
+
+.ui143-account-avatar {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.ui143-account-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  pointer-events: none;
+}
+
+.ui143-account-button.has-avatar {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.34);
+}
+
+#ui143-login-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--ui143-accent, #60519b) 22%, transparent), transparent 42%),
+    #090909;
+  color: #fff;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-app-region: no-drag;
+}
+
+.ui143-login-card {
+  width: min(420px, calc(100vw - 48px));
+  padding: 34px 34px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  background: rgba(22, 22, 22, 0.96);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  text-align: center;
+}
+
+.ui143-login-brand {
+  margin-bottom: 28px;
+  color: var(--ui143-accent-strong, #8a7bd1);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ui143-login-title {
+  margin: 0;
+  color: #fff;
+  font-size: 25px;
+  font-weight: 760;
+  letter-spacing: -0.035em;
+}
+
+.ui143-login-copy {
+  margin: 12px auto 24px;
+  max-width: 340px;
+  color: #aaa;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ui143-login-button {
+  min-width: 180px;
+  height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #101010;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.ui143-login-button:hover:not(:disabled) {
+  transform: scale(1.015);
+}
+
+.ui143-login-button:disabled {
+  opacity: 0.62;
+  cursor: default;
+}
+
+#ui143-ad-badge {
+  position: fixed;
+  right: 18px;
+  bottom: calc(var(--ui143-player-height, 88px) + 14px);
+  z-index: 1400;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(14, 14, 14, 0.92);
+  color: #d7d7d7;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+#ui143-ad-badge[hidden] {
+  display: none !important;
+}

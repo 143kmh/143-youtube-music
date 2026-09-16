@@ -1,0 +1,130 @@
+/* Restore native page scrolling. The first 143 shell pass accidentally locked
+   YouTube Music's main scroller with overflow:hidden. */
+html[data-143-ui] #content.ytmusic-app-layout,
+html[data-143-ui] ytmusic-app-layout #content {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+/* Keep native list rows feeling like a desktop music client: the whole row is
+   a playback target while buttons/links inside retain their own actions. */
+html[data-143-ui] ytmusic-responsive-list-item-renderer,
+html[data-143-ui] ytmusic-player-queue-item {
+  cursor: pointer !important;
+}
+
+html[data-143-ui] .ui143-player-art {
+  cursor: pointer;
+  transition: filter 100ms ease, transform 100ms ease;
+}
+
+html[data-143-ui] .ui143-player-art:hover {
+  filter: brightness(1.08);
+}
+
+html[data-143-ui] .ui143-player-art:active {
+  transform: scale(0.975);
+}
+
+/* Empty Search belongs to the 143 shell too. Extend its surface underneath the
+   topbar so the page reads as one continuous panel instead of a hard cut. */
+html[data-143-ui]:has(.ui143-nav-item[data-key='search'].is-active):not(.ui143-search-open)
+  #ui143-root::before {
+  content: '';
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  bottom: var(--ui143-player-height);
+  left: var(--ui143-sidebar-width);
+  z-index: 0;
+  border-radius: 9px 9px 9px 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(117, 103, 184, 0.07), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 190px),
+    var(--ui143-panel);
+  pointer-events: none;
+}
+
+html[data-143-ui]:has(.ui143-nav-item[data-key='search'].is-active):not(.ui143-search-open)
+  #ui143-root::after {
+  content: 'Start typing to search 143 Music';
+  position: fixed;
+  top: calc(8px + var(--ui143-topbar-height));
+  right: 8px;
+  bottom: var(--ui143-player-height);
+  left: var(--ui143-sidebar-width);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding-bottom: 6vh;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: clamp(18px, 1.55vw, 24px);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Clean idle state. Never show Chromium's broken-image glyph when there is no
+   track; use a deliberate music placeholder and strip actions that make no
+   sense until playback exists. */
+html[data-143-ui] .ui143-player-art-placeholder {
+  display: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-art {
+  display: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-art-placeholder {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(138, 123, 209, 0.18), transparent 42%),
+    #1b1b1b;
+  color: #777;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-meta {
+  cursor: default;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-meta-actions {
+  display: none;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-title {
+  color: #d7d7d7;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-artist {
+  color: transparent;
+  font-size: 0;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-artist::before {
+  content: 'Choose something to play';
+  color: #777;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-center,
+html[data-143-ui] .ui143-player.is-idle .ui143-player-utils {
+  opacity: 0.38;
+}
+
+html[data-143-ui] .ui143-player.is-idle .ui143-player-progress-fill {
+  width: 0 !important;
+}
