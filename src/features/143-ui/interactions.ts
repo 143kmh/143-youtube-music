@@ -1,8 +1,6 @@
 import { mountLibraryCollections } from './library-collections';
-import { mountLibraryPage } from './library-page';
 import { mountPlaylistWorkspace } from './playlist-workspace';
 import { installUxFixes } from './ux-fixes';
-import { waitForYouTubeMusicReady } from './youtube-music-ready';
 
 import type { PlaybackContextAdapter } from './playback-context';
 
@@ -74,6 +72,17 @@ const hideCustomPages = () => {
     'ui143-library-collections-open',
     'ui143-playlist-workspace-open',
   );
+};
+
+const closeLibrarySurface = () => {
+  const page = document.getElementById('ui143-library-page');
+  if (page) page.hidden = true;
+  document.documentElement.classList.remove('ui143-library-open');
+};
+
+const isLibraryOpen = () => {
+  const page = document.getElementById('ui143-library-page');
+  return Boolean(page && !page.hidden);
 };
 
 const setActiveNav = (key: string) => {
@@ -237,11 +246,8 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   const removeUxFixes = installUxFixes(engine);
   const removeNativePolish = mountNativePolish();
   const shelfGestures = mountShelfGestures();
-  const libraryPage = mountLibraryPage(engine);
   const collectionsPage = mountLibraryCollections(engine);
   const playlistWorkspace = mountPlaylistWorkspace(engine);
-  let libraryNavigationRequest = 0;
-  let disposed = false;
 
   const openNowPlayingSurface = async () => {
     if (!engine.getState().track.id) return;
@@ -259,15 +265,6 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
     }
   };
 
-  const openLibraryWhenReady = async (
-    mode: 'landing' | 'playlists' | 'songs',
-  ) => {
-    const request = ++libraryNavigationRequest;
-    await waitForYouTubeMusicReady();
-    if (disposed || request !== libraryNavigationRequest) return;
-    await libraryPage.open(mode);
-  };
-
   const onClick = (event: MouseEvent) => {
     if (shelfGestures.suppressDraggedClick(event)) return;
     const target = event.target;
@@ -282,7 +279,9 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       const result = collectionsPage.back();
       if (result === 'library') {
         setActiveNav('library');
-        void openLibraryWhenReady('landing');
+        document
+          .querySelector<HTMLButtonElement>('.ui143-nav-item[data-key="library"]')
+          ?.click();
       }
       return;
     }
@@ -290,41 +289,30 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
     const nav = target.closest<HTMLElement>('.ui143-nav-item[data-key]');
     const navKey = nav?.dataset.key ?? '';
     const libraryMode =
-      navKey === 'library'
-        ? 'landing'
-        : navKey === 'playlists'
-          ? 'playlists'
-          : navKey === 'songs'
-            ? 'songs'
-            : null;
+      navKey === 'library' || navKey === 'playlists' || navKey === 'songs';
     const collectionMode =
       navKey === 'albums' ? 'albums' : navKey === 'artists' ? 'artists' : null;
 
     if (libraryMode) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
+      // Library navigation belongs to the shell. Let the button's own handler
+      // run so the single Library controller created in index.ts is used.
       playlistWorkspace.close(false);
-      hideCustomPages();
       collectionsPage.close();
-      setActiveNav(navKey);
-      void openLibraryWhenReady(libraryMode);
       return;
     }
     if (collectionMode) {
-      ++libraryNavigationRequest;
       event.preventDefault();
       event.stopImmediatePropagation();
       playlistWorkspace.close(false);
       hideCustomPages();
-      libraryPage.close();
+      closeLibrarySurface();
       setActiveNav(navKey);
       void collectionsPage.open(collectionMode);
       return;
     }
     if (nav) {
-      ++libraryNavigationRequest;
       if (playlistWorkspace.isOpen()) playlistWorkspace.close(false);
-      if (libraryPage.isOpen()) libraryPage.close();
+      if (isLibraryOpen()) closeLibrarySurface();
       if (collectionsPage.isOpen()) collectionsPage.close();
     }
 
@@ -364,9 +352,8 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       event.target instanceof Element &&
       event.target.matches('.ui143-search')
     ) {
-      ++libraryNavigationRequest;
       if (playlistWorkspace.isOpen()) playlistWorkspace.close(false);
-      if (libraryPage.isOpen()) libraryPage.close();
+      if (isLibraryOpen()) closeLibrarySurface();
       if (collectionsPage.isOpen()) collectionsPage.close();
     }
   };
@@ -374,13 +361,10 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   document.addEventListener('click', onClick, true);
   document.addEventListener('submit', onSubmit, true);
   return () => {
-    disposed = true;
-    ++libraryNavigationRequest;
     document.removeEventListener('click', onClick, true);
     document.removeEventListener('submit', onSubmit, true);
     playlistWorkspace.dispose();
     collectionsPage.dispose();
-    libraryPage.dispose();
     shelfGestures.dispose();
     removeUxFixes();
     removeNativePolish();
