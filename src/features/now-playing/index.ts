@@ -124,8 +124,11 @@ const buildCustomContext = () => {
       artwork: row.dataset.artwork ?? '',
       videoId: row.dataset.videoId,
     }))
-    .filter((item): item is SearchResultItem & { videoId: string } =>
-      Boolean(item.videoId),
+    .filter(
+      (
+        item,
+      ): item is SearchResultItem & { kind: 'song'; videoId: string } =>
+        Boolean(item.videoId),
     );
   return {
     kind: root.dataset.sourceKind,
@@ -370,12 +373,13 @@ const renderer = createRenderer<NowPlayingState>({
     this.setTab(this.activeTab);
   },
 
-  open(tab = this.activeTab) {
+  open(tab) {
     if (!this.root) this.mount();
     if (!this.player?.getVideoData?.()?.video_id) return;
+    const nextTab = tab ?? this.activeTab;
     this.root!.hidden = false;
     document.documentElement.classList.add('ui143-now-playing-open');
-    this.setTab(tab);
+    this.setTab(nextTab);
     this.sync();
     if (this.timer === null)
       this.timer = window.setInterval(() => this.sync(), 200);
