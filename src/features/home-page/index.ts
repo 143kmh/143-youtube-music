@@ -24,7 +24,7 @@ type NavigationEndpoint = {
   browseEndpoint?: {
     browseId?: string;
     browseEndpointContextSupportedConfigs?: {
-      browseEndpointMusicConfig?: { pageType?: string };
+      browseEndpointContextMusicConfig?: { pageType?: string };
     };
   };
 };
@@ -146,7 +146,7 @@ const itemFrom = (candidate: UnknownRecord): SearchResultItem | null => {
   const browseId = target?.browseEndpoint?.browseId;
   const pageType =
     target?.browseEndpoint?.browseEndpointContextSupportedConfigs
-      ?.browseEndpointMusicConfig?.pageType ?? '';
+      ?.browseEndpointContextMusicConfig?.pageType ?? '';
   const videoType =
     target?.watchEndpoint?.watchEndpointMusicSupportedConfigs
       ?.watchEndpointMusicConfig?.musicVideoType ?? '';
