@@ -1,7 +1,7 @@
 import { createEffect, For, Show, createSignal, createMemo } from 'solid-js';
 import { type VirtualizerHandle } from 'virtua/solid';
 
-import { type LineLyrics } from '@/plugins/synced-lyrics/types';
+import { type LineLyrics } from '../../types';
 
 import { _ytAPI } from '..';
 import { config, currentTime } from '../renderer';
