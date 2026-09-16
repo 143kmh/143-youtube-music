@@ -1,38 +1,42 @@
 name: Feature Request
-description: Suggest an idea for Pear Desktop
+description: Suggest an improvement for the YouTube Music desktop client
 title: "[Feature Request]: "
 labels: "enhancement :sparkles:"
 body:
-- type: checkboxes
-  attributes:
-    label: Preflight Checklist
-    description: Please ensure you've completed all of the following.
-    options:
-      - label: I use the latest version of Pear Desktop (Application).
-        required: true
-      - label: I have searched the [issue tracker](https://github.com/pear-devs/pear-desktop/issues) for a feature request that matches the one I want to file, without success.
-        required: true
-- type: textarea
-  attributes:
-    label: Problem Description
-    description: A clear and concise description of the problem you are seeking to solve with this feature request.
-  validations:
-    required: true
-- type: textarea
-  attributes:
-    label: Proposed Solution
-    description: Describe the solution you'd like in a clear and concise manner.
-  validations:
-    required: true
-- type: textarea
-  attributes:
-    label: Alternatives Considered
-    description: A clear and concise description of any alternative solutions or features you've considered.
-  validations:
-    required: true
-- type: textarea
-  attributes:
-    label: Additional Information
-    description: Any other context about the problem.
-  validations:
-    required: false
+  - type: checkboxes
+    attributes:
+      label: Preflight Checklist
+      description: Please ensure you've completed all of the following.
+      options:
+        - label: I have searched this repository for an existing request for the same feature.
+          required: true
+        - label: This request is about the desktop client rather than a feature of the YouTube Music website itself.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What problem or limitation would this feature address?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Alternatives considered
+      description: Describe any other approaches or workarounds you considered.
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: Add mockups, examples, technical context, or anything else that may help.
+    validations:
+      required: false
