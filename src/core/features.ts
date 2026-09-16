@@ -6,6 +6,7 @@ import startupPlaybackSafety from '@/features/startup-playback-safety';
 import audio from '@/features/force-high-audio-quality';
 import homePage from '@/features/home-page';
 import nowPlaying from '@/features/now-playing';
+import nowPlayingLyricsPolish from '@/features/now-playing-lyrics-polish';
 import obsOverlay from '@/features/obs-overlay';
 import playerTools from '@/features/player-tools';
 
@@ -23,6 +24,7 @@ export const coreFeatures: Record<string, CoreFeature> = {
   'force-high-audio-quality': asCoreFeature(audio),
   'home-page': asCoreFeature(homePage),
   'now-playing': asCoreFeature(nowPlaying),
+  'now-playing-lyrics-polish': asCoreFeature(nowPlayingLyricsPolish),
   'obs-overlay': asCoreFeature(obsOverlay),
   'player-tools': asCoreFeature(playerTools),
 };
