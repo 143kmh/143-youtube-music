@@ -10,6 +10,9 @@ const deepmerge = deepmergeCustom({
   mergeArrays: false,
 });
 
+const readStoreValue = (key: string) =>
+  (store as unknown as { get: (key: string) => unknown }).get(key);
+
 export { defaultConfig } from './defaults';
 export * as features from './features';
 
@@ -82,7 +85,7 @@ type PathValue<T, K extends string> =
     : T;
 
 export const get = <Key extends Paths<typeof defaultConfig>>(key: Key) =>
-  store.get(key) as PathValue<typeof defaultConfig, typeof key>;
+  readStoreValue(key) as PathValue<typeof defaultConfig, typeof key>;
 
 export const edit = () => store.openInEditor();
 
