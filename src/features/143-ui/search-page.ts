@@ -214,7 +214,9 @@ const requestedVariantMatches = (query: string, item: SearchResultItem) => {
     [/\b8d\b/iu, /\b8d\b/iu],
   ];
   const requested = checks.filter(([pattern]) => pattern.test(q));
-  return requested.length > 0 && requested.every(([, pattern]) => pattern.test(text));
+  return (
+    requested.length > 0 && requested.every(([, pattern]) => pattern.test(text))
+  );
 };
 
 const playCount = (item: SearchResultItem) => {
@@ -313,6 +315,13 @@ export const mountSearchPage = (
   let currentTrackId = engine.getState().track.id;
   let variantObserver: IntersectionObserver | null = null;
   let variantViewRevision = 0;
+  let interactionRevision = 0;
+  // Background details must not replace a list the user is already using.
+  for (const event of ['pointerdown', 'click', 'keydown', 'wheel', 'touchstart']) {
+    root.addEventListener(event, () => {
+      interactionRevision++;
+    });
+  }
 
   const syncNowPlaying = () => {
     if (root.hidden) return;
@@ -950,49 +959,32 @@ export const mountSearchPage = (
     syncNowPlaying();
   };
 
-  const enrichAlbums = async (results: SearchCatalog, current: number) => {
-    const artist = results.featuredArtist?.title.trim();
-    if (!artist) return results;
-
-    const queries = [`${artist} album`, `${artist} альбом`];
-    const settled = await Promise.allSettled(
-      queries.map((query) => engine.searchCatalog(query)),
-    );
-    if (current !== request) return results;
-
-    const extraAlbums = settled.flatMap((entry) =>
-      entry.status === 'fulfilled' ? [...entry.value.albums] : [],
-    );
-    const albums = mergeAlbums(artist, [...results.albums], extraAlbums);
-    const currentAlbums = mergeAlbums(artist, [...results.albums]);
-    return albums.length === currentAlbums.length
-      ? { ...results, albums: currentAlbums }
-      : { ...results, albums };
-  };
-
   return {
     async search(query: string) {
       const value = query.trim();
       if (!value) return;
       lastQuery = value;
       const current = ++request;
+      const interaction = interactionRevision;
+      const isCurrent = () => current === request;
+      const canUpdate = () =>
+        isCurrent() && interaction === interactionRevision && !root.contains(document.activeElement);
       setVisible(true);
       message('Searching…');
       try {
-        const initial = await engine.searchCatalog(value);
+        const initial = await engine.searchCatalog(value, { basic: true });
         if (current !== request) return;
-
-        const focus = await resolveSearchFocus(engine, initial);
-        if (current !== request) return;
-        if (focus) {
-          renderFocus(initial, focus);
-          return;
-        }
-
         render(initial);
-        const enriched = await enrichAlbums(initial, current);
-        if (current !== request) return;
-        render(enriched);
+        // A failed optional request must never replace usable results with an error.
+        try {
+          const enriched = await engine.searchCatalog(value, { isCurrent: canUpdate });
+          if (!canUpdate()) return;
+          render(enriched);
+          const focus = await resolveSearchFocus(engine, enriched, canUpdate);
+          if (focus && canUpdate()) renderFocus(enriched, focus);
+        } catch (error) {
+          console.warn('[143 Music] Search details unavailable', error);
+        }
       } catch (error) {
         if (current !== request) return;
         console.error('[143 Music] Search failed', error);

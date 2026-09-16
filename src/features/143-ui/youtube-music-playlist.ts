@@ -4,6 +4,7 @@ import type {
   SearchArtistProfile,
   SearchCatalog,
   SearchResultItem,
+  SearchOptions,
 } from './youtube-music';
 import type {
   ArtistCatalog,
@@ -535,17 +536,20 @@ export const installPlaylistCatalog = (
   const profileCache = new Map<string, Promise<SearchArtistProfile>>();
 
   const browse = (browseId: string) =>
-    requireApp().networkManager.fetch<unknown, { browseId: string }>(
-      '/browse',
-      {
-        browseId,
-      },
-    );
+    browseId.startsWith('UC') && engine.browseCatalog
+      ? engine.browseCatalog(browseId)
+      : requireApp().networkManager.fetch<unknown, { browseId: string }>(
+          '/browse',
+          {
+            browseId,
+          },
+        );
 
   const canonicalProfile = (
     browseId: string,
     fallback: SearchArtistProfile,
     response?: unknown,
+    knownSearchAvatar = '',
   ) => {
     const cached = profileCache.get(browseId);
     if (cached) return cached;
@@ -559,11 +563,15 @@ export const installPlaylistCatalog = (
           'musicResponsiveHeaderRenderer',
         ]) ?? {};
 
-      let searchAvatar = '';
+      const directAvatar =
+        strictSquareThumbnail(header.thumbnail) ||
+        strictSquareThumbnail(header.avatar) ||
+        strictSquareThumbnail(header.straplineThumbnail);
+      let searchAvatar = knownSearchAvatar;
       const title = fallback.title.trim();
-      if (title) {
+      if (title && !directAvatar && !searchAvatar) {
         try {
-          const search = await rawSearchCatalog(title);
+          const search = await rawSearchCatalog(title, { basic: true });
           const candidates = [
             ...(search.topResult?.kind === 'artist' ? [search.topResult] : []),
             ...search.artists,
@@ -575,10 +583,6 @@ export const installPlaylistCatalog = (
         }
       }
 
-      const directAvatar =
-        strictSquareThumbnail(header.thumbnail) ||
-        strictSquareThumbnail(header.avatar) ||
-        strictSquareThumbnail(header.straplineThumbnail);
       const banner =
         bestWideThumbnail(header.backgroundImage) ||
         bestWideThumbnail(header.backgroundThumbnail) ||
@@ -599,6 +603,10 @@ export const installPlaylistCatalog = (
       if (profileCache.get(browseId) === request) profileCache.delete(browseId);
     });
     profileCache.set(browseId, request);
+    if (profileCache.size > 64) {
+      const oldest = profileCache.keys().next().value;
+      if (oldest !== undefined) profileCache.delete(oldest);
+    }
     return request;
   };
 
@@ -624,14 +632,38 @@ export const installPlaylistCatalog = (
     };
   };
 
-  const searchCatalog = async (query: string): Promise<SearchCatalog> => {
-    const catalog = await rawSearchCatalog(query);
+  const searchCatalog = async (
+    query: string,
+    options: SearchOptions = {},
+  ): Promise<SearchCatalog> => {
+    const catalog = await rawSearchCatalog(query, options);
     const featured = catalog.featuredArtist;
-    if (!featured?.browseId) return catalog;
+    if (!featured?.browseId || options.basic || options.isCurrent?.() === false)
+      return catalog;
     try {
+      const knownSearchAvatar = [
+        ...(catalog.topResult?.kind === 'artist' ? [catalog.topResult] : []),
+        ...catalog.artists,
+      ].find((item) => item.browseId === featured.browseId)?.artwork ?? '';
+      const candidate = {
+        kind: 'artist' as const,
+        browseId: featured.browseId,
+        title: featured.title,
+        subtitle: featured.monthlyListeners ?? '',
+        artwork: knownSearchAvatar,
+      };
+      const profile = engine.getArtistProfile
+        ? await engine.getArtistProfile(candidate)
+        : featured;
+      if (options.isCurrent?.() === false) return catalog;
       return {
         ...catalog,
-        featuredArtist: await canonicalProfile(featured.browseId, featured),
+        featuredArtist: await canonicalProfile(
+          featured.browseId,
+          profile,
+          undefined,
+          knownSearchAvatar,
+        ),
       };
     } catch (error) {
       console.warn(

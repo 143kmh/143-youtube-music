@@ -1,3 +1,4 @@
+import { createCatalogRequestCache } from './catalog-request-cache';
 import {
   createNativeSurface,
   nativeStore,
@@ -64,6 +65,11 @@ export type SearchCatalog = Readonly<{
   albums: readonly SearchResultItem[];
   playlists: readonly SearchResultItem[];
   videos: readonly SearchResultItem[];
+}>;
+
+export type SearchOptions = Readonly<{
+  basic?: boolean;
+  isCurrent?: () => boolean;
 }>;
 
 type UnknownRecord = Record<string, unknown>;
@@ -1083,7 +1089,19 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       throw new Error('YouTube Music is not ready');
     return musicApp;
   };
+  const catalogRequests = createCatalogRequestCache();
+  const browseCatalog = (browseId: string) =>
+    catalogRequests.load(`browse:${browseId}`, 2 * 60_000, () =>
+      requireApp().networkManager.fetch('/browse', { browseId }),
+    );
+  const getArtistProfile = async (candidate: SearchResultItem) =>
+    artistProfileFromBrowse(
+      await browseCatalog(candidate.browseId ?? ''),
+      candidate,
+    );
   return {
+    browseCatalog,
+    getArtistProfile,
     getState: () => state,
     refresh,
     async attachPlayer(api: MusicPlayer) {
@@ -1117,6 +1135,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       listeners.clear();
       artistSearchCache.clear();
       artworkByVideoId.clear();
+      catalogRequests.clear();
       lyricsBridge?.stop();
     },
     navigate,
@@ -1129,7 +1148,10 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       if (submitNativeSearch(value)) return true;
       return navigate('/search?q=' + encodeURIComponent(value));
     },
-    async searchCatalog(query: string): Promise<SearchCatalog> {
+    async searchCatalog(
+      query: string,
+      options: SearchOptions = {},
+    ): Promise<SearchCatalog> {
       const value = query.trim();
       if (!value)
         return {
@@ -1142,14 +1164,18 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
           playlists: [],
           videos: [],
         };
-      const response = await requireApp().networkManager.fetch<
-        unknown,
-        { query: string; suggestStats?: unknown }
-      >('/search', {
-        query: value,
-        suggestStats: nativeSearchBox()?.getSearchboxStats?.(),
-      });
-      const catalog = collectSearchCatalog(response, value);
+      const catalog = await catalogRequests.load(
+        `search:${value}`,
+        2 * 60_000,
+        async () => {
+          const response = await requireApp().networkManager.fetch('/search', {
+            query: value,
+            suggestStats: nativeSearchBox()?.getSearchboxStats?.(),
+          });
+          // Retain the compact catalog, not the entire native search response.
+          return collectSearchCatalog(response, value);
+        },
+      );
       const artistCandidate =
         catalog.topResult?.kind === 'artist'
           ? catalog.topResult
@@ -1160,12 +1186,10 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
         {},
         artistCandidate,
       );
+      if (options.basic || options.isCurrent?.() === false)
+        return { ...catalog, featuredArtist: profile };
       try {
-        const browse = await requireApp().networkManager.fetch<
-          unknown,
-          { browseId: string }
-        >('/browse', { browseId: artistCandidate.browseId });
-        profile = artistProfileFromBrowse(browse, artistCandidate);
+        profile = await getArtistProfile(artistCandidate);
       } catch (error) {
         console.warn('[143 Music] Could not enrich artist search card', error);
       }

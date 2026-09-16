@@ -192,7 +192,9 @@ const artistAnchoredToQuery = (query: string, catalog: SearchCatalog) => {
     candidates.find((item) => normalize(item.title) === key) ??
     candidates.find((item) => {
       const name = normalize(item.title);
-      return Boolean(name && (key.startsWith(`${name} `) || key.endsWith(` ${name}`)));
+      return Boolean(
+        name && (key.startsWith(`${name} `) || key.endsWith(` ${name}`)),
+      );
     }) ??
     null
   );
@@ -202,7 +204,9 @@ const loadArtistProfile = async (
   engine: CatalogYouTubeMusicAdapter,
   item: SearchResultItem | null,
   fallback: SearchArtistProfile | null,
+  isCurrent = () => true,
 ) => {
+  if (!isCurrent()) return fallback;
   if (!item?.browseId) return fallback;
   if (fallback?.browseId === item.browseId) return fallback;
   try {
@@ -246,7 +250,9 @@ const catalogMatchesArtist = (catalog: AlbumCatalog, artist: string) => {
   if (!key || !catalog.artists.length) return true;
   return catalog.artists.some((entry) => {
     const name = normalize(entry.name);
-    return name === key || name.startsWith(`${key} `) || key.startsWith(`${name} `);
+    return (
+      name === key || name.startsWith(`${key} `) || key.startsWith(`${name} `)
+    );
   });
 };
 
@@ -271,7 +277,9 @@ const verifyAlbumCandidates = async (
   candidates: readonly SearchResultItem[],
   song: SearchResultItem,
   explicitArtist: string,
+  isCurrent = () => true,
 ): Promise<ResolvedSongAlbum | null> => {
+  if (!isCurrent()) return null;
   const shortlist = candidates.slice(0, 3);
   const settled = await Promise.allSettled(
     shortlist.map((candidate) =>
@@ -294,8 +302,12 @@ const resolveSongAlbum = async (
   song: SearchResultItem,
   artist: SearchArtistProfile | null,
   initial: SearchCatalog,
+  isCurrent = () => true,
 ): Promise<ResolvedSongAlbum | null> => {
-  const explicitArtist = artistRemainder(query, song.title) ? artist?.title ?? '' : '';
+  if (!isCurrent()) return null;
+  const explicitArtist = artistRemainder(query, song.title)
+    ? (artist?.title ?? '')
+    : '';
   const initialCandidates = rankAlbumCandidates(
     query,
     artist,
@@ -306,19 +318,28 @@ const resolveSongAlbum = async (
     initialCandidates,
     song,
     explicitArtist,
+    isCurrent,
   );
   if (initialMatch) return initialMatch;
+  if (!isCurrent()) return null;
 
   const lookup = artist?.title
     ? `${artist.title} ${song.title} album`
     : `${song.title} album`;
   try {
-    const extra = await engine.searchCatalog(lookup);
+    const extra = await engine.searchCatalog(lookup, { basic: true });
+    if (!isCurrent()) return null;
     const candidates = rankAlbumCandidates(query, artist, [
       ...(extra.topResult?.kind === 'album' ? [extra.topResult] : []),
       ...extra.albums,
     ]);
-    return verifyAlbumCandidates(engine, candidates, song, explicitArtist);
+    return verifyAlbumCandidates(
+      engine,
+      candidates,
+      song,
+      explicitArtist,
+      isCurrent,
+    );
   } catch {
     return null;
   }
@@ -329,19 +350,29 @@ const resolveSongArtist = async (
   query: string,
   song: SearchResultItem,
   catalog: SearchCatalog,
+  isCurrent = () => true,
 ) => {
+  if (!isCurrent()) return null;
   const directItem = pickArtistItem(query, song, catalog);
-  const direct = await loadArtistProfile(engine, directItem, catalog.featuredArtist);
+  const direct = await loadArtistProfile(
+    engine,
+    directItem,
+    catalog.featuredArtist,
+    isCurrent,
+  );
   if (direct) return direct;
+  if (!isCurrent()) return null;
 
   const remainder = artistRemainder(query, song.title);
   if (!remainder) return catalog.featuredArtist;
   try {
-    const artistSearch = await engine.searchCatalog(remainder);
+    const artistSearch = await engine.searchCatalog(remainder, { basic: true });
+    if (!isCurrent()) return null;
     const anchored = artistAnchoredToQuery(remainder, artistSearch);
     const scored = bestForKind(remainder, artistSearch, 'artist');
-    const item = anchored ?? (scored && scored.score >= 76 ? scored.item : null);
-    return loadArtistProfile(engine, item, catalog.featuredArtist);
+    const item =
+      anchored ?? (scored && scored.score >= 76 ? scored.item : null);
+    return loadArtistProfile(engine, item, catalog.featuredArtist, isCurrent);
   } catch {
     return catalog.featuredArtist;
   }
@@ -350,6 +381,7 @@ const resolveSongArtist = async (
 const artistFromAlbum = async (
   engine: CatalogYouTubeMusicAdapter,
   catalog: AlbumCatalog,
+  isCurrent = () => true,
 ) => {
   const main = catalog.artists[0];
   if (!main?.browseId) return null;
@@ -363,6 +395,7 @@ const artistFromAlbum = async (
       browseId: main.browseId,
     },
     null,
+    isCurrent,
   );
 };
 
@@ -388,22 +421,37 @@ export const detectSearchIntent = (catalog: SearchCatalog) => {
 export const resolveSearchFocus = async (
   engine: CatalogYouTubeMusicAdapter,
   catalog: SearchCatalog,
+  isCurrent = () => true,
 ): Promise<SearchFocus> => {
+  if (!isCurrent()) return null;
   if (isVariantVideoQuery(catalog.query)) return null;
   const intent = detectSearchIntent(catalog);
   if (!intent || intent.kind === 'artist') return null;
 
   if (intent.kind === 'song') {
-    let artist = await resolveSongArtist(engine, catalog.query, intent.item, catalog);
+    let artist = await resolveSongArtist(
+      engine,
+      catalog.query,
+      intent.item,
+      catalog,
+      isCurrent,
+    );
+    if (!isCurrent()) return null;
     const resolvedAlbum = await resolveSongAlbum(
       engine,
       catalog.query,
       intent.item,
       artist,
       catalog,
+      isCurrent,
     );
+    if (!isCurrent()) return null;
     if (resolvedAlbum) {
-      const verifiedArtist = await artistFromAlbum(engine, resolvedAlbum.catalog);
+      const verifiedArtist = await artistFromAlbum(
+        engine,
+        resolvedAlbum.catalog,
+        isCurrent,
+      );
       if (verifiedArtist) artist = verifiedArtist;
     }
     return {
@@ -421,13 +469,15 @@ export const resolveSearchFocus = async (
       intent.item.title,
     );
     const album = albumItemFromCatalog(albumCatalog);
-    let artist = await artistFromAlbum(engine, albumCatalog);
+    if (!isCurrent()) return null;
+    let artist = await artistFromAlbum(engine, albumCatalog, isCurrent);
     if (!artist) {
       const candidate = bestForKind(catalog.query, catalog, 'artist');
       artist = await loadArtistProfile(
         engine,
         candidate?.item ?? null,
         catalog.featuredArtist,
+        isCurrent,
       );
     }
     return {
