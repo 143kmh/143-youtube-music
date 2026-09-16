@@ -3,10 +3,8 @@ import { createFeature, createRenderer } from '@/utils';
 import type { MusicPlayer } from '@/types/music-player';
 
 const COPY_BUTTON_ID = 'ui143-copy-track-link';
-const SLEEP_BUTTON_ID = 'ui143-sleep-timer';
 const STYLE_ID = 'ui143-player-tools-style';
 const TOAST_ID = 'ui143-player-tools-toast';
-const SLEEP_STEPS = [0, 15, 30, 60] as const;
 
 const icon = (path: string) => {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -46,108 +44,43 @@ const fallbackCopy = (value: string) => {
 type PlayerToolsState = {
   player: MusicPlayer | null;
   observer: MutationObserver | null;
-  sleepTimeout: number | null;
-  sleepTick: number | null;
-  sleepMinutes: number;
-  sleepEndsAt: number;
   toastTimeout: number | null;
   mount: () => void;
-  finishMountWatch: () => void;
-  renderSleepButton: () => void;
   showToast: (message: string) => void;
   copyTrackLink: () => Promise<void>;
-  cycleSleepTimer: () => void;
-  clearSleepTimer: (notify?: boolean) => void;
 };
 
 const renderer = createRenderer<PlayerToolsState>({
   player: null,
   observer: null,
-  sleepTimeout: null,
-  sleepTick: null,
-  sleepMinutes: 0,
-  sleepEndsAt: 0,
   toastTimeout: null,
 
   mount() {
     const metaActions = document.querySelector<HTMLElement>(
       '.ui143-player-meta-actions',
     );
-    if (metaActions && !document.getElementById(COPY_BUTTON_ID)) {
-      const copy = toolButton(
-        COPY_BUTTON_ID,
-        'Copy track link',
-        'M7 7h4V5H7a5 5 0 0 0 0 10h4v-2H7a3 3 0 0 1 0-6Zm2 6h6v-2H9v2Zm8-8h-4v2h4a3 3 0 1 1 0 6h-4v2h4a5 5 0 0 0 0-10Z',
-      );
-      copy.addEventListener('click', () => {
-        void this.copyTrackLink();
-      });
-      metaActions.append(copy);
-    }
-
-    const utilities = document.querySelector<HTMLElement>('.ui143-player-utils');
-    if (utilities && !document.getElementById(SLEEP_BUTTON_ID)) {
-      const sleep = toolButton(
-        SLEEP_BUTTON_ID,
-        'Sleep timer · Off',
-        'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm1-13h-2v6l5 3 1-1.73-4-2.27V7Z',
-      );
-      sleep.setAttribute('aria-pressed', 'false');
-      const badge = document.createElement('span');
-      badge.className = 'ui143-player-tool-badge';
-      badge.hidden = true;
-      sleep.append(badge);
-      sleep.addEventListener('click', () => this.cycleSleepTimer());
-      utilities.prepend(sleep);
-    }
-
-    this.renderSleepButton();
-    this.finishMountWatch();
-  },
-
-  finishMountWatch() {
-    if (
-      !document.getElementById(COPY_BUTTON_ID) ||
-      !document.getElementById(SLEEP_BUTTON_ID)
-    )
+    if (!metaActions || document.getElementById(COPY_BUTTON_ID)) {
+      if (document.getElementById(COPY_BUTTON_ID)) {
+        this.observer?.disconnect();
+        this.observer = null;
+      }
       return;
+    }
+
+    const copy = toolButton(
+      COPY_BUTTON_ID,
+      'Copy track link',
+      'M7 7h4V5H7a5 5 0 0 0 0 10h4v-2H7a3 3 0 0 1 0-6Zm2 6h6v-2H9v2Zm8-8h-4v2h4a3 3 0 1 1 0 6h-4v2h4a5 5 0 0 0 0-10Z',
+    );
+    copy.addEventListener('click', () => {
+      void this.copyTrackLink();
+    });
+    metaActions.append(copy);
     this.observer?.disconnect();
     this.observer = null;
   },
 
-  renderSleepButton() {
-    const button = document.getElementById(
-      SLEEP_BUTTON_ID,
-    ) as HTMLButtonElement | null;
-    if (!button) return;
-    const badge = button.querySelector<HTMLElement>('.ui143-player-tool-badge');
-    const active = this.sleepMinutes > 0 && this.sleepEndsAt > Date.now();
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', String(active));
-
-    if (!active) {
-      button.title = 'Sleep timer · Off';
-      button.setAttribute('aria-label', 'Sleep timer · Off');
-      if (badge) badge.hidden = true;
-      return;
-    }
-
-    const minutesLeft = Math.max(
-      1,
-      Math.ceil((this.sleepEndsAt - Date.now()) / 60_000),
-    );
-    button.title = `Sleep timer · ${minutesLeft} min left · click to change`;
-    button.setAttribute(
-      'aria-label',
-      `Sleep timer · ${minutesLeft} minutes left`,
-    );
-    if (badge) {
-      badge.hidden = false;
-      badge.textContent = String(minutesLeft);
-    }
-  },
-
-  showToast(message: string) {
+  showToast(message) {
     let toast = document.getElementById(TOAST_ID);
     if (!toast) {
       toast = document.createElement('div');
@@ -186,72 +119,12 @@ const renderer = createRenderer<PlayerToolsState>({
     this.showToast(copied ? 'Track link copied' : 'Could not copy track link');
   },
 
-  clearSleepTimer(notify = false) {
-    if (this.sleepTimeout !== null) window.clearTimeout(this.sleepTimeout);
-    if (this.sleepTick !== null) window.clearInterval(this.sleepTick);
-    this.sleepTimeout = null;
-    this.sleepTick = null;
-    this.sleepMinutes = 0;
-    this.sleepEndsAt = 0;
-    this.renderSleepButton();
-    if (notify) this.showToast('Sleep timer off');
-  },
-
-  cycleSleepTimer() {
-    const current = SLEEP_STEPS.findIndex(
-      (minutes) => minutes === this.sleepMinutes,
-    );
-    const next = SLEEP_STEPS[(current + 1) % SLEEP_STEPS.length];
-
-    this.clearSleepTimer(false);
-    if (next === 0) {
-      this.showToast('Sleep timer off');
-      return;
-    }
-
-    this.sleepMinutes = next;
-    this.sleepEndsAt = Date.now() + next * 60_000;
-    this.sleepTimeout = window.setTimeout(() => {
-      try {
-        this.player?.pauseVideo();
-      } finally {
-        this.sleepTimeout = null;
-        if (this.sleepTick !== null) window.clearInterval(this.sleepTick);
-        this.sleepTick = null;
-        this.sleepMinutes = 0;
-        this.sleepEndsAt = 0;
-        this.renderSleepButton();
-        this.showToast('Sleep timer finished');
-      }
-    }, next * 60_000);
-    this.sleepTick = window.setInterval(() => this.renderSleepButton(), 30_000);
-    this.renderSleepButton();
-    this.showToast(`Sleep timer set for ${next} minutes`);
-  },
-
   start() {
     document.getElementById(STYLE_ID)?.remove();
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
       .ui143-player-tool { position: relative; overflow: visible !important; }
-      .ui143-player-tool-badge {
-        position: absolute;
-        top: -5px;
-        right: -7px;
-        min-width: 14px;
-        height: 14px;
-        box-sizing: border-box;
-        padding: 0 3px;
-        border-radius: 999px;
-        background: var(--ui143-accent-strong, #8f7dd1);
-        color: #111;
-        font-size: 8px;
-        font-weight: 800;
-        line-height: 14px;
-        text-align: center;
-        pointer-events: none;
-      }
       #${TOAST_ID} {
         position: fixed;
         left: 50%;
@@ -278,10 +151,7 @@ const renderer = createRenderer<PlayerToolsState>({
     document.head.append(style);
 
     this.mount();
-    if (
-      !document.getElementById(COPY_BUTTON_ID) ||
-      !document.getElementById(SLEEP_BUTTON_ID)
-    ) {
+    if (!document.getElementById(COPY_BUTTON_ID)) {
       this.observer?.disconnect();
       this.observer = new MutationObserver(() => this.mount());
       this.observer.observe(document.documentElement, {
@@ -299,11 +169,9 @@ const renderer = createRenderer<PlayerToolsState>({
   stop() {
     this.observer?.disconnect();
     this.observer = null;
-    this.clearSleepTimer(false);
     if (this.toastTimeout !== null) window.clearTimeout(this.toastTimeout);
     this.toastTimeout = null;
     document.getElementById(COPY_BUTTON_ID)?.remove();
-    document.getElementById(SLEEP_BUTTON_ID)?.remove();
     document.getElementById(TOAST_ID)?.remove();
     document.getElementById(STYLE_ID)?.remove();
     this.player = null;
