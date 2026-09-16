@@ -65,7 +65,6 @@ const userIcon = () => {
 
 const renderer = createRenderer<{
   button: HTMLButtonElement | null;
-  observer: MutationObserver | null;
   syncTimer: number | null;
   styleSheet: CSSStyleSheet | null;
   mount: () => void;
@@ -73,7 +72,6 @@ const renderer = createRenderer<{
   openAccount: () => void;
 }>({
   button: null,
-  observer: null,
   syncTimer: null,
   styleSheet: null,
 
@@ -152,22 +150,15 @@ const renderer = createRenderer<{
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.styleSheet];
     this.mount();
 
-    // Watch structural changes only. Observing our own aria-label/src mutations
-    // would make this control wake itself up indefinitely.
-    this.observer = new MutationObserver(() => this.mount());
-    this.observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
+    // Account state changes rarely. A tiny five-second sync is cheaper than a
+    // document-wide MutationObserver reacting to YouTube Music's busy DOM.
     this.syncTimer = window.setInterval(() => {
       this.mount();
       this.sync();
-    }, 1500);
+    }, 5000);
   },
 
   stop() {
-    this.observer?.disconnect();
-    this.observer = null;
     if (this.syncTimer !== null) window.clearInterval(this.syncTimer);
     this.syncTimer = null;
     this.button?.remove();
@@ -183,7 +174,8 @@ const renderer = createRenderer<{
 
 export default createFeature({
   name: () => 'Shell Controls',
-  description: () => 'Top-bar account control and small stability polish for the 143 Music shell.',
+  description: () =>
+    'Top-bar account control and small stability polish for the 143 Music shell.',
   config: { enabled: true },
   renderer,
 });
