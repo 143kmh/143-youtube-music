@@ -24,20 +24,23 @@ mac:
   compression: maximum
 win:
   icon: assets/143-music-icon.png
+  artifactName: "143-Music-Setup-${version}-${arch}.${ext}"
   target:
-    - target: nsis-web
+    - target: nsis
       arch:
         - x64
-        - ia32
-        - arm64
-    - target: portable
-      arch:
-        - x64
-        - ia32
-        - arm64
   compression: maximum
-nsisWeb:
-  runAfterFinish: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "143 Music"
+  runAfterFinish: true
+  installerIcon: assets/generated/icons/win/icon.ico
+  uninstallerIcon: assets/generated/icons/win/icon.ico
 linux:
   icon: assets/generated/icons/png
   category: AudioVideo
