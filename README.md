@@ -1,8 +1,8 @@
-# YouTube Music
+# 143 Music
 
-An unofficial desktop client for YouTube Music built with Electron.
+143 Music is an unofficial desktop client for YouTube Music built with Electron.
 
-This fork is focused on a cleaner desktop experience, a custom UI, high-quality audio controls, Discord Rich Presence, and synced lyrics while keeping the codebase small enough to maintain directly.
+The project is focused on a cleaner desktop experience, a custom UI, high-quality audio controls, Discord Rich Presence, and synced lyrics while keeping the codebase small enough to maintain directly.
 
 > [!IMPORTANT]
 > This project is not affiliated with, authorized by, endorsed by, or otherwise officially connected with Google LLC or YouTube. Google, YouTube, YouTube Music, and related marks belong to their respective owners.
