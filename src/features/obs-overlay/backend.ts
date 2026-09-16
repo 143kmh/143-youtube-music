@@ -5,10 +5,12 @@ import { createBackend } from '@/utils';
 import { obsOverlayPage } from './overlay-page';
 
 import type { Server, ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import type { ObsOverlayState } from './types';
 
 const HOST = '127.0.0.1';
-const PORT = 14321;
+const PREFERRED_PORT = 14321;
+const PORT_ATTEMPTS = 10;
 
 const emptyState = (): ObsOverlayState => ({
   id: '',
@@ -64,7 +66,7 @@ export default createBackend<ObsOverlayBackendState>({
   server: null,
   clients: new Set<ServerResponse>(),
   state: emptyState(),
-  url: `http://${HOST}:${PORT}/overlay`,
+  url: `http://${HOST}:${PREFERRED_PORT}/overlay`,
 
   broadcast() {
     const payload = `data: ${JSON.stringify(this.state)}\n\n`;
@@ -82,79 +84,109 @@ export default createBackend<ObsOverlayBackendState>({
     this.state = emptyState();
     this.clients.clear();
 
-    this.server = createServer((request, response) => {
-      const requestUrl = new URL(
-        request.url ?? '/',
-        `http://${request.headers.host ?? `${HOST}:${PORT}`}`,
-      );
+    const createOverlayServer = () =>
+      createServer((request, response) => {
+        const requestUrl = new URL(
+          request.url ?? '/',
+          `http://${request.headers.host ?? `${HOST}:${PREFERRED_PORT}`}`,
+        );
 
-      if (requestUrl.pathname === '/' || requestUrl.pathname === '/overlay') {
-        response.writeHead(200, {
-          'Cache-Control': 'no-store',
-          'Content-Security-Policy':
-            "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'",
-          'Content-Type': 'text/html; charset=utf-8',
-          'X-Content-Type-Options': 'nosniff',
-        });
-        response.end(obsOverlayPage);
-        return;
-      }
+        if (requestUrl.pathname === '/' || requestUrl.pathname === '/overlay') {
+          response.writeHead(200, {
+            'Cache-Control': 'no-store',
+            'Content-Security-Policy':
+              "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'",
+            'Content-Type': 'text/html; charset=utf-8',
+            'X-Content-Type-Options': 'nosniff',
+          });
+          response.end(obsOverlayPage);
+          return;
+        }
 
-      if (requestUrl.pathname === '/state') {
-        response.writeHead(200, {
-          'Cache-Control': 'no-store',
-          'Content-Type': 'application/json; charset=utf-8',
-          'X-Content-Type-Options': 'nosniff',
-        });
-        response.end(JSON.stringify(this.state));
-        return;
-      }
+        if (requestUrl.pathname === '/state') {
+          response.writeHead(200, {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'application/json; charset=utf-8',
+            'X-Content-Type-Options': 'nosniff',
+          });
+          response.end(JSON.stringify(this.state));
+          return;
+        }
 
-      if (requestUrl.pathname === '/events') {
-        response.writeHead(200, {
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-          'Content-Type': 'text/event-stream; charset=utf-8',
-          'X-Accel-Buffering': 'no',
-        });
-        response.write(`data: ${JSON.stringify(this.state)}\n\n`);
-        this.clients.add(response);
-        request.once('close', () => {
-          this.clients.delete(response);
-        });
-        return;
-      }
+        if (requestUrl.pathname === '/events') {
+          response.writeHead(200, {
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'X-Accel-Buffering': 'no',
+          });
+          response.write(`data: ${JSON.stringify(this.state)}\n\n`);
+          this.clients.add(response);
+          request.once('close', () => {
+            this.clients.delete(response);
+          });
+          return;
+        }
 
-      if (requestUrl.pathname === '/health') {
-        response.writeHead(200, {
+        if (requestUrl.pathname === '/health') {
+          response.writeHead(200, {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'text/plain; charset=utf-8',
+          });
+          response.end('143 Music OBS overlay is running');
+          return;
+        }
+
+        response.writeHead(404, {
           'Cache-Control': 'no-store',
           'Content-Type': 'text/plain; charset=utf-8',
         });
-        response.end('143 Music OBS overlay is running');
-        return;
-      }
-
-      response.writeHead(404, {
-        'Cache-Control': 'no-store',
-        'Content-Type': 'text/plain; charset=utf-8',
+        response.end('Not found');
       });
-      response.end('Not found');
-    });
 
-    await new Promise<void>((resolve, reject) => {
-      const server = this.server!;
-      const onError = (error: Error) => {
-        server.off('listening', onListening);
-        reject(error);
-      };
-      const onListening = () => {
-        server.off('error', onError);
-        resolve();
-      };
-      server.once('error', onError);
-      server.once('listening', onListening);
-      server.listen(PORT, HOST);
-    });
+    const listenAt = async (port: number) => {
+      const server = createOverlayServer();
+      await new Promise<void>((resolve, reject) => {
+        const onError = (error: Error) => {
+          server.off('listening', onListening);
+          reject(error);
+        };
+        const onListening = () => {
+          server.off('error', onError);
+          resolve();
+        };
+        server.once('error', onError);
+        server.once('listening', onListening);
+        server.listen(port, HOST);
+      });
+      return server;
+    };
+
+    let server: Server | null = null;
+    let lastError: unknown = null;
+    for (let offset = 0; offset < PORT_ATTEMPTS; offset++) {
+      try {
+        server = await listenAt(PREFERRED_PORT + offset);
+        break;
+      } catch (error) {
+        lastError = error;
+        const code = (error as NodeJS.ErrnoException)?.code;
+        if (code !== 'EADDRINUSE') throw error;
+      }
+    }
+
+    if (!server) {
+      try {
+        server = await listenAt(0);
+      } catch (error) {
+        throw lastError ?? error;
+      }
+    }
+
+    this.server = server;
+    const address = server.address() as AddressInfo | null;
+    const port = address?.port ?? PREFERRED_PORT;
+    this.url = `http://${HOST}:${port}/overlay`;
 
     ipc.handle('obs-overlay:update', (value: unknown) => {
       this.state = sanitizeState(value);
