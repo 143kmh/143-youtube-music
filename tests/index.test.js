@@ -9,7 +9,7 @@ process.env.NODE_ENV = 'test';
 
 const appPath = path.resolve(import.meta.dirname, '..');
 
-test('143 Music launches with an isolated default profile', async ({}, testInfo) => {
+test('YouTube Music launches with an isolated default profile', async ({}, testInfo) => {
   const profile = testInfo.outputPath('profile');
   await mkdir(profile, { recursive: true });
   const bootstrap = testInfo.outputPath('bootstrap.cjs');
@@ -38,9 +38,6 @@ test('143 Music launches with an isolated default profile', async ({}, testInfo)
     if (consentForm) {
       await consentForm.click('button');
     }
-
-    // const title = await window.title();
-    // expect(title.replaceAll(/\s/g, ' ')).toEqual('Pear Desktop');
 
     const url = window.url();
     expect(
