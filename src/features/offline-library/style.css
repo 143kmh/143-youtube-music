@@ -154,11 +154,16 @@
   min-height: 62px;
   padding: 7px 10px;
   border-radius: 8px;
-  transition: background 100ms ease;
+  transition: background 100ms ease, box-shadow 100ms ease;
 }
 
 .ui143-offline-row:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.ui143-offline-row.is-playing {
+  background: rgba(96, 81, 155, 0.12);
+  box-shadow: inset 2px 0 0 rgba(166, 147, 236, 0.7);
 }
 
 .ui143-offline-art {
@@ -229,6 +234,17 @@
 .ui143-offline-row-actions button:hover {
   background: rgba(255, 255, 255, 0.11);
   color: #fff;
+}
+
+.ui143-offline-row-actions .ui143-offline-play {
+  min-width: 52px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+
+.ui143-offline-row-actions .ui143-offline-play:hover {
+  background: #fff;
+  color: #111;
 }
 
 .ui143-offline-row-actions button.is-danger:hover {
