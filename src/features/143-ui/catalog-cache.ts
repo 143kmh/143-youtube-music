@@ -33,10 +33,16 @@ const cachePromise = <T>(
 };
 
 export const installCatalogCache = (engine: PlaybackContextAdapter) => {
-  const search = engine.searchCatalog.bind(engine);
-  const artist = engine.getArtistCatalog.bind(engine);
-  const album = engine.getAlbumCatalog.bind(engine);
-  const autoplay = engine.getAutoplayItems.bind(engine);
+  const methods = engine as Partial<PlaybackContextAdapter>;
+  const search = methods.searchCatalog?.bind(engine);
+  const artist = methods.getArtistCatalog?.bind(engine);
+  const album = methods.getAlbumCatalog?.bind(engine);
+  const autoplay = methods.getAutoplayItems?.bind(engine);
+
+  // Some isolated UI tests intentionally provide only the subset of the
+  // playback adapter they exercise. In production all four catalog methods are
+  // present; when one is absent, simply leave the adapter untouched.
+  if (!search || !artist || !album || !autoplay) return () => {};
 
   const searchCache = new Map<string, { value: ReturnType<typeof search>; expires: number }>();
   const artistCache = new Map<string, { value: ReturnType<typeof artist>; expires: number }>();
