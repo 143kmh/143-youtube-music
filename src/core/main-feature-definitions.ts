@@ -1,5 +1,6 @@
 import ui from '@/features/143-ui/backend-feature';
 import autoUpdater from '@/features/auto-updater';
+import startupPlaybackSafety from '@/features/startup-playback-safety';
 import audio from '@/features/force-high-audio-quality';
 import obsOverlay from '@/features/obs-overlay';
 import offlineLibrary from '@/features/offline-library';
@@ -21,6 +22,7 @@ const rendererOnlyFeature = (
 
 export const mainCoreFeatures: Record<string, CoreFeature> = {
   '143-ui': asCoreFeature(ui),
+  'startup-playback-safety': asCoreFeature(startupPlaybackSafety),
   'auto-updater': asCoreFeature(autoUpdater),
   'shell-controls': rendererOnlyFeature(
     'Shell Controls',
