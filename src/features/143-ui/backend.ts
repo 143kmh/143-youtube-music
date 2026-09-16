@@ -7,14 +7,14 @@ import { createBackend } from '@/utils';
 import { startDesktop } from './desktop';
 
 const YOUTUBE_MUSIC_URL = 'https://music.youtube.com/';
-
-const hostname = (rawUrl: string) => {
-  try {
-    return new URL(rawUrl).hostname;
-  } catch {
-    return '';
-  }
-};
+const AUTH_COOKIE_NAMES = new Set([
+  'SAPISID',
+  'APISID',
+  '__Secure-1PAPISID',
+  '__Secure-3PAPISID',
+  '__Secure-1PSID',
+  '__Secure-3PSID',
+]);
 
 const isGoogleOrYouTubeDomain = (domain: string) => {
   const host = domain.replace(/^\./u, '').toLowerCase();
@@ -23,6 +23,14 @@ const isGoogleOrYouTubeDomain = (domain: string) => {
     host.endsWith('.google.com') ||
     host === 'youtube.com' ||
     host.endsWith('.youtube.com')
+  );
+};
+
+const hasYouTubeAuthCookies = async (targetSession: Electron.Session) => {
+  const cookies = await targetSession.cookies.get({});
+  return cookies.some(
+    (cookie) =>
+      isGoogleOrYouTubeDomain(cookie.domain) && AUTH_COOKIE_NAMES.has(cookie.name),
   );
 };
 
@@ -44,6 +52,11 @@ export default createBackend<{
       webContents.openDevTools = originalOpenDevTools;
     });
 
+    ipc.removeHandler('143:auth:status');
+    ipc.handle('143:auth:status', async () =>
+      hasYouTubeAuthCookies(webContents.session),
+    );
+
     ipc.removeHandler('143:auth:sign-in');
     ipc.handle('143:auth:sign-in', async () => {
       if (this.authWindow && !this.authWindow.isDestroyed()) {
@@ -52,8 +65,9 @@ export default createBackend<{
         return true;
       }
 
-      let visitedGoogle = false;
       let completed = false;
+      let completionTimeout: NodeJS.Timeout | null = null;
+      let cookiePoll: NodeJS.Timeout | null = null;
       const chromeVersion = process.versions.chrome;
       const chromeMajor = chromeVersion.split('.')[0] || chromeVersion;
       const chromeUserAgent =
@@ -117,17 +131,19 @@ export default createBackend<{
           const host = cookie.domain.replace(/^\./u, '');
           const scheme = cookie.secure ? 'https' : 'http';
           const cookiePath = cookie.path || '/';
-          await webContents.session.cookies.set({
+          const details: Electron.CookiesSetDetails = {
             url: `${scheme}://${host}${cookiePath}`,
             name: cookie.name,
             value: cookie.value,
-            domain: cookie.domain,
             path: cookiePath,
             secure: cookie.secure,
             httpOnly: cookie.httpOnly,
-            expirationDate: cookie.expirationDate,
             sameSite: cookie.sameSite,
-          });
+          };
+          if (!cookie.hostOnly) details.domain = cookie.domain;
+          if (cookie.expirationDate !== undefined)
+            details.expirationDate = cookie.expirationDate;
+          await webContents.session.cookies.set(details);
         }
         await webContents.session.cookies.flushStore();
       };
@@ -137,6 +153,9 @@ export default createBackend<{
         completed = true;
         try {
           await copyAuthCookies();
+          if (!(await hasYouTubeAuthCookies(webContents.session))) {
+            throw new Error('YouTube auth cookies were not transferred');
+          }
         } catch (error) {
           completed = false;
           console.warn('[143 Music] Could not copy Google session cookies', error);
@@ -146,26 +165,22 @@ export default createBackend<{
         if (!window.isDestroyed()) await webContents.loadURL(YOUTUBE_MUSIC_URL);
       };
 
-      const inspectNavigation = (url: string) => {
-        const host = hostname(url);
-        if (host === 'accounts.google.com') {
-          visitedGoogle = true;
-          return;
-        }
-        if (visitedGoogle && host === 'music.youtube.com') {
+      const scheduleCompletion = () => {
+        if (completed || completionTimeout) return;
+        completionTimeout = setTimeout(() => {
+          completionTimeout = null;
           void completeSignIn();
-        }
+        }, 900);
       };
 
-      authWindow.webContents.on('did-navigate', (_event, url) => {
-        inspectNavigation(url);
-      });
-      authWindow.webContents.on('did-navigate-in-page', (_event, url) => {
-        inspectNavigation(url);
-      });
-      authWindow.webContents.on('will-redirect', (_event, url) => {
-        inspectNavigation(url);
-      });
+      cookiePoll = setInterval(() => {
+        void hasYouTubeAuthCookies(authSession)
+          .then((signedIn) => {
+            if (signedIn) scheduleCompletion();
+          })
+          .catch(() => {});
+      }, 500);
+
       authWindow.webContents.setWindowOpenHandler(({ url }) => {
         authWindow.loadURL(url).catch((error) => {
           console.warn('[143 Music] Could not continue sign-in navigation', error);
@@ -177,14 +192,18 @@ export default createBackend<{
         if (!authWindow.isDestroyed()) authWindow.show();
       });
       authWindow.once('closed', () => {
+        if (completionTimeout) clearTimeout(completionTimeout);
+        if (cookiePoll) clearInterval(cookiePoll);
+        completionTimeout = null;
+        cookiePoll = null;
         authSession.webRequest.onBeforeSendHeaders(null);
         if (this.authWindow === authWindow) this.authWindow = null;
       });
 
       try {
         // Start at the real YouTube Music page and use its current native Sign in
-        // action. The auth partition has a matching Chrome UA/client-hint surface
-        // and no 143 renderer or main-session request hooks.
+        // action. Completion is detected from YouTube auth cookies themselves,
+        // not from a fragile redirect/navigation sequence.
         await authWindow.loadURL(YOUTUBE_MUSIC_URL);
       } catch (error) {
         if (!authWindow.isDestroyed()) authWindow.close();
@@ -208,6 +227,7 @@ export default createBackend<{
   },
 
   stop({ ipc }) {
+    ipc.removeHandler('143:auth:status');
     ipc.removeHandler('143:auth:sign-in');
     ipc.removeHandler('synced-lyrics:fetch');
     if (this.authWindow && !this.authWindow.isDestroyed()) this.authWindow.close();
