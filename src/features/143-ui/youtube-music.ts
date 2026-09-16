@@ -1087,7 +1087,10 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     start() {
       if (disposed || timer !== undefined) return;
       refresh();
-      timer = window.setInterval(refresh, 100);
+      // Playback actions trigger refresh synchronously, so four background
+      // snapshots per second are enough for the progress UI and save repeated
+      // DOM/store scans while a track simply plays.
+      timer = window.setInterval(refresh, 250);
     },
     subscribe(listener: (state: MusicState) => void) {
       if (disposed) return () => {};
