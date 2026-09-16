@@ -1,5 +1,6 @@
 import ui from '@/features/143-ui';
 import autoUpdater from '@/features/auto-updater';
+import releasePolish from '@/features/release-polish';
 import shellControls from '@/features/shell-controls';
 import startupPlaybackSafety from '@/features/startup-playback-safety';
 import audio from '@/features/force-high-audio-quality';
@@ -18,6 +19,7 @@ export const coreFeatures: Record<string, CoreFeature> = {
   '143-ui': asCoreFeature(ui),
   'startup-playback-safety': asCoreFeature(startupPlaybackSafety),
   'auto-updater': asCoreFeature(autoUpdater),
+  'release-polish': asCoreFeature(releasePolish),
   'shell-controls': asCoreFeature(shellControls),
   'force-high-audio-quality': asCoreFeature(audio),
   'home-page': asCoreFeature(homePage),
