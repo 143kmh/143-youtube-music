@@ -2,6 +2,7 @@ import { mountLibraryCollections } from './library-collections';
 import { mountLibraryPage } from './library-page';
 import { mountPlaylistWorkspace } from './playlist-workspace';
 import { installUxFixes } from './ux-fixes';
+import { waitForYouTubeMusicReady } from './youtube-music-ready';
 
 import type { PlaybackContextAdapter } from './playback-context';
 
@@ -239,6 +240,8 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   const libraryPage = mountLibraryPage(engine);
   const collectionsPage = mountLibraryCollections(engine);
   const playlistWorkspace = mountPlaylistWorkspace(engine);
+  let libraryNavigationRequest = 0;
+  let disposed = false;
 
   const openNowPlayingSurface = async () => {
     if (!engine.getState().track.id) return;
@@ -256,6 +259,15 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
     }
   };
 
+  const openLibraryWhenReady = async (
+    mode: 'landing' | 'playlists' | 'songs',
+  ) => {
+    const request = ++libraryNavigationRequest;
+    await waitForYouTubeMusicReady();
+    if (disposed || request !== libraryNavigationRequest) return;
+    await libraryPage.open(mode);
+  };
+
   const onClick = (event: MouseEvent) => {
     if (shelfGestures.suppressDraggedClick(event)) return;
     const target = event.target;
@@ -270,7 +282,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       const result = collectionsPage.back();
       if (result === 'library') {
         setActiveNav('library');
-        void libraryPage.open('landing');
+        void openLibraryWhenReady('landing');
       }
       return;
     }
@@ -295,10 +307,11 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       hideCustomPages();
       collectionsPage.close();
       setActiveNav(navKey);
-      void libraryPage.open(libraryMode);
+      void openLibraryWhenReady(libraryMode);
       return;
     }
     if (collectionMode) {
+      ++libraryNavigationRequest;
       event.preventDefault();
       event.stopImmediatePropagation();
       playlistWorkspace.close(false);
@@ -309,6 +322,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       return;
     }
     if (nav) {
+      ++libraryNavigationRequest;
       if (playlistWorkspace.isOpen()) playlistWorkspace.close(false);
       if (libraryPage.isOpen()) libraryPage.close();
       if (collectionsPage.isOpen()) collectionsPage.close();
@@ -321,6 +335,16 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       event.preventDefault();
       event.stopImmediatePropagation();
       openLyricsFromAnywhere();
+      return;
+    }
+
+    const artwork = target.closest(
+      '.ui143-player-art, .ui143-player-art-placeholder',
+    );
+    if (artwork) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      engine.openQueue();
       return;
     }
 
@@ -340,6 +364,7 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       event.target instanceof Element &&
       event.target.matches('.ui143-search')
     ) {
+      ++libraryNavigationRequest;
       if (playlistWorkspace.isOpen()) playlistWorkspace.close(false);
       if (libraryPage.isOpen()) libraryPage.close();
       if (collectionsPage.isOpen()) collectionsPage.close();
@@ -349,6 +374,8 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   document.addEventListener('click', onClick, true);
   document.addEventListener('submit', onSubmit, true);
   return () => {
+    disposed = true;
+    ++libraryNavigationRequest;
     document.removeEventListener('click', onClick, true);
     document.removeEventListener('submit', onSubmit, true);
     playlistWorkspace.dispose();
