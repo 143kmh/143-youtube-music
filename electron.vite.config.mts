@@ -38,10 +38,6 @@ export default defineConfig(({ mode }) => {
       viteResolve({
         'virtual:i18n': i18nImporter(),
       }),
-      // Some mixed-context features still reference renderer modules before
-      // Rolldown tree-shaking removes them. Let the main graph parse TSX so
-      // those renderer-only branches can be discarded cleanly.
-      solidTsx(),
     ],
     publicDir: 'assets',
     define: {
