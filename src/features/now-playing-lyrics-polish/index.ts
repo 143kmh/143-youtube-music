@@ -1,5 +1,6 @@
 import { currentTime } from '@/features/synced-lyrics/renderer/renderer';
 import { currentLyrics } from '@/features/synced-lyrics/renderer/store';
+import type { LineLyrics } from '@/features/synced-lyrics/types';
 import { createFeature, createRenderer } from '@/utils';
 
 import style from './style.css?inline';
@@ -11,7 +12,7 @@ type TimedWord = Readonly<{
   timeInMs: number;
 }>;
 
-const wordsForLine = (line: NonNullable<ReturnType<typeof currentLyrics>['data']>['lines'][number]) => {
+const wordsForLine = (line: LineLyrics) => {
   const exact = (line.words ?? []).filter(
     ({ word, timeInMs }) => word.trim().length > 0 && Number.isFinite(timeInMs),
   );
@@ -19,14 +20,16 @@ const wordsForLine = (line: NonNullable<ReturnType<typeof currentLyrics>['data']
   return line.text.trim().split(/\s+/u).filter(Boolean);
 };
 
-const timedWordsForLine = (line: NonNullable<ReturnType<typeof currentLyrics>['data']>['lines'][number]) =>
-  (line.words ?? []).filter(
-    ({ word, timeInMs }): word is string & never =>
-      word.trim().length > 0 && Number.isFinite(timeInMs),
-  ) as unknown as TimedWord[];
+const timedWordsForLine = (line: LineLyrics): TimedWord[] =>
+  (line.words ?? [])
+    .filter(
+      ({ word, timeInMs }) =>
+        word.trim().length > 0 && Number.isFinite(timeInMs),
+    )
+    .map(({ word, timeInMs }) => ({ word, timeInMs }));
 
 const activeWordIndex = (
-  line: NonNullable<ReturnType<typeof currentLyrics>['data']>['lines'][number],
+  line: LineLyrics,
   now: number,
   status: 'previous' | 'current' | 'upcoming',
 ) => {
@@ -82,8 +85,7 @@ const renderer = createRenderer<{
       const scroll = pane?.querySelector<HTMLElement>('.ui143-now-playing-lyrics');
       if (!root || root.hidden || !pane || pane.hidden || !scroll) return;
 
-      const data = currentLyrics()?.data;
-      const lines = data?.lines;
+      const lines = currentLyrics()?.data?.lines;
       if (!lines?.length) return;
 
       const rows = [
@@ -93,14 +95,23 @@ const renderer = createRenderer<{
       ];
       if (rows.length !== lines.length) return;
 
-      const trackKey = `${lines.length}:${lines[0]?.timeInMs ?? 0}:${lines.at(-1)?.timeInMs ?? 0}`;
+      const trackKey = [
+        lines.length,
+        lines[0]?.timeInMs ?? 0,
+        lines[0]?.text ?? '',
+        lines.at(-1)?.timeInMs ?? 0,
+        lines.at(-1)?.text ?? '',
+      ].join(':');
+
       if (trackKey !== this.lastTrackKey) {
         this.lastTrackKey = trackKey;
         this.lastCurrentIndex = -1;
         rows.forEach((row, index) => {
-          const line = lines[index];
-          const words = wordsForLine(line);
+          const words = wordsForLine(lines[index]);
           row.replaceChildren();
+          // The base Now Playing feature also tries to scroll the current row.
+          // Disable that per-row call so this feature is the only scroll owner.
+          row.scrollIntoView = () => undefined;
           words.forEach((word, wordIndex) => {
             const span = document.createElement('span');
             span.className = 'ui143-now-playing-word';
@@ -113,10 +124,10 @@ const renderer = createRenderer<{
 
       const now = currentTime();
       let currentIndex = -1;
-      const statuses = lines.map((line) => {
+      const statuses = lines.map((line, index) => {
         if (line.timeInMs >= now) return 'upcoming' as const;
         if (now - line.timeInMs >= line.duration) return 'previous' as const;
-        currentIndex = lines.indexOf(line);
+        currentIndex = index;
         return 'current' as const;
       });
 
@@ -140,7 +151,10 @@ const renderer = createRenderer<{
       const current = rows[currentIndex];
       const target =
         current.offsetTop - (scroll.clientHeight - current.offsetHeight) / 2;
-      scroll.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      scroll.scrollTo({
+        top: Math.max(0, target),
+        behavior: 'smooth',
+      });
     };
 
     this.timer = window.setInterval(sync, 90);
