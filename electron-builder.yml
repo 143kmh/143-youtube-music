@@ -1,5 +1,5 @@
 appId: "com.143aimclub.music"
-productName: "YouTube Music"
+productName: "143 Music"
 files:
   - '!*'
   - dist
@@ -77,10 +77,10 @@ linux:
         - arm64
         - armv7l
 appImage:
-  description: "YouTube Music desktop client"
+  description: "143 Music desktop client for YouTube Music"
   category: AudioVideo
 flatpak:
-  description: "YouTube Music desktop client"
+  description: "143 Music desktop client for YouTube Music"
   category: AudioVideo
   runtimeVersion: '24.08'
   baseVersion: '24.08'
