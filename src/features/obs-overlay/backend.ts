@@ -11,6 +11,7 @@ import type { ObsOverlayState } from './types';
 const HOST = '127.0.0.1';
 const PREFERRED_PORT = 14321;
 const PORT_ATTEMPTS = 10;
+const MAX_ARTWORK_BYTES = 5 * 1024 * 1024;
 
 const emptyState = (): ObsOverlayState => ({
   id: '',
@@ -85,7 +86,7 @@ export default createBackend<ObsOverlayBackendState>({
     this.clients.clear();
 
     const createOverlayServer = () =>
-      createServer((request, response) => {
+      createServer(async (request, response) => {
         const requestUrl = new URL(
           request.url ?? '/',
           `http://${request.headers.host ?? `${HOST}:${PREFERRED_PORT}`}`,
@@ -95,11 +96,63 @@ export default createBackend<ObsOverlayBackendState>({
           response.writeHead(200, {
             'Cache-Control': 'no-store',
             'Content-Security-Policy':
-              "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'",
+              "default-src 'none'; img-src 'self' https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'",
             'Content-Type': 'text/html; charset=utf-8',
             'X-Content-Type-Options': 'nosniff',
           });
           response.end(obsOverlayPage);
+          return;
+        }
+
+        if (requestUrl.pathname === '/artwork') {
+          const artwork = this.state.artwork;
+          if (!artwork) {
+            response.writeHead(404, {
+              'Cache-Control': 'no-store',
+              'Content-Type': 'text/plain; charset=utf-8',
+            });
+            response.end('No artwork');
+            return;
+          }
+
+          try {
+            const remote = await fetch(artwork, {
+              redirect: 'follow',
+              signal: AbortSignal.timeout(8000),
+              headers: {
+                Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0.0.0 Safari/537.36',
+              },
+            });
+            if (!remote.ok) throw new Error(`Artwork HTTP ${remote.status}`);
+
+            const contentType = remote.headers.get('content-type') ?? '';
+            if (!contentType.toLowerCase().startsWith('image/'))
+              throw new Error('Artwork response was not an image');
+
+            const declaredLength = Number(remote.headers.get('content-length') ?? 0);
+            if (declaredLength > MAX_ARTWORK_BYTES)
+              throw new Error('Artwork response too large');
+
+            const body = Buffer.from(await remote.arrayBuffer());
+            if (body.byteLength > MAX_ARTWORK_BYTES)
+              throw new Error('Artwork response too large');
+
+            response.writeHead(200, {
+              'Cache-Control': 'no-store',
+              'Content-Type': contentType,
+              'Content-Length': body.byteLength,
+              'X-Content-Type-Options': 'nosniff',
+            });
+            response.end(body);
+          } catch {
+            response.writeHead(502, {
+              'Cache-Control': 'no-store',
+              'Content-Type': 'text/plain; charset=utf-8',
+            });
+            response.end('Could not load artwork');
+          }
           return;
         }
 
