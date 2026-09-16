@@ -3,14 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 if (process.platform !== 'win32') {
-  console.error('[143 Music] start:win is only available on Windows.');
+  console.error('[YouTube Music] start:win is only available on Windows.');
   process.exit(1);
 }
 
 const exePath = path.resolve('pack', 'win-unpacked', 'YouTube Music.exe');
 if (!fs.existsSync(exePath)) {
-  console.error(`[143 Music] Missing unpacked executable: ${exePath}`);
-  console.error('[143 Music] Run this command through pnpm start:win so the app is built first.');
+  console.error(`[YouTube Music] Missing unpacked executable: ${exePath}`);
+  console.error('[YouTube Music] Run this command through pnpm start:win so the app is built first.');
   process.exit(1);
 }
 
@@ -21,7 +21,7 @@ const child = spawn(exePath, [], {
 });
 
 child.on('error', (error) => {
-  console.error('[143 Music] Failed to launch unpacked Windows app', error);
+  console.error('[YouTube Music] Failed to launch unpacked Windows app', error);
   process.exitCode = 1;
 });
 
