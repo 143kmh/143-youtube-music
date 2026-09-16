@@ -96,10 +96,10 @@ const bestQueueArtwork = (row: ReturnType<typeof queueRow>) => {
 
 const currentAlbumRef = (videoId: string): AlbumRef | null => {
   const store = queueElement()?.queue?.store?.store?.getState?.();
-  const items = store?.queue?.items ?? [];
-  const current = items
-    .map(queueRow)
-    .find((row) => row?.selected || row?.videoId === videoId);
+  const rows = (store?.queue?.items ?? []).map(queueRow);
+  const current =
+    rows.find((row) => row?.videoId === videoId) ??
+    rows.find((row) => row?.selected);
   for (const run of current?.longBylineText?.runs ?? []) {
     const browse = run.navigationEndpoint?.browseEndpoint;
     if (
@@ -352,6 +352,8 @@ const renderer = createRenderer<NowPlayingState>({
         target.closest('#ui143-player .ui143-player-art') ||
         target.closest('#ui143-player .ui143-player-title')
       ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
         this.open(this.activeTab);
         return;
       }
