@@ -7,7 +7,6 @@ import audio from '@/features/force-high-audio-quality';
 import homePage from '@/features/home-page';
 import nowPlaying from '@/features/now-playing';
 import obsOverlay from '@/features/obs-overlay';
-import offlineLibrary from '@/features/offline-library';
 import playerTools from '@/features/player-tools';
 
 import type { FeatureDef } from '@/types/features';
@@ -25,7 +24,6 @@ export const coreFeatures: Record<string, CoreFeature> = {
   'home-page': asCoreFeature(homePage),
   'now-playing': asCoreFeature(nowPlaying),
   'obs-overlay': asCoreFeature(obsOverlay),
-  'offline-library': asCoreFeature(offlineLibrary),
   'player-tools': asCoreFeature(playerTools),
 };
 
