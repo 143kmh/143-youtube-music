@@ -35,9 +35,9 @@
   font-family:
     Satoshi, Avenir, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
-  font-size: clamp(1.55rem, 1.55vw, 2.2rem) !important;
+  font-size: clamp(1.85rem, 1.85vw, 2.6rem) !important;
   font-weight: 680 !important;
-  line-height: 1.38 !important;
+  line-height: 1.4 !important;
   letter-spacing: -0.018em !important;
   text-align: left;
   opacity: 1 !important;
@@ -64,6 +64,12 @@
     color 170ms ease,
     transform 200ms ease,
     text-shadow 200ms ease;
+}
+
+/* Keep spacing outside each inline-block. Whitespace at the end of a word span
+   can be collapsed by layout, which is what made the lyrics look concatenated. */
+#ui143-now-playing .ui143-now-playing-word:not(:last-child) {
+  margin-inline-end: 0.26em;
 }
 
 #ui143-now-playing
@@ -116,14 +122,14 @@
 #ui143-now-playing .ui143-now-playing-lyric.is-plain {
   padding-block: 0.85rem !important;
   color: rgba(255, 255, 255, 0.68) !important;
-  font-size: clamp(1.35rem, 1.35vw, 1.95rem) !important;
+  font-size: clamp(1.6rem, 1.6vw, 2.2rem) !important;
   font-weight: 560 !important;
   transform: none !important;
 }
 
 @media (max-width: 1100px) {
   #ui143-now-playing .ui143-now-playing-lyric {
-    font-size: clamp(1.45rem, 2.15vw, 2rem) !important;
+    font-size: clamp(1.7rem, 2.45vw, 2.35rem) !important;
   }
 }
 
@@ -135,7 +141,7 @@
 
   #ui143-now-playing .ui143-now-playing-lyric {
     padding: 0.95rem 0.35rem 1.15rem !important;
-    font-size: clamp(1.35rem, 3.6vw, 1.85rem) !important;
+    font-size: clamp(1.5rem, 4vw, 2.05rem) !important;
   }
 }
 
