@@ -104,25 +104,28 @@ const mountShelfGestures = () => {
   const onWheel = (event: WheelEvent) => {
     if (!(event.target instanceof Element)) return;
     const shelf = shelfFromTarget(event.target);
-    if (!shelf || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    const deltaY = Number.isFinite(event.deltaY) ? event.deltaY : 0;
+    const deltaX = Number.isFinite(event.deltaX) ? event.deltaX : 0;
+    if (!shelf || deltaY === 0 || Math.abs(deltaY) <= Math.abs(deltaX)) return;
 
     const max = Math.max(0, shelf.scrollWidth - shelf.clientWidth);
     if (max <= 1) return;
-    const direction = Math.sign(event.deltaY);
+    const currentScroll = Number.isFinite(shelf.scrollLeft) ? shelf.scrollLeft : 0;
+    const direction = Math.sign(deltaY);
     const canMove =
-      (direction > 0 && shelf.scrollLeft < max - 1) ||
-      (direction < 0 && shelf.scrollLeft > 1);
+      (direction > 0 && currentScroll < max - 1) ||
+      (direction < 0 && currentScroll > 1);
     if (!canMove) return;
 
     event.preventDefault();
     const delta =
-      event.deltaY *
+      deltaY *
       (event.deltaMode === 1
         ? 16
         : event.deltaMode === 2
           ? shelf.clientWidth
           : 1);
-    shelf.scrollLeft = Math.max(0, Math.min(max, shelf.scrollLeft + delta));
+    shelf.scrollLeft = Math.max(0, Math.min(max, currentScroll + delta));
   };
 
   const onPointerDown = (event: PointerEvent) => {
