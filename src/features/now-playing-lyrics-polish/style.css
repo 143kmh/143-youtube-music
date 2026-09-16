@@ -1,107 +1,63 @@
-#ui143-now-playing .ui143-now-playing-lyrics {
-  padding: 0 8px 28vh !important;
-  scroll-padding-block: 28vh !important;
-  scroll-behavior: smooth !important;
-  overscroll-behavior: contain;
+#ui143-now-playing [data-pane='lyrics'].ui143-native-lyrics-mounted {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+#ui143-now-playing
+  [data-pane='lyrics'].ui143-native-lyrics-mounted
+  > .ui143-now-playing-provider {
+  flex: 0 0 42px;
+}
+
+#ui143-now-playing
+  [data-pane='lyrics'].ui143-native-lyrics-mounted
+  > .ui143-now-playing-lyrics {
+  display: none !important;
+}
+
+#ui143-now-playing
+  [data-pane='lyrics'].ui143-native-lyrics-mounted
+  > #synced-lyrics-container {
+  display: block !important;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto !important;
+  overflow: hidden;
+}
+
+#ui143-now-playing #synced-lyrics-container .synced-lyrics-vlist {
+  width: 100% !important;
+  height: 100% !important;
+  scrollbar-width: none !important;
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
     #000 9%,
     #000 91%,
     transparent 100%
-  ) !important;
+  );
 }
 
-#ui143-now-playing .ui143-now-playing-lyrics::before,
-#ui143-now-playing .ui143-now-playing-lyrics::after {
-  content: none !important;
+#ui143-now-playing #synced-lyrics-container .synced-lyrics-vlist::-webkit-scrollbar {
+  display: none;
+}
+
+/* The 143 Playback header already shows the provider. Keep only the exact
+   synced text/list behaviour from the native renderer, not its picker UI. */
+#ui143-now-playing #synced-lyrics-container .lyrics-picker,
+#ui143-now-playing #synced-lyrics-container div:has(> .lyrics-picker) {
   display: none !important;
 }
 
-#ui143-now-playing .ui143-now-playing-lyric {
-  width: 100%;
-  margin: 0 !important;
-  padding: 2rem 1.5rem !important;
-  border: 0;
-  background: transparent;
-  color: #fff !important;
-  font-family:
-    Satoshi, Avenir, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
-  font-size: 3rem !important;
-  font-weight: 700 !important;
-  line-height: 1.333 !important;
-  letter-spacing: normal !important;
-  text-align: left;
-  opacity: 0.33 !important;
-  transform: scale(0.95) !important;
-  transform-origin: 0 50% !important;
-  text-shadow: none !important;
-  transition:
-    opacity 0.33s ease,
-    transform 0.166s ease,
-    color 0.33s ease,
-    text-shadow 0.5s ease !important;
-}
-
-#ui143-now-playing .ui143-now-playing-lyric.is-current {
-  opacity: 1 !important;
-  transform: scale(1) !important;
-  animation:
-    ui143-youtube-lyrics-glow 2s forwards,
-    ui143-youtube-lyrics-wobble 1s forwards;
-}
-
-#ui143-now-playing .ui143-now-playing-lyric.is-past,
-#ui143-now-playing .ui143-now-playing-lyric.is-upcoming {
-  opacity: 0.33 !important;
-  transform: scale(0.95) !important;
-}
-
-#ui143-now-playing .ui143-now-playing-lyric:hover:not(.is-current) {
-  opacity: 0.58 !important;
-}
-
-@keyframes ui143-youtube-lyrics-glow {
-  from {
-    text-shadow: 0 0 1.5rem rgba(255, 255, 255, 0.5);
-  }
-  to {
-    text-shadow: 0 0 0 rgba(255, 255, 255, 0.5);
-  }
-}
-
-@keyframes ui143-youtube-lyrics-wobble {
-  from {
-    transform: translateY(0) scale(1);
-  }
-  33.33% {
-    transform: translateY(1.75px) scale(1);
-  }
-  66.66% {
-    transform: translateY(-1.75px) scale(1);
-  }
-  to {
-    transform: translateY(0) scale(1);
-  }
-}
-
-@media (max-width: 1100px) {
-  #ui143-now-playing .ui143-now-playing-lyric {
-    font-size: clamp(2rem, 3.3vw, 3rem) !important;
-  }
+#ui143-now-playing #synced-lyrics-container .synced-line {
+  padding-inline: 8px;
 }
 
 @media (max-width: 820px) {
-  #ui143-now-playing .ui143-now-playing-lyric {
-    font-size: clamp(1.65rem, 4.2vw, 2.35rem) !important;
-    padding: 1.5rem 1.1rem !important;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  #ui143-now-playing .ui143-now-playing-lyric {
-    animation: none !important;
-    transition: none !important;
+  #ui143-now-playing #synced-lyrics-container .synced-line {
+    padding-inline: 2px;
   }
 }
