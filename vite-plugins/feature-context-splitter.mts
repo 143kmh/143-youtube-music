@@ -159,6 +159,35 @@ export default function (
           }
         }
 
+        // Context removal can leave renderer-only imports at the top of a
+        // backend feature (and vice versa). Rolldown resolves imported modules
+        // before tree-shaking, so a stale TSX import can still break the main
+        // build even though its renderer property was removed. Drop import
+        // declarations whose local bindings have no references after splitting.
+        for (const importDecl of src.getImportDeclarations()) {
+          const defaultImport = importDecl.getDefaultImport();
+          const namespaceImport = importDecl.getNamespaceImport();
+          const namedImports = importDecl.getNamedImports();
+
+          // Preserve explicit side-effect imports.
+          if (!defaultImport && !namespaceImport && namedImports.length === 0) {
+            continue;
+          }
+
+          const defaultUsed =
+            (defaultImport?.findReferencesAsNodes().length ?? 0) > 0;
+          const namespaceUsed =
+            (namespaceImport?.findReferencesAsNodes().length ?? 0) > 0;
+          const namedUsed = namedImports.some((specifier) => {
+            const localName = specifier.getAliasNode() ?? specifier.getNameNode();
+            return localName.findReferencesAsNodes().length > 0;
+          });
+
+          if (!defaultUsed && !namespaceUsed && !namedUsed) {
+            importDecl.remove();
+          }
+        }
+
         return {
           code: src.getText(),
         };
