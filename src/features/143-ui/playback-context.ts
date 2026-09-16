@@ -137,6 +137,20 @@ export const installPlaybackContext = (
     }
     savedNative = null;
   };
+  let queueItems: PlaybackContext['items'] | null = null;
+  let queueIndex = -1;
+  let queueSnapshot: MusicState['queue'] = [];
+  const contextQueue = (): MusicState['queue'] => {
+    if (!context) return [];
+    if (queueItems !== context.items || queueIndex !== context.index) {
+      queueItems = context.items;
+      queueIndex = context.index;
+      queueSnapshot = context.items.map((item, index) => ({
+        id: item.videoId!, title: item.title, selected: index === context!.index,
+      }));
+    }
+    return queueSnapshot;
+  };
   const state = (): MusicState =>
     context
       ? {
@@ -144,15 +158,12 @@ export const installPlaybackContext = (
           shuffle: context.shuffle,
           repeat: context.repeat,
           queueActive: context.queueOpen,
-          queue: context.items.map((item, index) => ({
-            id: item.videoId!,
-            title: item.title,
-            selected: index === context!.index,
-          })),
+          queue: contextQueue(),
         }
       : original.state();
   const notify = () => {
-    for (const listener of stateListeners) listener(state());
+    const snapshot = state();
+    for (const listener of stateListeners) listener(snapshot);
   };
   const emit = () => {
     for (const listener of contextListeners) listener(context);
@@ -162,6 +173,8 @@ export const installPlaybackContext = (
     epoch++;
     revision++;
     context = null;
+    queueItems = null;
+    queueSnapshot = [];
     pending = advancing = ended = recovering = false;
     extensions.clear();
     history.length = 0;

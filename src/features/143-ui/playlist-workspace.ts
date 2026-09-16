@@ -499,21 +499,25 @@ export const mountPlaylistWorkspace = (engine: PlaybackContextAdapter) => {
 
   const setVisible = (visible: boolean) => {
     root.hidden = !visible;
+    if (visible) syncNowPlaying();
     document.documentElement.classList.toggle('ui143-playlist-workspace-open', visible);
   };
 
   const syncNowPlaying = () => {
+    if (root.hidden) return;
     for (const row of root.querySelectorAll<HTMLElement>('[data-video-id]')) {
       const selected = Boolean(
         currentTrackId && row.dataset.videoId === currentTrackId,
       );
-      row.classList.toggle('is-now-playing', selected);
-      if (selected) row.setAttribute('aria-current', 'true');
-      else row.removeAttribute('aria-current');
+      if (row.classList.contains('is-now-playing') !== selected) row.classList.toggle('is-now-playing', selected);
+      if (selected) {
+        if (row.getAttribute('aria-current') !== 'true') row.setAttribute('aria-current', 'true');
+      } else if (row.hasAttribute('aria-current')) row.removeAttribute('aria-current');
     }
   };
 
   const unsubscribe = engine.subscribe((state) => {
+    if (currentTrackId === state.track.id) return;
     currentTrackId = state.track.id;
     syncNowPlaying();
   });

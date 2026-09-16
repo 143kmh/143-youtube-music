@@ -900,8 +900,16 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       ? Math.max(0, value)
       : fallback;
   const emit = (next: MusicState) => {
-    if (disposed || JSON.stringify(next) === JSON.stringify(state)) return;
-    state = next;
+    if (disposed) return;
+    const before = state.track;
+    const after = next.track;
+    const sameTrack = before.id === after.id && before.title === after.title &&
+      before.byline === after.byline && before.artwork === after.artwork &&
+      before.artists.length === after.artists.length && before.artists.every((artist, index) =>
+        artist.name === after.artists[index].name && artist.browseId === after.artists[index].browseId);
+    const snapshot = { ...next, track: sameTrack ? before : after };
+    if ((Object.keys(snapshot) as (keyof MusicState)[]).every((key) => snapshot[key] === state[key])) return;
+    state = snapshot;
     for (const listener of listeners) listener(state);
   };
   const readRepeat = (value: unknown): RepeatMode | null => {
@@ -947,21 +955,20 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
     const store = document
       .querySelector<QueueElement>('#queue')
       ?.queue?.store?.store?.getState?.();
-    const queue = (store?.queue?.items ?? []).flatMap((item) => {
+    const queueRows: MusicState['queue'][number][] = [];
+    for (const item of store?.queue?.items ?? []) {
       const row =
         item.playlistPanelVideoRenderer ??
         item.playlistPanelVideoWrapperRenderer?.primaryRenderer
           ?.playlistPanelVideoRenderer;
-      return row
-        ? [
-            {
-              id: row.videoId,
-              title: row.title?.runs?.map((run) => run.text).join('') ?? '',
-              selected: row.selected,
-            },
-          ]
-        : [];
-    });
+      if (!row) continue;
+      const title = row.title?.runs?.map((run) => run.text).join('') ?? '';
+      const previous = state.queue[queueRows.length];
+      queueRows.push(previous?.id === row.videoId && previous.title === title && previous.selected === row.selected
+        ? previous : { id: row.videoId, title, selected: row.selected });
+    }
+    const queue = queueRows.length === state.queue.length && queueRows.every((row, index) => row === state.queue[index])
+      ? state.queue : queueRows;
     const playerResponse = api?.getPlayerResponse?.() as unknown as
       | {
           videoDetails?: {

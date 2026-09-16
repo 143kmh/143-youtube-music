@@ -221,7 +221,7 @@ const mountShelfGestures = () => {
 
 const bridgeWindowConstructors = () => {
   const isolatedGlobal = globalThis as typeof globalThis & Record<string, unknown>;
-  const browserWindow = window as Window & Record<string, unknown>;
+  const browserWindow = window as unknown as Window & Record<string, unknown>;
   for (const key of ['CSSStyleSheet', 'IntersectionObserver', 'MutationObserver']) {
     if (isolatedGlobal[key] === undefined && browserWindow[key] !== undefined)
       Object.defineProperty(isolatedGlobal, key, {

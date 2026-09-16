@@ -59,13 +59,8 @@ export const fetchLyrics = (info: SongInfo) => {
   if (searchCache.has(info.videoId)) {
     const cache = searchCache.get(info.videoId)!;
 
-    if (cache.state === 'loading') {
-      setTimeout(() => {
-        fetchLyrics(info);
-      });
-      return;
-    }
-
+    // Publish the partial result when revisiting an in-flight track. Each
+    // provider already publishes its completion; polling adds no information.
     if (getSongInfo().videoId === info.videoId) {
       setLyricsStore('lyrics', () => {
         // weird bug with solid-js
@@ -82,6 +77,11 @@ export const fetchLyrics = (info: SongInfo) => {
   };
 
   searchCache.set(info.videoId, cache);
+  // Keep recent tracks while bounding memory over long listening sessions.
+  if (searchCache.size > 96) {
+    const oldest = searchCache.keys().next().value;
+    if (oldest !== undefined) searchCache.delete(oldest);
+  }
   if (getSongInfo().videoId === info.videoId) {
     setLyricsStore('lyrics', () => {
       // weird bug with solid-js
@@ -140,7 +140,7 @@ export const fetchLyrics = (info: SongInfo) => {
 
   Promise.allSettled(tasks).then(() => {
     cache.state = 'done';
-    searchCache.set(info.videoId, cache);
+    // Do not resurrect an entry evicted while its requests were pending.
   });
 };
 

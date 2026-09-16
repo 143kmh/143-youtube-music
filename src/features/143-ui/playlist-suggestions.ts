@@ -94,6 +94,8 @@ const mountStyle = () => {
   return () => style.remove();
 };
 
+import { observePages } from './page-observer';
+
 export const installPlaylistSuggestions = (engine: PlaybackContextAdapter) => {
   document.getElementById(STYLE_ID)?.remove();
   const editor = engine as PlaylistEditor;
@@ -135,14 +137,12 @@ export const installPlaylistSuggestions = (engine: PlaybackContextAdapter) => {
     }, 140);
   };
 
-  const observer =
-    typeof MutationObserver === 'undefined' ? null : new MutationObserver(refresh);
-  observer?.observe(document.body, { childList: true, subtree: true });
+  const disconnect = observePages('#ui143-playlist-workspace', refresh);
   refresh();
   return () => {
     revision++;
     window.clearTimeout(timer);
-    observer?.disconnect();
+    disconnect();
     document.getElementById(ROOT_ID)?.remove();
     removeStyle();
   };
