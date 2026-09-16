@@ -12,6 +12,7 @@ import { mountDiscordPresenceBridge } from './discord-presence-renderer';
 import { mountInteractions } from './interactions';
 import interactionStyle from './interactions.css?inline';
 import { attachKaraokePlayer, startKaraoke, stopKaraoke } from './karaoke';
+import { mountLibraryPage, type LibraryPageController } from './library-page';
 import {
   installPlaybackContext,
   type PlaybackContextAdapter,
@@ -33,6 +34,7 @@ import { installBrowseCatalog } from './youtube-music-catalog';
 import { installPlaylistCatalog } from './youtube-music-playlist';
 
 import type { MusicPlayer } from '@/types/music-player';
+import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
 
 const UI_ROOT_ID = 'ui143-root';
 const UI_ATTR = 'data-143-ui';
@@ -123,6 +125,27 @@ const createNavButton = (
   return button;
 };
 
+const createActionNavButton = (
+  label: string,
+  icon: IconName,
+  key: string,
+  action: () => void,
+) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ui143-nav-item';
+  button.dataset.key = key;
+  button.append(createIcon(icon));
+  const text = document.createElement('span');
+  text.textContent = label;
+  button.append(text);
+  button.addEventListener('click', () => {
+    action();
+    setActiveNav(key);
+  });
+  return button;
+};
+
 const createHistoryButton = (
   engine: YouTubeMusicAdapter,
   searchPage: SearchPageController,
@@ -171,6 +194,7 @@ const createShell = (
   searchPage: SearchPageController,
   artistPage: ArtistPageController,
   albumPage: AlbumPageController,
+  libraryPage: LibraryPageController,
 ) => {
   document.getElementById(UI_ROOT_ID)?.remove();
   document.documentElement.setAttribute(UI_ATTR, '');
@@ -179,6 +203,24 @@ const createShell = (
     searchPage.close();
     artistPage.close();
     albumPage.close();
+    libraryPage.close();
+  };
+
+  const openLibrary = (
+    target: 'landing' | 'playlists' | 'songs',
+    attempt = 0,
+  ) => {
+    closePages();
+    const app = document.querySelector<MusicPlayerAppElement>('ytmusic-app');
+    if (app?.networkManager?.fetch) {
+      void libraryPage.open(target);
+      return;
+    }
+    if (attempt < 40) {
+      window.setTimeout(() => openLibrary(target, attempt + 1), 100);
+      return;
+    }
+    void libraryPage.open(target);
   };
 
   const root = document.createElement('div');
@@ -218,8 +260,7 @@ const createShell = (
   searchText.textContent = 'Search';
   search.append(searchText);
   search.addEventListener('click', () => {
-    artistPage.close();
-    albumPage.close();
+    closePages();
     searchPage.show();
     setActiveNav('search');
     document.getElementById(UI_SEARCH_ID)?.focus();
@@ -228,13 +269,8 @@ const createShell = (
   primary.append(
     home,
     search,
-    createNavButton(
-      engine,
-      'Your Library',
-      'library',
-      'library',
-      'library',
-      closePages,
+    createActionNavButton('Your Library', 'library', 'library', () =>
+      openLibrary('landing'),
     ),
   );
 
@@ -248,21 +284,11 @@ const createShell = (
   const collection = document.createElement('nav');
   collection.className = 'ui143-nav ui143-nav-secondary';
   collection.append(
-    createNavButton(
-      engine,
-      'Playlists',
-      'playlist',
-      'playlists',
-      'playlists',
-      closePages,
+    createActionNavButton('Playlists', 'playlist', 'playlists', () =>
+      openLibrary('playlists'),
     ),
-    createNavButton(
-      engine,
-      'Liked songs',
-      'heart',
-      'songs',
-      'songs',
-      closePages,
+    createActionNavButton('Liked songs', 'heart', 'songs', () =>
+      openLibrary('songs'),
     ),
     createNavButton(
       engine,
@@ -322,8 +348,7 @@ const createShell = (
     event.stopPropagation();
     const query = input.value.trim();
     if (!query) return;
-    artistPage.close();
-    albumPage.close();
+    closePages();
     setActiveNav('search');
     void searchPage.search(query);
   });
@@ -396,6 +421,7 @@ export default createFeature({
     searchPage: null as SearchPageController | null,
     artistPage: null as ArtistPageController | null,
     albumPage: null as AlbumPageController | null,
+    libraryPage: null as LibraryPageController | null,
     engine: null as PlaybackContextAdapter | null,
     interactionCleanup: null as (() => void) | null,
 
@@ -433,6 +459,7 @@ export default createFeature({
       this.searchPage?.dispose();
       this.artistPage?.dispose();
       this.albumPage?.dispose();
+      this.libraryPage?.dispose();
       const baseEngine = createYouTubeMusicAdapter({
         attach: attachKaraokePlayer,
         stop: stopKaraoke,
@@ -458,29 +485,36 @@ export default createFeature({
         engine,
         (name, browseId, restoreSearch) => {
           albumPage.close();
+          this.libraryPage?.close();
           setActiveNav('');
           void artistPage.open(name, browseId, { restoreSearch });
         },
         (title, browseId, restoreSearch) => {
           artistPage.close();
+          this.libraryPage?.close();
           setActiveNav('');
           void albumPage.open(title, browseId, { restoreSearch });
         },
         (title, browseId, restoreSearch) => {
           artistPage.close();
+          this.libraryPage?.close();
           setActiveNav('');
           void albumPage.openPlaylist(title, browseId, { restoreSearch });
         },
       );
       this.searchPage = searchPage;
-      createShell(engine, searchPage, artistPage, albumPage);
+      const libraryPage = mountLibraryPage(engine);
+      this.libraryPage = libraryPage;
+      createShell(engine, searchPage, artistPage, albumPage, libraryPage);
       this.settingsCleanup?.();
       this.settingsCleanup = mountSettings(ctx.ipc);
       const playerCleanup = mountPlayer(engine, (name, browseId) => {
         searchPage.close();
         albumPage.close();
+        libraryPage.close();
         setActiveNav('');
-        void artistPage.open(name, browseId);
+        if (browseId) void artistPage.open(name, browseId);
+        else void searchPage.search(name);
       });
       const queueCleanup = mountQueuePanel(engine);
       this.playerCleanup = () => {
@@ -508,6 +542,8 @@ export default createFeature({
       this.artistPage = null;
       this.albumPage?.dispose();
       this.albumPage = null;
+      this.libraryPage?.dispose();
+      this.libraryPage = null;
       this.engine?.dispose();
       this.engine = null;
       this.playerCleanup?.();
