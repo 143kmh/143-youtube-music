@@ -216,7 +216,20 @@ const mountShelfGestures = () => {
   };
 };
 
+const bridgeWindowConstructors = () => {
+  const isolatedGlobal = globalThis as typeof globalThis & Record<string, unknown>;
+  const browserWindow = window as Window & Record<string, unknown>;
+  for (const key of ['CSSStyleSheet', 'IntersectionObserver', 'MutationObserver']) {
+    if (isolatedGlobal[key] === undefined && browserWindow[key] !== undefined)
+      Object.defineProperty(isolatedGlobal, key, {
+        configurable: true,
+        value: browserWindow[key],
+      });
+  }
+};
+
 export const mountInteractions = (engine: PlaybackContextAdapter) => {
+  bridgeWindowConstructors();
   const removeUxFixes = installUxFixes(engine);
   const removeNativePolish = mountNativePolish();
   const shelfGestures = mountShelfGestures();
