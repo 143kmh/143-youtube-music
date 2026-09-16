@@ -89,6 +89,61 @@ const STYLE = `
   35% { opacity: .42; transform: translate3d(4px, -3px, 0) scale(1.06); }
   68% { opacity: .22; transform: translate3d(-3px, 5px, 0) scale(.94); }
 }
+
+@media (max-width: 1100px) {
+  .ui143-now-playing-stage {
+    grid-template-columns: minmax(270px, 38%) minmax(360px, 1fr) !important;
+    gap: 30px !important;
+    padding: 30px !important;
+  }
+
+  .ui143-now-playing-art-shell {
+    width: min(100%, 370px) !important;
+  }
+
+  .ui143-now-playing-panel {
+    height: min(78vh, 680px) !important;
+    min-height: 390px !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .ui143-now-playing-stage {
+    grid-template-columns: minmax(220px, 34%) minmax(300px, 1fr) !important;
+    gap: 22px !important;
+    padding: 22px !important;
+  }
+
+  .ui143-now-playing-art-shell {
+    width: min(100%, 300px) !important;
+  }
+
+  .ui143-now-playing-lyric {
+    font-size: clamp(19px, 2.4vw, 28px) !important;
+  }
+}
+
+@media (max-height: 720px) {
+  .ui143-now-playing-stage {
+    padding-top: 24px !important;
+    padding-bottom: 24px !important;
+  }
+
+  .ui143-now-playing-art-shell {
+    width: min(100%, 310px) !important;
+  }
+
+  .ui143-now-playing-panel {
+    height: calc(100vh - var(--ui143-topbar-height) - var(--ui143-player-height) - 28px) !important;
+    min-height: 360px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui143-now-playing-star {
+    animation: none !important;
+  }
+}
 `;
 
 const LIBRARY_ROUTES: Record<string, string> = {
