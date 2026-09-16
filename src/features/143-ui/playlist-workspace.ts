@@ -854,7 +854,7 @@ export const mountPlaylistWorkspace = (engine: PlaybackContextAdapter) => {
     menu.append(
       menuButton('Start radio', () => startRadio(item)),
       menuButton('Add to playlist', () => {
-        if (item.videoId) return openPicker(item.videoId);
+        if (item.videoId) void openPicker(item.videoId);
       }),
     );
     if (playlistContext)
