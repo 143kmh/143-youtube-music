@@ -37,48 +37,22 @@ export const obsOverlayPage = `<!doctype html>
     gap: 18px;
     align-items: center;
     padding: 17px 18px;
-    border: 1px solid rgba(255,255,255,.045);
+    border: 0;
     border-radius: 26px;
     background:
       radial-gradient(circle at 16% 8%, rgba(96,81,155,.16), transparent 42%),
       linear-gradient(135deg, rgba(16,16,20,.92), rgba(8,8,11,.86));
-    box-shadow:
-      0 22px 58px rgba(0,0,0,.34),
-      0 0 34px rgba(96,81,155,.07);
-    backdrop-filter: blur(20px) saturate(1.12);
-    -webkit-backdrop-filter: blur(20px) saturate(1.12);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     opacity: 0;
     transform: translateY(8px) scale(.985);
     transition: opacity .22s ease, transform .22s ease;
   }
 
-  #card::before {
-    content: "";
-    position: absolute;
-    z-index: -2;
-    inset: -14px;
-    border-radius: 34px;
-    background-image:
-      linear-gradient(rgba(96,81,155,.22), rgba(96,81,155,.10)),
-      var(--artwork-bg);
-    background-size: cover;
-    background-position: center;
-    filter: blur(30px) saturate(1.2);
-    opacity: .22;
-    transform: scale(.96);
-    pointer-events: none;
-  }
-
+  #card::before,
   #card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    border-radius: inherit;
-    box-shadow:
-      inset 0 1px rgba(255,255,255,.025),
-      inset 0 0 0 1px rgba(255,255,255,.018);
-    pointer-events: none;
+    content: none;
   }
 
   body.has-track #card {
