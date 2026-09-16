@@ -754,7 +754,9 @@ export const mountLibraryCollections = (engine: PlaybackContextAdapter) => {
       }
       return;
     }
-    await openDetail(next, push);
+    if (next.kind === 'album-detail' || next.kind === 'artist-detail') {
+      await openDetail(next, push);
+    }
   };
 
   const open = (kind: CollectionKind) => showView({ kind });
