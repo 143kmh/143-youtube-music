@@ -12,6 +12,58 @@ import {
 import type { AudioDiagnostics, PlaybackDetails } from './diagnostics';
 import type { QualityConfig } from './preference';
 
+const accountLabel = (subscriber: PlaybackDetails['subscriber']) => {
+  if (subscriber === 'yes') return 'Premium';
+  if (subscriber === 'no') return 'Free';
+  return 'Unknown';
+};
+
+const actualStreamLabel = (
+  stats: AudioDiagnostics,
+  unknown: string,
+) => {
+  const parts = [
+    stats.itag == null ? null : `itag ${stats.itag}`,
+    stats.codec ?? null,
+    stats.approximateKbps == null ? null : `~${stats.approximateKbps} kbps`,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(' · ') : `${unknown} (Stats for Nerds unavailable)`;
+};
+
+const requestedStreamLabel = (
+  mode: QualityConfig['quality'],
+  forcedOpusItag: string | null | undefined,
+) => {
+  if (mode === 'opus') {
+    return forcedOpusItag
+      ? `Opus · requested itag ${forcedOpusItag}`
+      : 'Opus · waiting for a player response';
+  }
+  if (mode === 'maximum') return 'Maximum available · native YouTube High preference';
+  return 'Default · native YouTube selection';
+};
+
+const availabilityLabel = (
+  subscriber: PlaybackDetails['subscriber'],
+  mode: QualityConfig['quality'],
+  forcedOpusItag: string | null | undefined,
+) => {
+  if (subscriber === 'no') {
+    if (mode === 'opus' && forcedOpusItag)
+      return `Best Opus offered to this Free account was requested (itag ${forcedOpusItag}). Premium High audio is not available to this account.`;
+    return 'Premium High audio is not available to this account. YouTube can still provide its normal-quality AAC/Opus streams.';
+  }
+
+  if (subscriber === 'yes') {
+    if (mode === 'opus' && forcedOpusItag)
+      return `Premium account · requested the best offered Opus candidate (itag ${forcedOpusItag}). Check Actual stream above to confirm what is really playing.`;
+    return 'Premium account · High-quality streams may be available when YouTube offers them for this track. Check Actual stream above for confirmation.';
+  }
+
+  return 'Account entitlement is unknown. Check the subscriber flag and offered formats below.';
+};
+
 export default createFeature({
   name: () => 'Audio Quality',
   description: () => 'Native YouTube Music high-quality and Opus playback.',
@@ -46,19 +98,35 @@ export default createFeature({
             },
         ) => {
           const unknown = t('plugins.force-high-audio-quality.unknown');
-          const translatedDetail = t('plugins.force-high-audio-quality.detail', {
-            subscriber: stats.subscriber,
-            patchedLoads: stats.patchedLoads,
-            proxyFound: stats.proxyFound ? 'yes' : 'no',
-            incomingHigh: stats.incomingHigh,
-            effectivePreference: stats.effectivePreference,
-            videoId: stats.videoId,
-            offeredFormats: stats.offeredFormats,
-            preference: t(
-              `plugins.force-high-audio-quality.${stats.preferenceActive ? 'maximum' : stats.maximumRequested ? 'unavailable' : 'default'}`,
-            ),
-          });
           const script = this.scriptPatchStatus;
+          const forcedOpusItag = script?.lastForcedOpusItag ?? null;
+
+          const summary = [
+            `Account: ${accountLabel(stats.subscriber)}`,
+            `Requested: ${requestedStreamLabel(stats.requestedMode, forcedOpusItag)}`,
+            `Actually playing: ${actualStreamLabel(stats, unknown)}`,
+            `Availability: ${availabilityLabel(
+              stats.subscriber,
+              stats.requestedMode,
+              forcedOpusItag,
+            )}`,
+          ].join('\n');
+
+          const nativeDetail = [
+            `YouTube subscriber flag: ${stats.subscriber}`,
+            `Effective preference: ${stats.effectivePreference}`,
+            `Preference override: ${t(
+              `plugins.force-high-audio-quality.${stats.preferenceActive ? 'maximum' : stats.maximumRequested ? 'unavailable' : 'default'}`,
+            )}`,
+            `Music PlayerProxy found: ${stats.proxyFound ? 'yes' : 'no'}`,
+            `Native playback calls patched: ${stats.patchedLoads}`,
+            `Last incoming aac_high: ${stats.incomingHigh}`,
+            `Track ID: ${stats.videoId}`,
+            '',
+            'Offered audio formats (not necessarily selected):',
+            stats.offeredFormats,
+          ].join('\n');
+
           const scriptDetail = [
             `Requested mode: ${stats.requestedMode}`,
             `Player script interceptor: ${script?.installed ? 'installed' : 'not installed'}`,
@@ -67,7 +135,7 @@ export default createFeature({
             `Detected source policy key: ${script?.detectedPolicyKey ?? 'unknown'}`,
             `player API responses seen: ${script?.playerApiRequests ?? 0}`,
             `Opus responses narrowed: ${script?.opusResponsesPatched ?? 0}`,
-            `Forced Opus itag: ${script?.lastForcedOpusItag ?? 'none'}`,
+            `Requested Opus itag: ${forcedOpusItag ?? 'none'}`,
             `Opus patch error: ${script?.lastOpusError ?? 'none'}`,
             `Script patch error: ${script?.lastError ?? 'none'}`,
           ].join('\n');
@@ -75,15 +143,8 @@ export default createFeature({
           return dialog.showMessageBox(window, {
             type: 'info',
             title: 'Audio Quality',
-            message: t('plugins.force-high-audio-quality.stats', {
-              itag: stats.itag ?? unknown,
-              codec: stats.codec ?? unknown,
-              bitrate:
-                stats.approximateKbps == null
-                  ? unknown
-                  : `~${stats.approximateKbps} kbps`,
-            }),
-            detail: `${translatedDetail}\n\n${scriptDetail}`,
+            message: summary,
+            detail: `${nativeDetail}\n\nAdvanced diagnostics\n${scriptDetail}`,
           });
         },
       );
