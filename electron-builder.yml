@@ -25,6 +25,10 @@ mac:
 win:
   icon: assets/143-music-icon.png
   artifactName: "143-Music-Setup-${version}-${arch}.${ext}"
+  publish:
+    - provider: github
+      owner: 143kmh
+      repo: 143-youtube-music
   target:
     - target: nsis
       arch:
