@@ -71,20 +71,27 @@ const playerArtwork = () =>
 
 const queueElement = () => document.querySelector<QueueElement>('#queue');
 
-const queueRow = (item: ReturnType<QueueElement['queue']['store']['store']['getState']>['queue']['items'][number]) =>
+const queueRow = (
+  item: ReturnType<
+    QueueElement['queue']['store']['store']['getState']
+  >['queue']['items'][number],
+) =>
   item.playlistPanelVideoRenderer ??
-  item.playlistPanelVideoWrapperRenderer?.primaryRenderer?.playlistPanelVideoRenderer;
+  item.playlistPanelVideoWrapperRenderer?.primaryRenderer
+    ?.playlistPanelVideoRenderer;
 
 const bestQueueArtwork = (row: ReturnType<typeof queueRow>) => {
   const thumbnails = row?.thumbnail?.thumbnails ?? [];
-  return thumbnails.reduce(
-    (best, item) =>
-      (item.width ?? 0) * (item.height ?? 0) >=
-      (best?.width ?? 0) * (best?.height ?? 0)
-        ? item
-        : best,
-    thumbnails[0],
-  )?.url ?? '';
+  return (
+    thumbnails.reduce(
+      (best, item) =>
+        (item.width ?? 0) * (item.height ?? 0) >=
+        (best?.width ?? 0) * (best?.height ?? 0)
+          ? item
+          : best,
+      thumbnails[0],
+    )?.url ?? ''
+  );
 };
 
 const currentAlbumRef = (videoId: string): AlbumRef | null => {
@@ -177,7 +184,7 @@ const sampleArtwork = (url: string) =>
 
 const createStars = (container: HTMLElement) => {
   const stars = document.createDocumentFragment();
-  for (let index = 0; index < 92; index++) {
+  for (let index = 0; index < 56; index++) {
     const star = document.createElement('i');
     star.className = 'ui143-now-playing-star';
     const size = Math.random() < 0.86 ? 1 : 1.5 + Math.random() * 0.8;
@@ -312,20 +319,26 @@ const renderer = createRenderer<NowPlayingState>({
     this.root = root;
 
     tabs.querySelectorAll<HTMLButtonElement>('button[data-tab]').forEach((tab) => {
-      tab.addEventListener('click', () => this.setTab(tab.dataset.tab as TabId));
+      tab.addEventListener('click', () =>
+        this.setTab(tab.dataset.tab as TabId),
+      );
     });
 
     this.clickHandler = (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const karaoke = target.closest('#ui143-player button[aria-label="Karaoke"]');
+      const karaoke = target.closest(
+        '#ui143-player button[aria-label="Karaoke"]',
+      );
       if (karaoke) {
         event.preventDefault();
         event.stopImmediatePropagation();
         this.open('lyrics');
         return;
       }
-      const queue = target.closest('#ui143-player button[aria-label="Queue"]');
+      const queue = target.closest(
+        '#ui143-player button[aria-label="Queue"]',
+      );
       if (queue) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -342,7 +355,9 @@ const renderer = createRenderer<NowPlayingState>({
       if (
         this.root &&
         !this.root.hidden &&
-        target.closest('.ui143-sidebar .ui143-nav-item, .ui143-search, .ui143-history')
+        target.closest(
+          '.ui143-sidebar .ui143-nav-item, .ui143-search, .ui143-history',
+        )
       )
         this.close();
     };
@@ -362,22 +377,28 @@ const renderer = createRenderer<NowPlayingState>({
     document.documentElement.classList.add('ui143-now-playing-open');
     this.setTab(tab);
     this.sync();
+    if (this.timer === null)
+      this.timer = window.setInterval(() => this.sync(), 200);
   },
 
   close() {
     if (!this.root) return;
     this.root.hidden = true;
     document.documentElement.classList.remove('ui143-now-playing-open');
+    if (this.timer !== null) window.clearInterval(this.timer);
+    this.timer = null;
   },
 
   setTab(tab) {
     this.activeTab = tab;
     if (!this.root) return;
-    this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((control) => {
-      const active = control.dataset.tab === tab;
-      control.classList.toggle('is-active', active);
-      control.setAttribute('aria-selected', String(active));
-    });
+    this.root
+      .querySelectorAll<HTMLButtonElement>('[data-tab]')
+      .forEach((control) => {
+        const active = control.dataset.tab === tab;
+        control.classList.toggle('is-active', active);
+        control.setAttribute('aria-selected', String(active));
+      });
     this.root.querySelectorAll<HTMLElement>('[data-pane]').forEach((pane) => {
       pane.hidden = pane.dataset.pane !== tab;
     });
@@ -387,9 +408,8 @@ const renderer = createRenderer<NowPlayingState>({
   },
 
   sync() {
-    if (!this.player || !this.root) return;
+    if (!this.player || !this.root || this.root.hidden) return;
     this.syncTrack();
-    if (this.root.hidden) return;
     if (this.activeTab === 'lyrics') this.syncLyrics();
     else if (this.activeTab === 'playlist') this.syncPlaylist();
     else this.resolveAlbum();
@@ -403,12 +423,24 @@ const renderer = createRenderer<NowPlayingState>({
     const changed = nextId !== this.trackId;
     this.trackId = nextId;
 
-    const title = this.root.querySelector<HTMLElement>('.ui143-now-playing-title');
-    const artist = this.root.querySelector<HTMLElement>('.ui143-now-playing-artist');
-    const album = this.root.querySelector<HTMLElement>('.ui143-now-playing-album');
-    const art = this.root.querySelector<HTMLImageElement>('.ui143-now-playing-art');
-    if (title) title.textContent = text('.ui143-player-title') || data?.title || 'Nothing playing';
-    if (artist) artist.textContent = text('.ui143-player-artist') || data?.author || '';
+    const title = this.root.querySelector<HTMLElement>(
+      '.ui143-now-playing-title',
+    );
+    const artist = this.root.querySelector<HTMLElement>(
+      '.ui143-now-playing-artist',
+    );
+    const album = this.root.querySelector<HTMLElement>(
+      '.ui143-now-playing-album',
+    );
+    const art = this.root.querySelector<HTMLImageElement>(
+      '.ui143-now-playing-art',
+    );
+    if (title)
+      title.textContent =
+        text('.ui143-player-title') || data?.title || 'Nothing playing';
+    if (artist)
+      artist.textContent =
+        text('.ui143-player-artist') || data?.author || '';
 
     const ref = currentAlbumRef(nextId);
     if (album) album.textContent = ref?.title ?? '';
@@ -450,15 +482,27 @@ const renderer = createRenderer<NowPlayingState>({
       this.lyricsKey = key;
       this.activeLyricIndex = -1;
       if (!result || result.state === 'fetching') {
-        message(pane, 'Finding lyrics…', '143 Music is checking the selected lyrics provider.');
+        message(
+          pane,
+          'Finding lyrics…',
+          '143 Music is checking the selected lyrics provider.',
+        );
         return;
       }
       if (result.state === 'error') {
-        message(pane, 'Lyrics unavailable', 'The lyrics provider returned an error.');
+        message(
+          pane,
+          'Lyrics unavailable',
+          'The lyrics provider returned an error.',
+        );
         return;
       }
       if (!data) {
-        message(pane, 'No lyrics found', 'This track has no lyrics from the selected provider.');
+        message(
+          pane,
+          'No lyrics found',
+          'This track has no lyrics from the selected provider.',
+        );
         return;
       }
       pane.replaceChildren();
@@ -476,11 +520,15 @@ const renderer = createRenderer<NowPlayingState>({
           row.dataset.index = String(index);
           row.dataset.time = String(line.timeInMs);
           row.textContent = line.text || '♪';
-          row.addEventListener('click', () => this.player?.seekTo(line.timeInMs / 1000));
+          row.addEventListener('click', () =>
+            this.player?.seekTo(line.timeInMs / 1000),
+          );
           scroll.append(row);
         });
       } else if (data.lyrics) {
-        for (const line of data.lyrics.split('\n').filter((value) => value.trim())) {
+        for (const line of data.lyrics
+          .split('\n')
+          .filter((value) => value.trim())) {
           const row = document.createElement('div');
           row.className = 'ui143-now-playing-lyric is-plain';
           row.textContent = line;
@@ -499,12 +547,14 @@ const renderer = createRenderer<NowPlayingState>({
     }
     if (index === this.activeLyricIndex) return;
     this.activeLyricIndex = index;
-    pane.querySelectorAll<HTMLElement>('.ui143-now-playing-lyric[data-index]').forEach((row) => {
-      const rowIndex = Number(row.dataset.index);
-      row.classList.toggle('is-current', rowIndex === index);
-      row.classList.toggle('is-past', rowIndex < index);
-      row.classList.toggle('is-upcoming', rowIndex > index);
-    });
+    pane
+      .querySelectorAll<HTMLElement>('.ui143-now-playing-lyric[data-index]')
+      .forEach((row) => {
+        const rowIndex = Number(row.dataset.index);
+        row.classList.toggle('is-current', rowIndex === index);
+        row.classList.toggle('is-past', rowIndex < index);
+        row.classList.toggle('is-upcoming', rowIndex > index);
+      });
     pane
       .querySelector<HTMLElement>('.ui143-now-playing-lyric.is-current')
       ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -523,16 +573,28 @@ const renderer = createRenderer<NowPlayingState>({
         items: custom.items,
       };
       if (!this.playlistSnapshotArmed) this.playlistSnapshotArmed = false;
-    } else if (custom?.kind && custom.kind !== 'album' && this.playlistSnapshotArmed) {
+    } else if (
+      custom?.kind &&
+      custom.kind !== 'album' &&
+      this.playlistSnapshotArmed
+    ) {
       this.playlistSnapshot = null;
       this.playlistSnapshotArmed = false;
     }
 
     const useSnapshot =
-      custom?.kind === 'album' && this.playlistSnapshotArmed && this.playlistSnapshot;
-    const customItems = useSnapshot ? this.playlistSnapshot!.items : custom?.items;
-    const customTitle = useSnapshot ? this.playlistSnapshot!.title : custom?.title;
-    const customCurrentIndex = useSnapshot ? -1 : (custom?.currentIndex ?? -1);
+      custom?.kind === 'album' &&
+      this.playlistSnapshotArmed &&
+      this.playlistSnapshot;
+    const customItems = useSnapshot
+      ? this.playlistSnapshot!.items
+      : custom?.items;
+    const customTitle = useSnapshot
+      ? this.playlistSnapshot!.title
+      : custom?.title;
+    const customCurrentIndex = useSnapshot
+      ? -1
+      : (custom?.currentIndex ?? -1);
     if (customItems?.length) {
       const key = `custom:${customTitle}:${customCurrentIndex}:${customItems.map((item) => item.videoId).join(',')}`;
       if (key === this.playlistKey) return;
@@ -540,9 +602,10 @@ const renderer = createRenderer<NowPlayingState>({
       pane.replaceChildren();
       const heading = document.createElement('div');
       heading.className = 'ui143-now-playing-list-heading';
-      heading.textContent = custom?.kind === 'playlist' || useSnapshot
-        ? `Playlist · ${customTitle}`
-        : `Up next · ${customTitle}`;
+      heading.textContent =
+        custom?.kind === 'playlist' || useSnapshot
+          ? `Playlist · ${customTitle}`
+          : `Up next · ${customTitle}`;
       pane.append(heading);
       const list = document.createElement('div');
       list.className = 'ui143-now-playing-list';
@@ -587,13 +650,16 @@ const renderer = createRenderer<NowPlayingState>({
             );
             this.playlistSnapshotArmed = false;
           } else {
-            document.dispatchEvent(new CustomEvent(PLAY_CONTEXT_INDEX_EVENT, { detail: index }));
+            document.dispatchEvent(
+              new CustomEvent(PLAY_CONTEXT_INDEX_EVENT, { detail: index }),
+            );
           }
         });
         list.append(row);
       });
       pane.append(list);
-      pane.querySelector<HTMLElement>('.ui143-now-playing-track.is-current')
+      pane
+        .querySelector<HTMLElement>('.ui143-now-playing-track.is-current')
         ?.scrollIntoView({ block: 'nearest' });
       return;
     }
@@ -607,7 +673,11 @@ const renderer = createRenderer<NowPlayingState>({
     if (key === this.playlistKey) return;
     this.playlistKey = key;
     if (!rows.length) {
-      message(pane, 'Nothing queued', 'Play a track and 143 Music will show what comes next.');
+      message(
+        pane,
+        'Nothing queued',
+        'Play a track and 143 Music will show what comes next.',
+      );
       return;
     }
     pane.replaceChildren();
@@ -635,19 +705,24 @@ const renderer = createRenderer<NowPlayingState>({
       const copy = document.createElement('div');
       copy.className = 'ui143-now-playing-track-copy';
       const name = document.createElement('strong');
-      name.textContent = row.title?.runs?.map((run) => run.text).join('') ?? '';
+      name.textContent =
+        row.title?.runs?.map((run) => run.text).join('') ?? '';
       const meta = document.createElement('span');
-      meta.textContent = row.longBylineText?.runs?.map((run) => run.text).join('') ?? '';
+      meta.textContent =
+        row.longBylineText?.runs?.map((run) => run.text).join('') ?? '';
       copy.append(name, meta);
       const number = document.createElement('span');
       number.className = 'ui143-now-playing-track-number';
       number.textContent = String(index + 1);
       control.append(art, copy, number);
-      control.addEventListener('click', () => queue?.dispatch({ type: 'SET_INDEX', payload: index }));
+      control.addEventListener('click', () =>
+        queue?.dispatch({ type: 'SET_INDEX', payload: index }),
+      );
       list.append(control);
     });
     pane.append(list);
-    pane.querySelector<HTMLElement>('.ui143-now-playing-track.is-current')
+    pane
+      .querySelector<HTMLElement>('.ui143-now-playing-track.is-current')
       ?.scrollIntoView({ block: 'nearest' });
   },
 
@@ -656,7 +731,11 @@ const renderer = createRenderer<NowPlayingState>({
     const pane = this.root.querySelector<HTMLElement>('[data-pane="album"]');
     if (!pane) return;
     if (!this.albumRef) {
-      message(pane, 'Album unavailable', 'YouTube Music did not expose an album for this track.');
+      message(
+        pane,
+        'Album unavailable',
+        'YouTube Music did not expose an album for this track.',
+      );
       return;
     }
     if (this.albumCatalog?.browseId === this.albumRef.browseId) {
@@ -667,7 +746,10 @@ const renderer = createRenderer<NowPlayingState>({
     message(pane, 'Loading album…', this.albumRef.title);
     let task = albumCache.get(this.albumRef.browseId);
     if (!task) {
-      task = albumReader.getAlbumCatalog(this.albumRef.browseId, this.albumRef.title);
+      task = albumReader.getAlbumCatalog(
+        this.albumRef.browseId,
+        this.albumRef.title,
+      );
       albumCache.set(this.albumRef.browseId, task);
     }
     void task
@@ -680,7 +762,11 @@ const renderer = createRenderer<NowPlayingState>({
         console.warn('[143 Music] Could not load now-playing album', error);
         if (request !== this.albumRequest) return;
         albumCache.delete(this.albumRef!.browseId);
-        message(pane, 'Album unavailable', 'YouTube Music did not return the album track list.');
+        message(
+          pane,
+          'Album unavailable',
+          'YouTube Music did not return the album track list.',
+        );
       });
   },
 
@@ -710,7 +796,9 @@ const renderer = createRenderer<NowPlayingState>({
       catalog.artists.map((artist) => artist.name).join(', '),
       catalog.year,
       `${catalog.tracks.length} tracks`,
-    ].filter(Boolean).join(' · ');
+    ]
+      .filter(Boolean)
+      .join(' · ');
     copy.append(label, title, meta);
     hero.append(art, copy);
     pane.append(hero);
@@ -768,14 +856,20 @@ const renderer = createRenderer<NowPlayingState>({
       list.append(row);
     });
     pane.append(list);
-    pane.querySelector<HTMLElement>('.ui143-now-playing-track.is-current')
+    pane
+      .querySelector<HTMLElement>('.ui143-now-playing-track.is-current')
       ?.scrollIntoView({ block: 'nearest' });
   },
 
   updateBackdrop(artwork) {
     if (!this.root) return;
-    const wash = this.root.querySelector<HTMLElement>('.ui143-now-playing-wash');
-    if (wash) wash.style.backgroundImage = artwork ? `url("${artwork.replaceAll('"', '%22')}")` : '';
+    const wash = this.root.querySelector<HTMLElement>(
+      '.ui143-now-playing-wash',
+    );
+    if (wash)
+      wash.style.backgroundImage = artwork
+        ? `url("${artwork.replaceAll('"', '%22')}")`
+        : '';
     const expected = artwork;
     if (!artwork) {
       this.root.style.setProperty('--ui143-now-playing-rgb', '96 81 155');
@@ -784,7 +878,10 @@ const renderer = createRenderer<NowPlayingState>({
     void sampleArtwork(artwork)
       .then(([r, g, b]) => {
         if (!this.root || this.artwork !== expected) return;
-        this.root.style.setProperty('--ui143-now-playing-rgb', `${r} ${g} ${b}`);
+        this.root.style.setProperty(
+          '--ui143-now-playing-rgb',
+          `${r} ${g} ${b}`,
+        );
       })
       .catch(() => {
         if (!this.root || this.artwork !== expected) return;
@@ -794,19 +891,20 @@ const renderer = createRenderer<NowPlayingState>({
 
   start() {
     this.mount();
-    this.timer = window.setInterval(() => this.sync(), 120);
   },
 
   onPlayerApiReady(api) {
     this.player = api;
-    this.sync();
+    if (this.root && !this.root.hidden) this.sync();
   },
 
   stop() {
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
-    if (this.clickHandler) document.removeEventListener('click', this.clickHandler, true);
-    if (this.keyHandler) window.removeEventListener('keydown', this.keyHandler);
+    if (this.clickHandler)
+      document.removeEventListener('click', this.clickHandler, true);
+    if (this.keyHandler)
+      window.removeEventListener('keydown', this.keyHandler);
     this.clickHandler = null;
     this.keyHandler = null;
     this.player = null;
@@ -818,7 +916,8 @@ const renderer = createRenderer<NowPlayingState>({
 
 export default createFeature({
   name: () => '143 Now Playing',
-  description: () => 'Custom album, lyrics and playlist listening view for 143 Music.',
+  description: () =>
+    'Custom album, lyrics and playlist listening view for 143 Music.',
   config: { enabled: true },
   stylesheets: [style],
   renderer,
