@@ -9,6 +9,7 @@ import { startDesktop } from './desktop';
 const YOUTUBE_MUSIC_URL = 'https://music.youtube.com/';
 const ACCOUNT_CHOOSER_URL =
   'https://accounts.google.com/AccountChooser?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F';
+const CHANNEL_SWITCHER_URL = 'https://www.youtube.com/channel_switcher';
 const AUTH_COOKIE_NAMES = new Set([
   'SAPISID',
   'APISID',
@@ -28,13 +29,15 @@ const isGoogleOrYouTubeDomain = (domain: string) => {
   );
 };
 
-const hostname = (rawUrl: string) => {
+const parseUrl = (rawUrl: string) => {
   try {
-    return new URL(rawUrl).hostname;
+    return new URL(rawUrl);
   } catch {
-    return '';
+    return null;
   }
 };
+
+const hostname = (rawUrl: string) => parseUrl(rawUrl)?.hostname ?? '';
 
 const hasYouTubeAuthCookies = async (targetSession: Electron.Session) => {
   const cookies = await targetSession.cookies.get({});
@@ -96,6 +99,8 @@ export default createBackend<{
 
     const openAuthWindow = async (mode: unknown = 'sign-in') => {
       const switchingAccount = mode === 'switch';
+      const switchingChannel = mode === 'channel';
+      const seedCurrentSession = switchingAccount || switchingChannel;
       if (this.authWindow && !this.authWindow.isDestroyed()) {
         this.authWindow.show();
         this.authWindow.focus();
@@ -104,6 +109,8 @@ export default createBackend<{
 
       let completed = false;
       let authStatePoll: NodeJS.Timeout | null = null;
+      let channelCompletionTimeout: NodeJS.Timeout | null = null;
+      let channelSwitcherSeen = false;
       const chromeVersion = process.versions.chrome;
       const chromeMajor = chromeVersion.split('.')[0] || chromeVersion;
       const chromeUserAgent =
@@ -111,9 +118,6 @@ export default createBackend<{
         `AppleWebKit/537.36 (KHTML, like Gecko) ` +
         `Chrome/${chromeVersion} Safari/537.36`;
 
-      // Keep Google login isolated from the main app's request hooks. The auth
-      // window gets a Chrome-like browser surface, then only its resulting
-      // Google/YouTube cookies are copied into the real 143 Music session.
       const authPartition = `143-google-auth-${Date.now()}`;
       const authWindow = new BrowserWindow({
         width: 980,
@@ -125,9 +129,11 @@ export default createBackend<{
         show: false,
         autoHideMenuBar: true,
         backgroundColor: '#ffffff',
-        title: switchingAccount
-          ? 'Switch Google account · 143 Music'
-          : 'Sign in to 143 Music',
+        title: switchingChannel
+          ? 'Switch YouTube channel · 143 Music'
+          : switchingAccount
+            ? 'Switch Google account · 143 Music'
+            : 'Sign in to 143 Music',
         webPreferences: {
           partition: authPartition,
           preload: path.join(__dirname, '..', 'preload', 'preload.cjs'),
@@ -179,28 +185,60 @@ export default createBackend<{
         }
       };
 
-      const completeSignIn = async () => {
-        if (completed) return;
-        if (!(await authWindowIsActuallySignedIn())) return;
-        completed = true;
-        try {
-          await copyGoogleYouTubeCookies(authSession, webContents.session);
-          if (!(await hasYouTubeAuthCookies(webContents.session))) {
-            throw new Error('YouTube auth cookies were not transferred');
-          }
-        } catch (error) {
-          completed = false;
-          console.warn('[143 Music] Could not copy Google session cookies', error);
-          return;
-        }
-
+      const finishTransfer = async () => {
+        await copyGoogleYouTubeCookies(authSession, webContents.session);
+        if (!(await hasYouTubeAuthCookies(webContents.session)))
+          throw new Error('YouTube auth cookies were not transferred');
         if (!window.isDestroyed()) await webContents.loadURL(YOUTUBE_MUSIC_URL);
         if (!authWindow.isDestroyed()) authWindow.close();
       };
 
-      authStatePoll = setInterval(() => {
-        void completeSignIn();
-      }, 700);
+      const completeSignIn = async () => {
+        if (completed || switchingChannel) return;
+        if (!(await authWindowIsActuallySignedIn())) return;
+        completed = true;
+        try {
+          await finishTransfer();
+        } catch (error) {
+          completed = false;
+          console.warn('[143 Music] Could not copy Google session cookies', error);
+        }
+      };
+
+      const completeChannelSwitch = async () => {
+        if (completed || !switchingChannel) return;
+        completed = true;
+        try {
+          await finishTransfer();
+        } catch (error) {
+          completed = false;
+          console.warn('[143 Music] Could not apply YouTube channel switch', error);
+        }
+      };
+
+      if (!switchingChannel) {
+        authStatePoll = setInterval(() => {
+          void completeSignIn();
+        }, 700);
+      }
+
+      const onChannelNavigation = (_event: unknown, url: string) => {
+        if (!switchingChannel || completed) return;
+        const parsed = parseUrl(url);
+        if (!parsed || !parsed.hostname.endsWith('youtube.com')) return;
+        if (parsed.pathname === '/channel_switcher') {
+          channelSwitcherSeen = true;
+          return;
+        }
+        if (!channelSwitcherSeen) return;
+        if (channelCompletionTimeout) clearTimeout(channelCompletionTimeout);
+        channelCompletionTimeout = setTimeout(() => {
+          channelCompletionTimeout = null;
+          void completeChannelSwitch();
+        }, 900);
+      };
+      authWindow.webContents.on('did-navigate', onChannelNavigation);
+      authWindow.webContents.on('did-navigate-in-page', onChannelNavigation);
 
       authWindow.webContents.setWindowOpenHandler(({ url }) => {
         authWindow.loadURL(url).catch((error) => {
@@ -214,20 +252,24 @@ export default createBackend<{
       });
       authWindow.once('closed', () => {
         if (authStatePoll) clearInterval(authStatePoll);
+        if (channelCompletionTimeout) clearTimeout(channelCompletionTimeout);
         authStatePoll = null;
+        channelCompletionTimeout = null;
+        authWindow.webContents.off('did-navigate', onChannelNavigation);
+        authWindow.webContents.off('did-navigate-in-page', onChannelNavigation);
         authSession.webRequest.onBeforeSendHeaders(null);
         if (this.authWindow === authWindow) this.authWindow = null;
       });
 
       try {
-        // For account switching, seed the clean auth partition with the current
-        // account cookies so Google's chooser can show the active account. The
-        // browser identity remains isolated and Chrome-like, avoiding the 401
-        // that occurs when accounts.google.com loads in the main Electron window.
-        if (switchingAccount)
+        if (seedCurrentSession)
           await copyGoogleYouTubeCookies(webContents.session, authSession);
         await authWindow.loadURL(
-          switchingAccount ? ACCOUNT_CHOOSER_URL : YOUTUBE_MUSIC_URL,
+          switchingChannel
+            ? CHANNEL_SWITCHER_URL
+            : switchingAccount
+              ? ACCOUNT_CHOOSER_URL
+              : YOUTUBE_MUSIC_URL,
         );
       } catch (error) {
         if (!authWindow.isDestroyed()) authWindow.close();
@@ -240,9 +282,6 @@ export default createBackend<{
     ipc.removeHandler('143:auth:sign-in');
     ipc.handle('143:auth:sign-in', openAuthWindow);
 
-    // Never let the real 143 Music window navigate to Google Accounts. The
-    // custom avatar/native YouTube account button can both trigger that route;
-    // reroute it into the clean auth window instead.
     const interceptAccountNavigation = (
       event: { preventDefault: () => void },
       url: string,
