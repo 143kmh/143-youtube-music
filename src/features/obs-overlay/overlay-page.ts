@@ -23,28 +23,62 @@ export const obsOverlayPage = `<!doctype html>
   body {
     display: grid;
     place-items: center;
-    padding: 10px;
+    padding: 20px;
   }
 
   #card {
-    width: min(500px, calc(100vw - 20px));
-    min-height: 120px;
+    --artwork-bg: none;
+    position: relative;
+    isolation: isolate;
+    width: min(680px, calc(100vw - 40px));
+    min-height: 164px;
     display: grid;
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 14px;
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 18px;
     align-items: center;
-    padding: 12px;
-    border: 1px solid rgba(255,255,255,.10);
-    border-radius: 22px;
+    padding: 17px 18px;
+    border: 1px solid rgba(255,255,255,.045);
+    border-radius: 26px;
     background:
-      radial-gradient(circle at 15% 15%, rgba(96,81,155,.20), transparent 38%),
-      linear-gradient(135deg, rgba(17,17,20,.94), rgba(10,10,12,.88));
-    box-shadow: 0 18px 48px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.04);
-    backdrop-filter: blur(18px) saturate(1.15);
-    -webkit-backdrop-filter: blur(18px) saturate(1.15);
+      radial-gradient(circle at 16% 8%, rgba(96,81,155,.16), transparent 42%),
+      linear-gradient(135deg, rgba(16,16,20,.92), rgba(8,8,11,.86));
+    box-shadow:
+      0 22px 58px rgba(0,0,0,.34),
+      0 0 34px rgba(96,81,155,.07);
+    backdrop-filter: blur(20px) saturate(1.12);
+    -webkit-backdrop-filter: blur(20px) saturate(1.12);
     opacity: 0;
     transform: translateY(8px) scale(.985);
     transition: opacity .22s ease, transform .22s ease;
+  }
+
+  #card::before {
+    content: "";
+    position: absolute;
+    z-index: -2;
+    inset: -14px;
+    border-radius: 34px;
+    background-image:
+      linear-gradient(rgba(96,81,155,.22), rgba(96,81,155,.10)),
+      var(--artwork-bg);
+    background-size: cover;
+    background-position: center;
+    filter: blur(30px) saturate(1.2);
+    opacity: .22;
+    transform: scale(.96);
+    pointer-events: none;
+  }
+
+  #card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    box-shadow:
+      inset 0 1px rgba(255,255,255,.025),
+      inset 0 0 0 1px rgba(255,255,255,.018);
+    pointer-events: none;
   }
 
   body.has-track #card {
@@ -64,12 +98,14 @@ export const obsOverlayPage = `<!doctype html>
 
   #art-wrap {
     position: relative;
-    width: 96px;
-    height: 96px;
-    border-radius: 16px;
+    width: 118px;
+    height: 118px;
+    border-radius: 20px;
     overflow: hidden;
-    background: #1b1b20;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    background: #18181d;
+    box-shadow:
+      0 12px 30px rgba(0,0,0,.28),
+      inset 0 0 0 1px rgba(255,255,255,.045);
   }
 
   #art {
@@ -83,7 +119,7 @@ export const obsOverlayPage = `<!doctype html>
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,.20), transparent 58%);
+    background: linear-gradient(to top, rgba(0,0,0,.18), transparent 60%);
     pointer-events: none;
   }
 
@@ -93,45 +129,45 @@ export const obsOverlayPage = `<!doctype html>
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 2px 4px 1px 0;
+    padding: 2px 3px 1px 0;
   }
 
   #eyebrow {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 6px;
-    color: #8f86b9;
-    font-size: 9px;
+    gap: 14px;
+    margin-bottom: 7px;
+    color: #9188b7;
+    font-size: 11px;
     font-weight: 800;
-    letter-spacing: .13em;
+    letter-spacing: .12em;
     text-transform: uppercase;
   }
 
   #brand {
-    color: #a99be7;
+    color: #a797e8;
   }
 
   #state {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     color: #777582;
-    letter-spacing: .08em;
+    letter-spacing: .075em;
   }
 
   #dot {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: #625f6d;
     box-shadow: none;
   }
 
   body.playing #dot {
-    background: #8f7fd7;
-    box-shadow: 0 0 10px rgba(143,127,215,.75);
+    background: #9686df;
+    box-shadow: 0 0 12px rgba(150,134,223,.72);
   }
 
   #title,
@@ -144,38 +180,39 @@ export const obsOverlayPage = `<!doctype html>
 
   #title {
     margin: 0;
-    color: #f4f3f7;
-    font-size: 17px;
-    font-weight: 720;
-    line-height: 1.18;
-    letter-spacing: -.02em;
+    color: #f1f0f5;
+    font-size: 24px;
+    font-weight: 730;
+    line-height: 1.12;
+    letter-spacing: -.025em;
   }
 
   #artist {
-    margin-top: 4px;
-    color: #aaa7b1;
-    font-size: 11.5px;
-    font-weight: 560;
+    margin-top: 5px;
+    color: #b0acb8;
+    font-size: 14.5px;
+    font-weight: 590;
   }
 
   #album {
-    min-height: 14px;
-    margin-top: 2px;
-    color: #6e6b75;
-    font-size: 9.5px;
+    min-height: 15px;
+    margin-top: 3px;
+    color: #74717d;
+    font-size: 11.5px;
   }
 
   #progress-row {
     display: grid;
-    grid-template-columns: 35px minmax(0,1fr) 35px;
+    grid-template-columns: 42px minmax(0,1fr) 42px;
     align-items: center;
-    gap: 8px;
-    margin-top: 10px;
+    gap: 10px;
+    margin-top: 12px;
   }
 
   .time {
-    color: #67646f;
-    font-size: 8.5px;
+    color: #74717d;
+    font-size: 10px;
+    font-weight: 560;
     font-variant-numeric: tabular-nums;
   }
 
@@ -183,18 +220,19 @@ export const obsOverlayPage = `<!doctype html>
 
   #track {
     position: relative;
-    height: 3px;
-    overflow: hidden;
+    height: 4px;
+    overflow: visible;
     border-radius: 999px;
-    background: rgba(255,255,255,.08);
+    background: rgba(255,255,255,.07);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.18);
   }
 
   #fill {
     width: 0%;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #60519b, #9d8ae8);
-    box-shadow: 0 0 10px rgba(96,81,155,.55);
+    background: linear-gradient(90deg, #60519b, #a18ced);
+    box-shadow: 0 0 12px rgba(96,81,155,.50);
     transition: width .22s linear;
   }
 </style>
@@ -278,9 +316,12 @@ export const obsOverlayPage = `<!doctype html>
     if (state.artwork) {
       art.src = state.artwork;
       art.style.visibility = 'visible';
+      const artworkUrl = state.artwork.replaceAll('"', '%22');
+      card.style.setProperty('--artwork-bg', 'url("' + artworkUrl + '")');
     } else {
       art.removeAttribute('src');
       art.style.visibility = 'hidden';
+      card.style.setProperty('--artwork-bg', 'none');
     }
     renderProgress();
   };
