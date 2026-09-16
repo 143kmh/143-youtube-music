@@ -249,22 +249,6 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
   const collectionsPage = mountLibraryCollections(engine);
   const playlistWorkspace = mountPlaylistWorkspace(engine);
 
-  const openNowPlayingSurface = async () => {
-    if (!engine.getState().track.id) return;
-    if (await engine.openNowPlaying()) {
-      playlistWorkspace.close(false);
-      hideCustomPages();
-    }
-  };
-
-  const openLyricsFromAnywhere = async () => {
-    if (!engine.getState().track.id) return;
-    if (await engine.toggleLyrics()) {
-      playlistWorkspace.close(false);
-      hideCustomPages();
-    }
-  };
-
   const onClick = (event: MouseEvent) => {
     if (shelfGestures.suppressDraggedClick(event)) return;
     const target = event.target;
@@ -316,34 +300,20 @@ export const mountInteractions = (engine: PlaybackContextAdapter) => {
       if (collectionsPage.isOpen()) collectionsPage.close();
     }
 
-    const karaoke = target.closest(
-      '.ui143-player-utils button[aria-label="Karaoke"]',
-    );
-    if (karaoke) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      openLyricsFromAnywhere();
-      return;
-    }
-
     const artwork = target.closest(
       '.ui143-player-art, .ui143-player-art-placeholder',
     );
     if (artwork) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      engine.openQueue();
+      document
+        .querySelector<HTMLButtonElement>(
+          '#ui143-player .ui143-player-utils button[aria-label="Queue"], #ui143-player .ui143-player-utils button[aria-label="Play next"]',
+        )
+        ?.click();
       return;
     }
 
-    const meta = target.closest('.ui143-player-meta');
-    const interactive = target.closest('a, button, input, [role="button"]');
-    if (meta && (!interactive || !meta.contains(interactive))) {
-      event.preventDefault();
-      event.stopPropagation();
-      openNowPlayingSurface();
-      return;
-    }
     engine.handleTrackClick(event);
   };
 
