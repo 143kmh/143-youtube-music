@@ -3,11 +3,13 @@
 
 # 143 Music
 
-**A cleaner desktop client for YouTube Music.**
+**A lightweight YouTube Music desktop client with a custom UI and an experimental forced-Opus mode.**
 
 [**English**](./README.md) · [**Русский**](./README_RU.md)
 
-143 Music keeps YouTube Music as the music service, but replaces much of the desktop experience with its own interface, player and desktop features.
+143 Music keeps the YouTube Music catalog, recommendations and account system, but replaces much of the desktop experience with its own cleaner interface and desktop features.
+
+It is designed to stay light in everyday use: inactive views stop doing background work, unnecessary polling is avoided, and the custom UI only refreshes what it actually needs.
 
 [**Download 143 Music for Windows →**](https://github.com/143kmh/143-youtube-music/releases)
 
@@ -19,24 +21,37 @@
 > [!IMPORTANT]
 > 143 Music is an unofficial project. It is not affiliated with, authorized by, endorsed by, or otherwise officially connected with Google LLC or YouTube. Google, YouTube, YouTube Music, and related marks belong to their respective owners.
 
-## What is 143 Music?
+## Why 143 Music?
 
-143 Music is an Electron desktop client built around YouTube Music. The goal is simple: keep the YouTube Music catalog, recommendations, account and playback engine, while making the desktop app feel like a proper standalone music player.
+143 Music is built around two ideas: **a faster, cleaner desktop experience** and **better control over YouTube Music audio quality**.
 
-Instead of reskinning one page, 143 Music provides its own shell for the main parts of the experience: Home, search, artists, albums, playlists, queue, player controls, Now Playing, lyrics and settings.
+The application uses YouTube Music as the service and playback source, while the 143 shell handles Home, search, artists, albums, playlists, queue, player controls, Now Playing, lyrics and settings. The UI has been tuned to reduce idle CPU work instead of constantly polling hidden screens and rebuilding state in the background.
+
+### High-quality audio and forced Opus
+
+143 Music includes a dedicated experimental **Opus mode**.
+
+When Opus mode is enabled, 143 Music keeps YouTube's native player response and signed media URLs, but changes the audio candidate list before YouTube's player chooses a stream. If YouTube offers Opus audio, 143 Music prefers the best available Opus candidate — prioritizing `AUDIO_QUALITY_HIGH`, non-DRC audio and the highest reported bitrate. On eligible Premium playback this can include **itag 774**.
+
+This is not transcoding and it does not create higher-quality audio that YouTube did not provide. The mode can only select from streams actually offered for your account, track and player session. If no Opus stream is available, playback falls back safely. Because this depends on private YouTube Music/player behavior, Opus mode is considered experimental and may need updates when YouTube changes its internals.
+
+For users who do not want the experimental Opus path, 143 Music also supports YouTube Music's normal playback and native Premium high-quality mode.
 
 ## Highlights
 
+- **Low-overhead custom UI** — background work is reduced when views are closed or inactive.
+- **Forced Opus mode** — experimentally prefers the best Opus stream actually offered by YouTube Music, including high-quality Opus when available.
 - **143 UI** — custom sidebar, Home, search, library, artist, album and playlist pages.
 - **Custom Now Playing** — artwork, synced lyrics, current playlist / Up Next and the full album in one screen.
 - **Personalized Home** — uses your real YouTube Music recommendations but renders them in the 143 Music UI.
-- **High-quality audio controls** — YouTube Music default, Premium HQ AAC and experimental Premium HQ Opus selection.
 - **Synced lyrics** — integrated directly into the custom interface.
 - **Google account controls** — sign in and switch accounts from the 143 Music top bar using the existing YouTube Music session.
 - **Discord Rich Presence** — show what you are listening to in Discord.
 - **OBS Now Playing overlay** — a transparent local Browser Source for streamers.
-- **Offline / local library** — import and play local Opus, FLAC, M4A, MP3, OGG, WebM and WAV files without an internet connection.
+- **Offline / local library** — import and play local Opus, FLAC, M4A, MP3, OGG, WebM, WAV and AAC files without an internet connection.
 - **Desktop integration** — media controls, tray support, persistent settings and a native desktop window.
+
+> 143 Music is optimized to be lightweight in **runtime behavior and idle overhead**. It is still an Electron application, so the installed size includes the Electron/Chromium runtime.
 
 ## Install on Windows
 
@@ -116,9 +131,10 @@ pnpm start
 1. Use the **account button** in the top-right corner to sign in or switch Google accounts.
 2. Open **Home** to load your YouTube Music recommendations.
 3. Use **Settings** to choose the audio mode, accent color, Discord Rich Presence options and other desktop preferences.
-4. Click the artwork or use Karaoke / Queue controls to open the custom **Now Playing** screen.
+4. If you have YouTube Music Premium and want the experimental highest-quality path, enable **Opus** in the audio-quality settings and start a new track.
+5. Click the artwork or use Karaoke / Queue controls to open the custom **Now Playing** screen.
 
-YouTube Music Premium is required for YouTube Music features that are Premium-only, including the corresponding high-quality playback modes.
+YouTube Music Premium is required for YouTube Music features that are Premium-only, including corresponding high-quality playback modes and access to high-quality streams when YouTube offers them.
 
 ## OBS overlay
 
