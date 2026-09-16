@@ -29,10 +29,38 @@ const blankState = (): ObsOverlayState => ({
 const text = (selector: string) =>
   document.querySelector<HTMLElement>(selector)?.textContent?.trim() ?? '';
 
-const artworkFromUi = () => {
-  const image = document.querySelector<HTMLImageElement>('.ui143-player-art');
-  return image?.currentSrc || image?.src || '';
+const httpsArtwork = (value: string | null | undefined) => {
+  const source = value?.trim() ?? '';
+  return /^https:\/\//iu.test(source) ? source : '';
 };
+
+const imageSource = (image: HTMLImageElement | null) =>
+  httpsArtwork(image?.currentSrc) ||
+  httpsArtwork(image?.src) ||
+  httpsArtwork(image?.getAttribute('src'));
+
+const artworkFrom143Ui = () =>
+  imageSource(document.querySelector<HTMLImageElement>('.ui143-player-art'));
+
+const artworkFromNativeUi = () => {
+  const selectors = [
+    'ytmusic-player-bar #song-image img',
+    'ytmusic-player-bar yt-img-shadow img',
+    'ytmusic-player-bar .thumbnail-image',
+    'ytmusic-player-bar img[src]',
+  ];
+
+  for (const selector of selectors) {
+    const source = imageSource(document.querySelector<HTMLImageElement>(selector));
+    if (source) return source;
+  }
+  return '';
+};
+
+const artworkFromVideoId = (videoId: string) =>
+  /^[\w-]{6,32}$/u.test(videoId)
+    ? `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`
+    : '';
 
 const parseClock = (value: string) => {
   const parts = value
@@ -105,16 +133,18 @@ export default createRenderer<ObsOverlayRendererState>({
     const domArtist = text('.ui143-player-artist');
     const title = details?.title ?? videoData?.title ?? domTitle;
     const artist = details?.author ?? videoData?.author ?? domArtist;
-    const artwork = thumbnails.at(-1)?.url ?? artworkFromUi();
+    const rawVideoId = details?.videoId ?? videoData?.video_id ?? '';
+    const artwork =
+      httpsArtwork(thumbnails.at(-1)?.url) ||
+      artworkFromNativeUi() ||
+      artworkFrom143Ui() ||
+      artworkFromVideoId(rawVideoId);
     const times = uiTimes();
 
     if (!time) time = times.time;
     if (!duration) duration = times.duration;
 
-    const id =
-      details?.videoId ??
-      videoData?.video_id ??
-      (title ? `ui:${title}\u0000${artist}` : '');
+    const id = rawVideoId || (title ? `ui:${title}\u0000${artist}` : '');
     const playing =
       playerState === 1 ||
       (playerState == null &&
