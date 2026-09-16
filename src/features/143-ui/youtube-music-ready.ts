@@ -1,6 +1,9 @@
 import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
 
-const LIBRARY_PROBE_BROWSE_ID = 'FEmusic_library_landing';
+const LIBRARY_PROBE_BROWSE_IDS = [
+  'FEmusic_liked_playlists',
+  'VLLM',
+] as const;
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms));
@@ -16,12 +19,17 @@ const isStructurallyReady = (app: MusicPlayerAppElement | null) =>
   );
 
 const probeBrowseApi = async (app: MusicPlayerAppElement) => {
-  const response = await app.networkManager.fetch<unknown, { browseId: string }>(
-    '/browse',
-    { browseId: LIBRARY_PROBE_BROWSE_ID },
+  const responses = await Promise.all(
+    LIBRARY_PROBE_BROWSE_IDS.map((browseId) =>
+      app.networkManager.fetch<unknown, { browseId: string }>('/browse', {
+        browseId,
+      }),
+    ),
   );
 
-  return typeof response === 'object' && response !== null;
+  return responses.every(
+    (response) => typeof response === 'object' && response !== null,
+  );
 };
 
 export const waitForYouTubeMusicReady = async (
@@ -47,7 +55,7 @@ export const waitForYouTubeMusicReady = async (
           return true;
         }
       } catch {
-        // During startup Polymer can expose networkManager before /browse is usable.
+        // Polymer can expose networkManager before authenticated /browse calls work.
       }
     }
 
