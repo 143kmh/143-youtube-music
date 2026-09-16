@@ -26,11 +26,7 @@ const resolveAlias = {
 export default defineConfig(({ mode }) => {
   const isDev = mode === 'development';
 
-  const mainAndPreloadExcludes = [
-    'electron',
-    'custom-electron-prompt',
-    ...builtinModules,
-  ];
+  const mainAndPreloadExcludes = ['electron', ...builtinModules];
   const mainConfig: MainViteConfig = {
     plugins: [
       featureContextSplitter('backend'),
