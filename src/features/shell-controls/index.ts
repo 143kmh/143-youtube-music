@@ -66,6 +66,7 @@ const userIcon = () => {
 const renderer = createRenderer<{
   button: HTMLButtonElement | null;
   observer: MutationObserver | null;
+  syncTimer: number | null;
   styleSheet: CSSStyleSheet | null;
   mount: () => void;
   sync: () => void;
@@ -73,6 +74,7 @@ const renderer = createRenderer<{
 }>({
   button: null,
   observer: null,
+  syncTimer: null,
   styleSheet: null,
 
   mount() {
@@ -92,8 +94,8 @@ const renderer = createRenderer<{
     }
 
     const settings = topbar.querySelector<HTMLElement>('.ui143-settings-button');
-    if (settings) settings.after(button);
-    else if (button.parentElement !== topbar) topbar.append(button);
+    if (settings && settings.nextElementSibling !== button) settings.after(button);
+    else if (!settings && button.parentElement !== topbar) topbar.append(button);
     this.button = button;
     this.sync();
   },
@@ -149,21 +151,25 @@ const renderer = createRenderer<{
     await this.styleSheet.replace(style);
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.styleSheet];
     this.mount();
-    this.observer = new MutationObserver(() => {
-      this.mount();
-      this.sync();
-    });
+
+    // Watch structural changes only. Observing our own aria-label/src mutations
+    // would make this control wake itself up indefinitely.
+    this.observer = new MutationObserver(() => this.mount());
     this.observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
-      attributes: true,
-      attributeFilter: ['src', 'aria-label'],
     });
+    this.syncTimer = window.setInterval(() => {
+      this.mount();
+      this.sync();
+    }, 1500);
   },
 
   stop() {
     this.observer?.disconnect();
     this.observer = null;
+    if (this.syncTimer !== null) window.clearInterval(this.syncTimer);
+    this.syncTimer = null;
     this.button?.remove();
     this.button = null;
     if (this.styleSheet) {
