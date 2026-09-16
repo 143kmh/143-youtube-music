@@ -100,10 +100,7 @@ html[data-143-ui] ytmusic-app-layout #content {
   background: transparent !important;
   box-shadow: none !important;
   color: rgba(255,255,255,.42) !important;
-  transition:
-    color 180ms ease,
-    opacity 180ms ease,
-    text-shadow 220ms ease !important;
+  transition: color 180ms ease, opacity 180ms ease, text-shadow 220ms ease !important;
 }
 
 .ui143-now-playing-tab:hover:not(:disabled) {
@@ -148,31 +145,60 @@ html[data-143-ui] ytmusic-app-layout #content {
   transform: scale(1.08) !important;
 }
 
+/* Match the synced-lyrics "fancy" presentation used in the YouTube surface.
+   Real spacers keep even the first line in the same visual zone as later lines. */
 .ui143-now-playing-lyrics {
-  padding: 30% 8px 38% !important;
-  scroll-behavior: auto !important;
-  mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%) !important;
+  padding: 0 8px !important;
+  scroll-behavior: smooth !important;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 9%, #000 91%, transparent 100%) !important;
+}
+
+.ui143-now-playing-lyrics::before,
+.ui143-now-playing-lyrics::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 42%;
+  min-height: 42%;
+  pointer-events: none;
 }
 
 .ui143-now-playing-lyric {
-  padding: 17px 4px !important;
-  font-size: clamp(23px, 2vw, 36px) !important;
-  line-height: 1.34 !important;
+  padding: 2rem 1.5rem !important;
+  color: #fff !important;
+  font-family:
+    Satoshi, Avenir, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+  font-size: clamp(2rem, 2.25vw, 3rem) !important;
+  font-weight: 700 !important;
+  line-height: 1.333 !important;
+  opacity: .33 !important;
+  transform: scale(.95) !important;
+  transform-origin: 0 50% !important;
+  text-shadow: none !important;
   transition:
-    color 700ms ease,
-    opacity 700ms ease,
-    transform 850ms cubic-bezier(.22,.7,.2,1),
-    text-shadow 850ms ease !important;
+    opacity 330ms ease,
+    transform 220ms ease,
+    color 330ms ease,
+    text-shadow 500ms ease !important;
 }
 
-.ui143-now-playing-lyric.is-current { transform: translate3d(0, -3px, 0) !important; }
-.ui143-now-playing-lyric.is-past {
-  opacity: .45;
-  transform: translate3d(0, -2px, 0) !important;
+.ui143-now-playing-lyric.is-current {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  text-shadow:
+    0 0 1.2rem rgba(255,255,255,.20),
+    0 0 2.2rem rgb(var(--ui143-now-playing-rgb) / .12) !important;
 }
+
+.ui143-now-playing-lyric.is-past,
 .ui143-now-playing-lyric.is-upcoming {
-  opacity: .76;
-  transform: translate3d(0, 4px, 0) !important;
+  opacity: .33 !important;
+  transform: scale(.95) !important;
+}
+
+.ui143-now-playing-lyric:hover:not(.is-current) {
+  opacity: .58 !important;
 }
 
 .ui143-now-playing-list { padding: 0 0 18px !important; }
@@ -226,7 +252,7 @@ html[data-143-ui] ytmusic-app-layout #content {
   }
   .ui143-now-playing-left { padding-top: 24px !important; }
   .ui143-now-playing-art-shell { width: min(100%, 300px) !important; }
-  .ui143-now-playing-lyric { font-size: clamp(19px, 2.4vw, 28px) !important; }
+  .ui143-now-playing-lyric { font-size: clamp(1.65rem, 2.4vw, 2.35rem) !important; }
 }
 
 @media (max-height: 720px) {
@@ -273,46 +299,6 @@ const addStars = () => {
   container.append(fragment);
 };
 
-const scrollAnimations = new WeakMap<HTMLElement, number>();
-
-const settleLyrics = () => {
-  const current = document.querySelector<HTMLElement>(
-    '#ui143-now-playing:not([hidden]) .ui143-now-playing-lyric.is-current',
-  );
-  const scroll = current?.closest<HTMLElement>('.ui143-now-playing-lyrics');
-  if (!current || !scroll) return;
-  if (scroll.dataset.releaseLyric === current.dataset.index) return;
-  scroll.dataset.releaseLyric = current.dataset.index ?? '';
-
-  const previous = scrollAnimations.get(scroll);
-  if (previous !== undefined) cancelAnimationFrame(previous);
-
-  // Cancel the browser's own scrollIntoView animation first. From here on the
-  // active line is kept in one calm visual zone instead of creeping upward.
-  scroll.scrollTo({ top: scroll.scrollTop, behavior: 'auto' });
-  const start = scroll.scrollTop;
-  const desired = Math.max(
-    0,
-    current.offsetTop - scroll.clientHeight * 0.42 + current.offsetHeight / 2,
-  );
-  const distance = desired - start;
-  if (Math.abs(distance) < 2) return;
-  const started = performance.now();
-  const duration = 1100;
-
-  const frame = (now: number) => {
-    const progress = Math.min(1, (now - started) / duration);
-    const eased = 1 - Math.pow(1 - progress, 4);
-    scroll.scrollTop = start + distance * eased;
-    if (progress < 1) {
-      scrollAnimations.set(scroll, requestAnimationFrame(frame));
-    } else {
-      scrollAnimations.delete(scroll);
-    }
-  };
-  scrollAnimations.set(scroll, requestAnimationFrame(frame));
-};
-
 type PlayerVolumeApi = HTMLElement & {
   setVolume?: (value: number) => void;
   getVolume?: () => number;
@@ -355,10 +341,13 @@ const restoreVolume = () => {
   return true;
 };
 
-const polishPlayNext = () => {
-  const control = document.querySelector<HTMLButtonElement>(
-    "#ui143-player .ui143-player-utils button[aria-label='Queue'], #ui143-player .ui143-player-utils button[aria-label='Play next']",
+const playNextButton = () =>
+  document.querySelector<HTMLButtonElement>(
+    "#ui143-player .ui143-player-utils button[aria-label='Play next'], #ui143-player .ui143-player-utils button[aria-label='Queue']",
   );
+
+const polishPlayNext = () => {
+  const control = playNextButton();
   if (!control) return false;
   control.setAttribute('aria-label', 'Play next');
   control.title = 'Play next';
@@ -366,18 +355,29 @@ const polishPlayNext = () => {
   return true;
 };
 
+const closeListeningSurface = () => {
+  const home = document.getElementById('ui143-home-page');
+  if (home) home.hidden = true;
+  const nowPlaying = document.getElementById('ui143-now-playing');
+  if (nowPlaying && !nowPlaying.hidden) {
+    nowPlaying
+      .querySelector<HTMLButtonElement>('.ui143-now-playing-close')
+      ?.click();
+  }
+};
+
 const renderer = createRenderer<{
   styleSheet: CSSStyleSheet | null;
   starTimer: number | null;
-  lyricsTimer: number | null;
   volumeTimer: number | null;
   inputHandler: ((event: Event) => void) | null;
+  clickHandler: ((event: MouseEvent) => void) | null;
 }>({
   styleSheet: null,
   starTimer: null,
-  lyricsTimer: null,
   volumeTimer: null,
   inputHandler: null,
+  clickHandler: null,
 
   async start() {
     this.styleSheet = new CSSStyleSheet();
@@ -387,7 +387,6 @@ const renderer = createRenderer<{
     addStars();
     polishPlayNext();
     this.starTimer = window.setInterval(addStars, 1000);
-    this.lyricsTimer = window.setInterval(settleLyrics, 120);
 
     if (!restoreVolume()) {
       this.volumeTimer = window.setInterval(() => {
@@ -405,18 +404,44 @@ const renderer = createRenderer<{
       saveVolume(Number(target.value));
     };
     document.addEventListener('input', this.inputHandler, true);
+
+    this.clickHandler = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const nav = target.closest<HTMLElement>('.ui143-nav-item[data-key]');
+      if (nav && ['library', 'playlists', 'songs'].includes(nav.dataset.key ?? '')) {
+        // Do not own Library navigation here. Just remove surfaces that could
+        // visually cover the real 143 Library and let 143-ui handle the click.
+        closeListeningSurface();
+        return;
+      }
+
+      if (
+        target.closest('#ui143-player .ui143-player-art') ||
+        target.closest('#ui143-player .ui143-player-title')
+      ) {
+        const control = playNextButton();
+        if (!control) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        control.click();
+      }
+    };
+    document.addEventListener('click', this.clickHandler, true);
   },
 
   stop() {
     if (this.starTimer !== null) window.clearInterval(this.starTimer);
-    if (this.lyricsTimer !== null) window.clearInterval(this.lyricsTimer);
     if (this.volumeTimer !== null) window.clearInterval(this.volumeTimer);
     this.starTimer = null;
-    this.lyricsTimer = null;
     this.volumeTimer = null;
     if (this.inputHandler)
       document.removeEventListener('input', this.inputHandler, true);
+    if (this.clickHandler)
+      document.removeEventListener('click', this.clickHandler, true);
     this.inputHandler = null;
+    this.clickHandler = null;
     if (this.styleSheet) {
       document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
         (sheet) => sheet !== this.styleSheet,
