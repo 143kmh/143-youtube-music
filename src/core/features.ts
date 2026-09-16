@@ -2,6 +2,7 @@ import ui from '@/features/143-ui';
 import authSession from '@/features/auth-session';
 import autoUpdater from '@/features/auto-updater';
 import shellControls from '@/features/shell-controls';
+import startupPlaybackSafety from '@/features/startup-playback-safety';
 import audio from '@/features/force-high-audio-quality';
 import homePage from '@/features/home-page';
 import nowPlaying from '@/features/now-playing';
@@ -16,6 +17,7 @@ const asCoreFeature = (feature: unknown): CoreFeature => feature as CoreFeature;
 
 export const coreFeatures: Record<string, CoreFeature> = {
   '143-ui': asCoreFeature(ui),
+  'startup-playback-safety': asCoreFeature(startupPlaybackSafety),
   'auto-updater': asCoreFeature(autoUpdater),
   'shell-controls': asCoreFeature(shellControls),
   'auth-session': asCoreFeature(authSession),
