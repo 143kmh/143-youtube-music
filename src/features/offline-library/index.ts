@@ -61,11 +61,15 @@ const renderer = createRenderer<{
   observer: MutationObserver | null;
   navClickHandler: ((event: MouseEvent) => void) | null;
   styleSheet: CSSStyleSheet | null;
+  audio: HTMLAudioElement | null;
+  audioSync: (() => void) | null;
+  playingId: string;
   mount: () => void;
   mountNav: () => void;
   show: () => Promise<void>;
   hide: () => void;
   refresh: () => Promise<void>;
+  playTrack: (track: OfflineTrack) => Promise<void>;
   render: () => void;
   renderTrack: (track: OfflineTrack) => HTMLElement;
 }>({
@@ -76,6 +80,9 @@ const renderer = createRenderer<{
   observer: null,
   navClickHandler: null,
   styleSheet: null,
+  audio: null,
+  audioSync: null,
+  playingId: '',
 
   mount() {
     if (this.root) return;
@@ -141,9 +148,41 @@ const renderer = createRenderer<{
     this.render();
   },
 
+  async playTrack(track) {
+    if (!this.ctx || !this.audio) return;
+    const audio = this.audio;
+    if (this.playingId === track.id && audio.src) {
+      if (audio.paused) await audio.play();
+      else audio.pause();
+      return;
+    }
+
+    document.querySelector<HTMLVideoElement>('video')?.pause();
+    const url = (await this.ctx.ipc.invoke(
+      'offline-library:stream-url',
+      track.id,
+    )) as string;
+    if (!url) return;
+
+    audio.pause();
+    this.playingId = track.id;
+    audio.src = url;
+    audio.currentTime = 0;
+    try {
+      await audio.play();
+    } catch (error) {
+      console.warn('[143 Music] Could not play offline track', error);
+      this.playingId = '';
+      audio.removeAttribute('src');
+      audio.load();
+      this.render();
+    }
+  },
+
   renderTrack(track) {
     const row = document.createElement('article');
     row.className = 'ui143-offline-row';
+    row.classList.toggle('is-playing', this.playingId === track.id && !this.audio?.paused);
 
     const art = document.createElement('div');
     art.className = 'ui143-offline-art';
@@ -169,6 +208,13 @@ const renderer = createRenderer<{
 
     const actions = document.createElement('div');
     actions.className = 'ui143-offline-row-actions';
+    const play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'ui143-offline-play';
+    play.textContent =
+      this.playingId === track.id && !this.audio?.paused ? 'Pause' : 'Play';
+    play.addEventListener('click', () => void this.playTrack(track));
+
     const reveal = document.createElement('button');
     reveal.type = 'button';
     reveal.textContent = 'Show file';
@@ -183,6 +229,12 @@ const renderer = createRenderer<{
       if (!this.ctx) return;
       remove.disabled = true;
       try {
+        if (this.playingId === track.id && this.audio) {
+          this.audio.pause();
+          this.audio.removeAttribute('src');
+          this.audio.load();
+          this.playingId = '';
+        }
         this.snapshot = (await this.ctx.ipc.invoke(
           'offline-library:remove',
           track.id,
@@ -192,7 +244,7 @@ const renderer = createRenderer<{
         remove.disabled = false;
       }
     });
-    actions.append(reveal, remove);
+    actions.append(play, reveal, remove);
     row.append(art, meta, actions);
     return row;
   },
@@ -271,8 +323,17 @@ const renderer = createRenderer<{
     this.styleSheet = new CSSStyleSheet();
     await this.styleSheet.replace(style);
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.styleSheet];
-    this.mount();
 
+    this.audio = new Audio();
+    this.audio.preload = 'metadata';
+    this.audioSync = () => {
+      if (this.audio?.ended) this.playingId = '';
+      this.render();
+    };
+    for (const event of ['play', 'pause', 'ended', 'error'])
+      this.audio.addEventListener(event, this.audioSync);
+
+    this.mount();
     this.observer = new MutationObserver(() => this.mountNav());
     this.observer.observe(document.documentElement, { childList: true, subtree: true });
 
@@ -290,6 +351,19 @@ const renderer = createRenderer<{
     if (this.navClickHandler)
       document.removeEventListener('click', this.navClickHandler, true);
     this.navClickHandler = null;
+
+    if (this.audio) {
+      if (this.audioSync)
+        for (const event of ['play', 'pause', 'ended', 'error'])
+          this.audio.removeEventListener(event, this.audioSync);
+      this.audio.pause();
+      this.audio.removeAttribute('src');
+      this.audio.load();
+    }
+    this.audio = null;
+    this.audioSync = null;
+    this.playingId = '';
+
     document.getElementById(NAV_ID)?.remove();
     this.root?.remove();
     this.root = null;
@@ -304,6 +378,11 @@ const renderer = createRenderer<{
   },
 });
 
+type StreamServer = Readonly<{
+  urlFor: (id: string) => string;
+  stop: () => Promise<void>;
+}>;
+
 export default createFeature({
   name: () => 'Offline Library',
   description: () =>
@@ -311,8 +390,12 @@ export default createFeature({
   config: { enabled: true },
   backend: {
     storage: null as typeof import('./storage') | null,
+    streamServer: null as StreamServer | null,
     async start({ ipc }) {
       this.storage = await import('./storage');
+      const stream = await import('./stream-server');
+      this.streamServer = await stream.startOfflineStreamServer();
+
       ipc.handle('offline-library:list', () => this.storage!.getOfflineLibrary());
       ipc.handle('offline-library:import-local', () =>
         this.storage!.importLocalAudio(),
@@ -323,15 +406,21 @@ export default createFeature({
       ipc.handle('offline-library:reveal', (id: string) =>
         this.storage!.revealOfflineTrack(id),
       );
+      ipc.handle('offline-library:stream-url', (id: string) =>
+        this.streamServer?.urlFor(id) ?? '',
+      );
     },
-    stop({ ipc }) {
+    async stop({ ipc }) {
       for (const channel of [
         'offline-library:list',
         'offline-library:import-local',
         'offline-library:remove',
         'offline-library:reveal',
+        'offline-library:stream-url',
       ])
         ipc.removeHandler(channel);
+      await this.streamServer?.stop();
+      this.streamServer = null;
       this.storage = null;
     },
   },
