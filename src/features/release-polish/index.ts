@@ -166,7 +166,6 @@ const submitArtistSearch = (name: string) => {
 };
 
 const ensureLibraryRoute = (route: string, attempt = 0) => {
-  if (window.location.pathname === route) return;
   const app = document.querySelector<HTMLElement & { navigate?: (url: string) => void }>(
     'ytmusic-app',
   );
