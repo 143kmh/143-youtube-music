@@ -1,15 +1,9 @@
-name: 143 Music CI
+name: YouTube Music CI
 
-# Direct-to-master development is intentionally not checked on every push.
-# Run this manually before a release, or let it run for pull requests.
+# Manual validation only. Direct-to-master development and pull requests do not
+# consume Actions quota automatically.
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [master]
-
-concurrency:
-  group: 143-music-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
