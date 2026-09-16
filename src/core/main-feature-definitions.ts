@@ -1,8 +1,8 @@
 import ui from '@/features/143-ui/backend-feature';
 import autoUpdater from '@/features/auto-updater';
+import startupPlaybackSafety from '@/features/startup-playback-safety';
 import audio from '@/features/force-high-audio-quality';
 import obsOverlay from '@/features/obs-overlay';
-import offlineLibrary from '@/features/offline-library';
 
 import type { FeatureDef } from '@/types/features';
 
@@ -21,7 +21,12 @@ const rendererOnlyFeature = (
 
 export const mainCoreFeatures: Record<string, CoreFeature> = {
   '143-ui': asCoreFeature(ui),
+  'startup-playback-safety': asCoreFeature(startupPlaybackSafety),
   'auto-updater': asCoreFeature(autoUpdater),
+  'release-polish': rendererOnlyFeature(
+    'Release Polish',
+    'Final layout and now-playing polish for 143 Music.',
+  ),
   'shell-controls': rendererOnlyFeature(
     'Shell Controls',
     'Top-bar account control and small stability polish for the 143 Music shell.',
@@ -36,7 +41,6 @@ export const mainCoreFeatures: Record<string, CoreFeature> = {
     'Custom album, lyrics and playlist listening view for 143 Music.',
   ),
   'obs-overlay': asCoreFeature(obsOverlay),
-  'offline-library': asCoreFeature(offlineLibrary),
   'player-tools': rendererOnlyFeature(
     'Player Tools',
     'Small quality-of-life controls for the 143 Music player.',
