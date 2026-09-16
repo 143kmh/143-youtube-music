@@ -2,7 +2,7 @@ import { deepmerge } from 'deepmerge-ts';
 import { type BrowserWindow, ipcMain } from 'electron';
 
 import * as config from '@/config';
-import { coreFeatures } from '@/core/features';
+import { mainCoreFeatures as coreFeatures } from '@/core/main-feature-definitions';
 import { LoggerPrefix, startFeature, stopFeature } from '@/utils';
 
 import type { BackendContext } from '@/types/contexts';
