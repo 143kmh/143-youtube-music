@@ -738,10 +738,7 @@ const renderer = createRenderer<NowPlayingState>({
       );
       return;
     }
-    if (this.albumCatalog?.browseId === this.albumRef.browseId) {
-      this.renderAlbum();
-      return;
-    }
+    if (this.albumCatalog?.browseId === this.albumRef.browseId) return;
     const request = ++this.albumRequest;
     message(pane, 'Loading album…', this.albumRef.title);
     let task = albumCache.get(this.albumRef.browseId);
