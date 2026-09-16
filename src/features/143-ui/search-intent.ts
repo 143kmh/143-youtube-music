@@ -278,7 +278,7 @@ const verifyAlbumCandidates = async (
       engine.getAlbumCatalog(candidate.browseId ?? '', candidate.title),
     ),
   );
-  for (const [index, result] of settled.entries()) {
+  for (const result of settled) {
     if (result.status !== 'fulfilled') continue;
     const catalog = result.value;
     if (!catalogContainsSong(catalog, song)) continue;
