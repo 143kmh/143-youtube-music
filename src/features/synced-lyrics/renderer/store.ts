@@ -7,12 +7,12 @@ import { reactiveOwner } from './reactive-root';
 
 import {
   type ProviderName,
+  ProviderNames,
   providerNames,
   type ProviderState,
 } from '../providers';
 import { providers } from '../providers/renderer';
 
-import type { LyricProvider } from '../types';
 import type { SongInfo } from '@/providers/song-info';
 
 type LyricsStore = {
@@ -31,7 +31,7 @@ const initialData = () =>
   );
 
 export const [lyricsStore, setLyricsStore] = createStore<LyricsStore>({
-  provider: providerNames[0],
+  provider: ProviderNames.LRCLib,
   lyrics: initialData(),
   get current(): ProviderState {
     return this.lyrics[this.provider];
@@ -39,35 +39,29 @@ export const [lyricsStore, setLyricsStore] = createStore<LyricsStore>({
 });
 
 export const currentLyrics = runWithOwner(reactiveOwner, () =>
-  createMemo(() => {
-    const provider = lyricsStore.provider;
-    return lyricsStore.lyrics[provider];
-  }),
+  createMemo(() => lyricsStore.lyrics[ProviderNames.LRCLib]),
 )!;
 
 type VideoId = string;
-
 type SearchCacheData = Record<ProviderName, ProviderState>;
 interface SearchCache {
   state: 'loading' | 'done';
   data: SearchCacheData;
 }
 
-// TODO: Maybe use localStorage for the cache.
 const searchCache = new Map<VideoId, SearchCache>();
+
+const publishCache = (cache: SearchCache) => {
+  setLyricsStore('provider', ProviderNames.LRCLib);
+  setLyricsStore('lyrics', () =>
+    JSON.parse(JSON.stringify(cache.data)) as typeof cache.data,
+  );
+};
+
 export const fetchLyrics = (info: SongInfo) => {
-  if (searchCache.has(info.videoId)) {
-    const cache = searchCache.get(info.videoId)!;
-
-    // Publish the partial result when revisiting an in-flight track. Each
-    // provider already publishes its completion; polling adds no information.
-    if (getSongInfo().videoId === info.videoId) {
-      setLyricsStore('lyrics', () => {
-        // weird bug with solid-js
-        return JSON.parse(JSON.stringify(cache.data)) as typeof cache.data;
-      });
-    }
-
+  const existing = searchCache.get(info.videoId);
+  if (existing) {
+    if (getSongInfo().videoId === info.videoId) publishCache(existing);
     return;
   }
 
@@ -75,105 +69,75 @@ export const fetchLyrics = (info: SongInfo) => {
     state: 'loading',
     data: initialData(),
   };
-
   searchCache.set(info.videoId, cache);
-  // Keep recent tracks while bounding memory over long listening sessions.
   if (searchCache.size > 96) {
     const oldest = searchCache.keys().next().value;
     if (oldest !== undefined) searchCache.delete(oldest);
   }
-  if (getSongInfo().videoId === info.videoId) {
-    setLyricsStore('lyrics', () => {
-      // weird bug with solid-js
-      return JSON.parse(JSON.stringify(cache.data)) as typeof cache.data;
-    });
-  }
 
-  const tasks: Promise<void>[] = [];
+  if (getSongInfo().videoId === info.videoId) publishCache(cache);
 
-  // prettier-ignore
-  for (
-    const [providerName, provider] of Object.entries(providers) as [
-    ProviderName,
-    LyricProvider,
-  ][]
-    ) {
-    const pCache = cache.data[providerName];
+  const providerName = ProviderNames.LRCLib;
+  const provider = providers[providerName];
+  const pCache = cache.data[providerName];
 
-    tasks.push(
-      provider
-        .search(info)
-        .then((res) => {
-          pCache.state = 'done';
-          pCache.data = res;
-
-          if (getSongInfo().videoId === info.videoId) {
-            setLyricsStore('lyrics', (old) => {
-              return {
-                ...old,
-                [providerName]: {
-                  state: 'done',
-                  data: res ? { ...res } : null,
-                  error: null,
-                },
-              };
-            });
-          }
-        })
-        .catch((error: Error) => {
-          pCache.state = 'error';
-          pCache.error = error;
-
-          console.error(error);
-
-          if (getSongInfo().videoId === info.videoId) {
-            setLyricsStore('lyrics', (old) => {
-              return {
-                ...old,
-                [providerName]: { state: 'error', error, data: null },
-              };
-            });
-          }
-        }),
-    );
-  }
-
-  Promise.allSettled(tasks).then(() => {
-    cache.state = 'done';
-    // Do not resurrect an entry evicted while its requests were pending.
-  });
-};
-
-export const retrySearch = (provider: ProviderName, info: SongInfo) => {
-  setLyricsStore('lyrics', (old) => {
-    const pCache = {
-      state: 'fetching',
-      data: null,
-      error: null,
-    };
-
-    return {
-      ...old,
-      [provider]: pCache,
-    };
-  });
-
-  providers[provider]
+  void provider
     .search(info)
     .then((res) => {
-      setLyricsStore('lyrics', (old) => {
-        return {
+      pCache.state = 'done';
+      pCache.data = res;
+      pCache.error = null;
+      cache.state = 'done';
+
+      if (getSongInfo().videoId === info.videoId) {
+        setLyricsStore('provider', ProviderNames.LRCLib);
+        setLyricsStore('lyrics', (old) => ({
           ...old,
-          [provider]: { state: 'done', data: res, error: null },
-        };
-      });
+          [providerName]: {
+            state: 'done',
+            data: res ? { ...res } : null,
+            error: null,
+          },
+        }));
+      }
+    })
+    .catch((error: Error) => {
+      pCache.state = 'error';
+      pCache.error = error;
+      pCache.data = null;
+      cache.state = 'done';
+      console.error(error);
+
+      if (getSongInfo().videoId === info.videoId) {
+        setLyricsStore('provider', ProviderNames.LRCLib);
+        setLyricsStore('lyrics', (old) => ({
+          ...old,
+          [providerName]: { state: 'error', error, data: null },
+        }));
+      }
+    });
+};
+
+export const retrySearch = (_provider: ProviderName, info: SongInfo) => {
+  const providerName = ProviderNames.LRCLib;
+  setLyricsStore('provider', providerName);
+  setLyricsStore('lyrics', (old) => ({
+    ...old,
+    [providerName]: { state: 'fetching', data: null, error: null },
+  }));
+
+  providers[providerName]
+    .search(info)
+    .then((res) => {
+      setLyricsStore('lyrics', (old) => ({
+        ...old,
+        [providerName]: { state: 'done', data: res, error: null },
+      }));
     })
     .catch((error) => {
-      setLyricsStore('lyrics', (old) => {
-        return {
-          ...old,
-          [provider]: { state: 'error', data: null, error },
-        };
-      });
+      setLyricsStore('lyrics', (old) => ({
+        ...old,
+        [providerName]: { state: 'error', data: null, error },
+      }));
     });
 };
