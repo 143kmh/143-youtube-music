@@ -124,14 +124,15 @@ export const installDomPolish = () => {
     labelArtistMetrics();
     fillAlbumTrackArtwork();
   };
-  const observer = new MutationObserver(polish);
-  observer.observe(document.body, { childList: true, subtree: true });
+  const observer =
+    typeof MutationObserver === 'undefined' ? null : new MutationObserver(polish);
+  observer?.observe(document.body, { childList: true, subtree: true });
   document.addEventListener('click', routeLikedSystemCard, true);
   polish();
 
   return () => {
     removeStyle();
-    observer.disconnect();
+    observer?.disconnect();
     document.removeEventListener('click', routeLikedSystemCard, true);
   };
 };
