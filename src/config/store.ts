@@ -15,3 +15,5 @@ export const store = new Store({
   },
   clearInvalidConfig: false,
 });
+
+export type IStore = typeof store;
