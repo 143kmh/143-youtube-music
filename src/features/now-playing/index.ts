@@ -14,6 +14,7 @@ import type { QueueElement } from '@/types/queue';
 const ROOT_ID = 'ui143-now-playing';
 const PLAY_CONTEXT_EVENT = 'ui143:play-context';
 const PLAY_CONTEXT_INDEX_EVENT = 'ui143:play-context-index';
+const ALBUM_METADATA_GRACE_MS = 3500;
 
 type TabId = 'lyrics' | 'playlist' | 'album';
 
@@ -41,6 +42,7 @@ type NowPlayingState = {
   albumCatalog: AlbumCatalog | null;
   albumRequest: number;
   albumLoadingId: string;
+  albumMissingSince: number;
   lyricsKey: string;
   activeLyricIndex: number;
   playlistKey: string;
@@ -106,16 +108,34 @@ const currentAlbumRef = (videoId: string): AlbumRef | null => {
     matching ??
     (!videoId || selected?.videoId === videoId ? selected : undefined);
   if (!current) return null;
+
+  const isAlbumBrowse = (browse: {
+    browseId?: string;
+    browseEndpointContextSupportedConfigs?: {
+      browseEndpointContextMusicConfig?: { pageType?: string };
+    };
+  } | undefined) =>
+    Boolean(
+      browse?.browseId &&
+        (browse.browseEndpointContextSupportedConfigs
+          ?.browseEndpointContextMusicConfig?.pageType ===
+          'MUSIC_PAGE_TYPE_ALBUM' ||
+          browse.browseId.startsWith('MPRE')),
+    );
+
   for (const run of current.longBylineText?.runs ?? []) {
     const browse = run.navigationEndpoint?.browseEndpoint;
-    if (
-      browse?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig
-        ?.pageType !== 'MUSIC_PAGE_TYPE_ALBUM'
-    )
-      continue;
-    if (!browse.browseId) continue;
+    if (!isAlbumBrowse(browse) || !browse?.browseId) continue;
     return { title: run.text?.trim() || 'Album', browseId: browse.browseId };
   }
+
+  for (const item of current.menu?.menuRenderer?.items ?? []) {
+    const navigation = item.menuNavigationItemRenderer;
+    const browse = navigation?.navigationEndpoint?.browseEndpoint;
+    if (!isAlbumBrowse(browse) || !browse?.browseId) continue;
+    return { title: 'Album', browseId: browse.browseId };
+  }
+
   return null;
 };
 
@@ -246,6 +266,7 @@ const renderer = createRenderer<NowPlayingState>({
   albumCatalog: null,
   albumRequest: 0,
   albumLoadingId: '',
+  albumMissingSince: 0,
   lyricsKey: '',
   activeLyricIndex: -1,
   playlistKey: '',
@@ -464,6 +485,8 @@ const renderer = createRenderer<NowPlayingState>({
         text('.ui143-player-artist') || data?.author || '';
 
     const ref = currentAlbumRef(nextId);
+    if (ref) this.albumMissingSince = 0;
+    else if (changed || !this.albumMissingSince) this.albumMissingSince = Date.now();
     if (album) album.textContent = ref?.title ?? '';
     const albumChanged = ref?.browseId !== this.albumRef?.browseId;
     this.albumRef = ref;
@@ -478,8 +501,8 @@ const renderer = createRenderer<NowPlayingState>({
           else
             message(
               pane,
-              'Album unavailable',
-              'YouTube Music did not expose an album for this track.',
+              'Finding album…',
+              'Waiting for YouTube Music metadata for this track.',
             );
         }
       }
@@ -593,9 +616,9 @@ const renderer = createRenderer<NowPlayingState>({
         row.classList.toggle('is-past', rowIndex < index);
         row.classList.toggle('is-upcoming', rowIndex > index);
       });
-    pane
-      .querySelector<HTMLElement>('.ui143-now-playing-lyric.is-current')
-      ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // Scrolling is intentionally owned by now-playing-lyrics-polish. Keeping a
+    // second scrollIntoView here can move the entire Now Playing surface when
+    // the lyrics DOM is rebuilt between tracks.
   },
 
   syncPlaylist() {
@@ -771,13 +794,23 @@ const renderer = createRenderer<NowPlayingState>({
     const albumRef = this.albumRef;
     if (!albumRef) {
       this.albumLoadingId = '';
-      message(
-        pane,
-        'Album unavailable',
-        'YouTube Music did not expose an album for this track.',
-      );
+      if (!this.albumMissingSince) this.albumMissingSince = Date.now();
+      if (Date.now() - this.albumMissingSince < ALBUM_METADATA_GRACE_MS) {
+        message(
+          pane,
+          'Finding album…',
+          'Waiting for YouTube Music metadata for this track.',
+        );
+      } else {
+        message(
+          pane,
+          'Album unavailable',
+          'YouTube Music did not expose an album for this track.',
+        );
+      }
       return;
     }
+    this.albumMissingSince = 0;
     if (this.albumCatalog?.browseId === albumRef.browseId) return;
     if (this.albumLoadingId === albumRef.browseId) return;
 
