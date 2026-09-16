@@ -1,7 +1,26 @@
 import { createFeature, createRenderer } from '@/utils';
 
 const STYLE = `
+.ui143-topbar {
+  top: 0 !important;
+  left: var(--ui143-sidebar-width) !important;
+  right: 0 !important;
+  border-radius: 0 !important;
+}
+
+html[data-143-ui] #content.ytmusic-app-layout,
+html[data-143-ui] ytmusic-app-layout #content {
+  width: calc(100% - var(--ui143-sidebar-width)) !important;
+  height: calc(100vh - var(--ui143-player-height)) !important;
+  margin: 0 0 var(--ui143-player-height) var(--ui143-sidebar-width) !important;
+  border-radius: 0 !important;
+}
+
 #ui143-now-playing {
+  top: var(--ui143-topbar-height) !important;
+  right: 0 !important;
+  bottom: var(--ui143-player-height) !important;
+  left: var(--ui143-sidebar-width) !important;
   border-radius: 0 !important;
   background:
     radial-gradient(circle at 20% 16%, rgb(var(--ui143-now-playing-rgb) / .19), transparent 42%),
@@ -9,14 +28,29 @@ const STYLE = `
     linear-gradient(145deg, #0b0b0e 0%, #09090c 48%, #07080a 100%) !important;
 }
 
+.ui143-now-playing-wash {
+  opacity: 0;
+  transition: opacity 900ms ease, filter 900ms ease !important;
+}
+
 .ui143-now-playing-stage {
   grid-template-columns: minmax(350px, 42%) minmax(500px, 1fr) !important;
+  align-items: start !important;
   gap: clamp(44px, 5vw, 92px) !important;
   padding: clamp(36px, 5vh, 76px) clamp(48px, 6vw, 104px) !important;
 }
 
+.ui143-now-playing-left {
+  align-self: start !important;
+  padding-top: clamp(48px, 7vh, 104px) !important;
+}
+
 .ui143-now-playing-art-shell {
   width: min(100%, 480px) !important;
+}
+
+.ui143-now-playing-title {
+  min-height: 2.16em;
 }
 
 .ui143-now-playing-panel {
@@ -47,6 +81,14 @@ const STYLE = `
 .ui143-now-playing-list-heading {
   padding-inline: 8px !important;
   color: rgba(255,255,255,.31) !important;
+}
+
+.ui143-now-playing-tab:disabled,
+.ui143-now-playing-tab.is-disabled {
+  opacity: .28 !important;
+  cursor: default !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .ui143-now-playing-lyrics {
@@ -97,6 +139,10 @@ const STYLE = `
     padding: 30px !important;
   }
 
+  .ui143-now-playing-left {
+    padding-top: 34px !important;
+  }
+
   .ui143-now-playing-art-shell {
     width: min(100%, 370px) !important;
   }
@@ -114,6 +160,10 @@ const STYLE = `
     padding: 22px !important;
   }
 
+  .ui143-now-playing-left {
+    padding-top: 24px !important;
+  }
+
   .ui143-now-playing-art-shell {
     width: min(100%, 300px) !important;
   }
@@ -127,6 +177,10 @@ const STYLE = `
   .ui143-now-playing-stage {
     padding-top: 24px !important;
     padding-bottom: 24px !important;
+  }
+
+  .ui143-now-playing-left {
+    padding-top: 8px !important;
   }
 
   .ui143-now-playing-art-shell {
@@ -146,14 +200,6 @@ const STYLE = `
 }
 `;
 
-const LIBRARY_ROUTES: Record<string, string> = {
-  library: '/library',
-  playlists: '/library/playlists',
-  songs: '/library/songs',
-  albums: '/library/albums',
-  artists: '/library/artists',
-};
-
 const submitArtistSearch = (name: string) => {
   const value = name.trim();
   if (!value) return;
@@ -165,16 +211,12 @@ const submitArtistSearch = (name: string) => {
   form.requestSubmit();
 };
 
-const ensureLibraryRoute = (route: string, attempt = 0) => {
-  const app = document.querySelector<HTMLElement & { navigate?: (url: string) => void }>(
-    'ytmusic-app',
-  );
-  if (typeof app?.navigate === 'function') {
-    app.navigate(route);
-    return;
-  }
-  if (attempt >= 30) return;
-  window.setTimeout(() => ensureLibraryRoute(route, attempt + 1), 100);
+const closeNowPlaying = () => {
+  const root = document.getElementById('ui143-now-playing');
+  if (!root || root.hidden) return;
+  root
+    .querySelector<HTMLButtonElement>('.ui143-now-playing-close')
+    ?.click();
 };
 
 const addStars = () => {
@@ -202,10 +244,12 @@ const addStars = () => {
 const renderer = createRenderer<{
   styleSheet: CSSStyleSheet | null;
   clickHandler: ((event: MouseEvent) => void) | null;
+  submitHandler: ((event: SubmitEvent) => void) | null;
   timer: number | null;
 }>({
   styleSheet: null,
   clickHandler: null,
+  submitHandler: null,
   timer: null,
 
   async start() {
@@ -217,12 +261,12 @@ const renderer = createRenderer<{
       const target = event.target;
       if (!(target instanceof Element)) return;
 
-      if (target.closest('#ui143-account-button')) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        void window.ipcRenderer.invoke('143:auth:sign-in', 'channel');
-        return;
-      }
+      if (
+        target.closest('.ui143-sidebar .ui143-nav-item') ||
+        target.closest('.ui143-search') ||
+        target.closest('.ui143-history')
+      )
+        closeNowPlaying();
 
       if (
         target.closest('#ui143-player .ui143-player-art') ||
@@ -239,10 +283,11 @@ const renderer = createRenderer<{
       const artistButton = target.closest<HTMLElement>('.ui143-player-artist-button');
       if (artistButton) {
         const name = artistButton.textContent?.trim() ?? '';
+        closeNowPlaying();
         window.setTimeout(() => {
           const page = document.getElementById('ui143-artist-page');
           if (!page || page.hidden) submitArtistSearch(name);
-        }, 450);
+        }, 350);
         return;
       }
 
@@ -254,16 +299,18 @@ const renderer = createRenderer<{
         if (name) {
           event.preventDefault();
           event.stopImmediatePropagation();
+          closeNowPlaying();
           submitArtistSearch(name);
         }
-        return;
       }
-
-      const nav = target.closest<HTMLElement>('.ui143-nav-item[data-key]');
-      const route = nav?.dataset.key ? LIBRARY_ROUTES[nav.dataset.key] : undefined;
-      if (route) window.setTimeout(() => ensureLibraryRoute(route), 60);
     };
     document.addEventListener('click', this.clickHandler, true);
+
+    this.submitHandler = (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.matches('.ui143-search')) closeNowPlaying();
+    };
+    document.addEventListener('submit', this.submitHandler, true);
 
     addStars();
     this.timer = window.setInterval(addStars, 1000);
@@ -272,7 +319,10 @@ const renderer = createRenderer<{
   stop() {
     if (this.clickHandler)
       document.removeEventListener('click', this.clickHandler, true);
+    if (this.submitHandler)
+      document.removeEventListener('submit', this.submitHandler, true);
     this.clickHandler = null;
+    this.submitHandler = null;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     if (this.styleSheet) {
