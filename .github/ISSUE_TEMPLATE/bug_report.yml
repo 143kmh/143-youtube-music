@@ -1,0 +1,95 @@
+name: Bug Report
+description: Report a bug in the YouTube Music desktop client
+title: "[Bug]: "
+labels: "bug :beetle:"
+body:
+  - type: checkboxes
+    attributes:
+      label: Preflight Checklist
+      description: Please ensure you've completed all of the following.
+      options:
+        - label: I am using the latest version or current master build.
+          required: true
+        - label: I have searched this repository for an existing report of the same issue.
+          required: true
+        - label: I understand that this project is not affiliated with Google or YouTube.
+          required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Application version
+      description: What version or commit are you using?
+      placeholder: "3.12.0 or commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Ubuntu
+        - Other Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: Operating system version
+      placeholder: "e.g. Windows 11 24H2, macOS 15, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cpu-arch
+    attributes:
+      label: CPU architecture
+      options:
+        - x64
+        - arm64
+        - ia32
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: Provide the shortest reliable sequence that reproduces the issue.
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Relevant features
+      description: If known, note the affected area, such as 143 UI, high-quality audio/Opus, Discord Rich Presence, or synced lyrics.
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: Add logs, screenshots, playback details, or any other useful context.
+    validations:
+      required: false

@@ -1,0 +1,42 @@
+name: Feature Request
+description: Suggest an improvement for the YouTube Music desktop client
+title: "[Feature Request]: "
+labels: "enhancement :sparkles:"
+body:
+  - type: checkboxes
+    attributes:
+      label: Preflight Checklist
+      description: Please ensure you've completed all of the following.
+      options:
+        - label: I have searched this repository for an existing request for the same feature.
+          required: true
+        - label: This request is about the desktop client rather than a feature of the YouTube Music website itself.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What problem or limitation would this feature address?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Alternatives considered
+      description: Describe any other approaches or workarounds you considered.
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: Add mockups, examples, technical context, or anything else that may help.
+    validations:
+      required: false
