@@ -218,6 +218,7 @@ html[data-143-ui] ytmusic-app-layout #content {
   animation-iteration-count: infinite !important;
 }
 
+.ui143-player-utils .ui143-player-button[aria-label='Queue'] .ui143-player-icon,
 .ui143-player-utils .ui143-player-button[aria-label='Play next'] .ui143-player-icon {
   width: 18px !important;
   height: 18px !important;
@@ -349,7 +350,9 @@ const playNextButton = () =>
 const polishPlayNext = () => {
   const control = playNextButton();
   if (!control) return false;
-  control.setAttribute('aria-label', 'Play next');
+  // Keep the semantic Queue label so the Now Playing feature owns the click,
+  // while the tooltip and icon present it as Play next in the 143 UI.
+  control.setAttribute('aria-label', 'Queue');
   control.title = 'Play next';
   control.querySelector<SVGPathElement>('svg path')?.setAttribute('d', PLAY_NEXT_ICON);
   return true;
@@ -414,18 +417,6 @@ const renderer = createRenderer<{
         // Do not own Library navigation here. Just remove surfaces that could
         // visually cover the real 143 Library and let 143-ui handle the click.
         closeListeningSurface();
-        return;
-      }
-
-      if (
-        target.closest('#ui143-player .ui143-player-art') ||
-        target.closest('#ui143-player .ui143-player-title')
-      ) {
-        const control = playNextButton();
-        if (!control) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        control.click();
       }
     };
     document.addEventListener('click', this.clickHandler, true);
