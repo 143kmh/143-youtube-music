@@ -26,6 +26,10 @@ export const mainCoreFeatures: Record<string, CoreFeature> = {
     'Shell Controls',
     'Top-bar account control and small stability polish for the 143 Music shell.',
   ),
+  'auth-session': rendererOnlyFeature(
+    'Auth Session',
+    'Keeps the 143 Music login gate in sync with the authenticated YouTube session.',
+  ),
   'force-high-audio-quality': asCoreFeature(audio),
   'home-page': rendererOnlyFeature(
     '143 Music Home',
