@@ -1,5 +1,9 @@
 import { createFeature, createRenderer } from '@/utils';
 
+const VOLUME_STORAGE_KEY = 'ui143-volume';
+const PLAY_NEXT_ICON =
+  'M15 6H3v2h12V6Zm0 4H3v2h12v-2ZM3 16h8v-2H3v2Zm14-10v8.18A3 3 0 1 0 19 17V8h3V6h-5Z';
+
 const STYLE = `
 .ui143-topbar {
   top: 0 !important;
@@ -92,12 +96,56 @@ html[data-143-ui] ytmusic-app-layout #content {
   color: rgba(255,255,255,.31) !important;
 }
 
+.ui143-now-playing-tab {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(255,255,255,.42) !important;
+  transition:
+    color 180ms ease,
+    opacity 180ms ease,
+    text-shadow 220ms ease !important;
+}
+
+.ui143-now-playing-tab:hover:not(:disabled) {
+  background: transparent !important;
+  color: rgba(255,255,255,.76) !important;
+}
+
+.ui143-now-playing-tab.is-active {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #fff !important;
+  text-shadow:
+    0 0 16px rgb(var(--ui143-now-playing-rgb) / .38),
+    0 0 34px rgb(var(--ui143-now-playing-rgb) / .14) !important;
+}
+
 .ui143-now-playing-tab:disabled,
 .ui143-now-playing-tab.is-disabled {
-  opacity: .28 !important;
+  opacity: .24 !important;
   cursor: default !important;
   background: transparent !important;
   box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.ui143-now-playing-close {
+  width: 36px !important;
+  height: 36px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(255,255,255,.42) !important;
+  font-size: 27px !important;
+  font-weight: 300 !important;
+  transition: color 160ms ease, transform 180ms ease !important;
+}
+
+.ui143-now-playing-close:hover {
+  background: transparent !important;
+  color: #fff !important;
+  transform: scale(1.08) !important;
 }
 
 .ui143-now-playing-lyrics {
@@ -142,6 +190,12 @@ html[data-143-ui] ytmusic-app-layout #content {
   animation-name: ui143-release-star-drift !important;
   animation-timing-function: ease-in-out !important;
   animation-iteration-count: infinite !important;
+}
+
+.ui143-player-utils .ui143-player-button[aria-label='Play next'] .ui143-player-icon {
+  width: 18px !important;
+  height: 18px !important;
+  transform: translate3d(0, -.25px, 0);
 }
 
 @keyframes ui143-release-star-drift {
@@ -259,29 +313,110 @@ const settleLyrics = () => {
   scrollAnimations.set(scroll, requestAnimationFrame(frame));
 };
 
+type PlayerVolumeApi = HTMLElement & {
+  setVolume?: (value: number) => void;
+  getVolume?: () => number;
+  isMuted?: () => boolean;
+  mute?: () => void;
+};
+
+const readSavedVolume = () => {
+  try {
+    const raw = window.localStorage.getItem(VOLUME_STORAGE_KEY);
+    if (raw === null) return null;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return null;
+    return Math.max(0, Math.min(100, Math.round(value)));
+  } catch {
+    return null;
+  }
+};
+
+const saveVolume = (value: number) => {
+  if (!Number.isFinite(value)) return;
+  try {
+    window.localStorage.setItem(
+      VOLUME_STORAGE_KEY,
+      String(Math.max(0, Math.min(100, Math.round(value)))),
+    );
+  } catch {
+    // Playback keeps working even if this profile blocks local storage.
+  }
+};
+
+const restoreVolume = () => {
+  const saved = readSavedVolume();
+  if (saved === null) return true;
+  const player = document.querySelector<PlayerVolumeApi>('#movie_player');
+  if (!player?.setVolume) return false;
+  const wasMuted = player.isMuted?.() ?? true;
+  player.setVolume(saved);
+  if (wasMuted) player.mute?.();
+  return true;
+};
+
+const polishPlayNext = () => {
+  const control = document.querySelector<HTMLButtonElement>(
+    "#ui143-player .ui143-player-utils button[aria-label='Queue'], #ui143-player .ui143-player-utils button[aria-label='Play next']",
+  );
+  if (!control) return false;
+  control.setAttribute('aria-label', 'Play next');
+  control.title = 'Play next';
+  control.querySelector<SVGPathElement>('svg path')?.setAttribute('d', PLAY_NEXT_ICON);
+  return true;
+};
+
 const renderer = createRenderer<{
   styleSheet: CSSStyleSheet | null;
   starTimer: number | null;
   lyricsTimer: number | null;
+  volumeTimer: number | null;
+  inputHandler: ((event: Event) => void) | null;
 }>({
   styleSheet: null,
   starTimer: null,
   lyricsTimer: null,
+  volumeTimer: null,
+  inputHandler: null,
 
   async start() {
     this.styleSheet = new CSSStyleSheet();
     await this.styleSheet.replace(STYLE);
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.styleSheet];
+
     addStars();
+    polishPlayNext();
     this.starTimer = window.setInterval(addStars, 1000);
     this.lyricsTimer = window.setInterval(settleLyrics, 120);
+
+    if (!restoreVolume()) {
+      this.volumeTimer = window.setInterval(() => {
+        polishPlayNext();
+        if (!restoreVolume()) return;
+        if (this.volumeTimer !== null) window.clearInterval(this.volumeTimer);
+        this.volumeTimer = null;
+      }, 250);
+    }
+
+    this.inputHandler = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.matches('#ui143-player .ui143-player-volume')) return;
+      saveVolume(Number(target.value));
+    };
+    document.addEventListener('input', this.inputHandler, true);
   },
 
   stop() {
     if (this.starTimer !== null) window.clearInterval(this.starTimer);
     if (this.lyricsTimer !== null) window.clearInterval(this.lyricsTimer);
+    if (this.volumeTimer !== null) window.clearInterval(this.volumeTimer);
     this.starTimer = null;
     this.lyricsTimer = null;
+    this.volumeTimer = null;
+    if (this.inputHandler)
+      document.removeEventListener('input', this.inputHandler, true);
+    this.inputHandler = null;
     if (this.styleSheet) {
       document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
         (sheet) => sheet !== this.styleSheet,
