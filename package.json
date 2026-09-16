@@ -14,8 +14,8 @@
   },
   "scripts": {
     "postinstall": "pnpm install-electron",
-    "test": "pnpm playwright test",
-    "test:debug": "pnpm cross-env DEBUG=pw:*,-pw:test:protocol playwright test",
+    "test": "pnpm cross-env NODE_OPTIONS=--loader=./scripts/css-inline-test-loader.mjs playwright test",
+    "test:debug": "pnpm cross-env NODE_OPTIONS=--loader=./scripts/css-inline-test-loader.mjs DEBUG=pw:*,-pw:test:protocol playwright test",
     "build": "pnpm electron-vite build",
     "vite:inspect": "pnpm clean && electron-vite build --mode development && pnpm exec serve .vite-inspect",
     "start": "pnpm electron-vite preview",
