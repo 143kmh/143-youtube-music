@@ -14,6 +14,37 @@ type ObsOverlayRendererState = {
   publish: () => void;
 };
 
+const DEFAULT_ACCENT = '#60519B';
+const ACCENT_STORAGE_KEY = 'ui143-accent';
+const OBS_ACCENT_STORAGE_KEY = 'ui143-obs-use-accent';
+const OBS_HIDE_STORAGE_KEY = 'ui143-obs-hide-when-paused';
+
+const storedAccent = () => {
+  try {
+    const value = window.localStorage.getItem(ACCENT_STORAGE_KEY)?.trim() ?? '';
+    return /^#[\da-f]{6}$/iu.test(value) ? value.toUpperCase() : DEFAULT_ACCENT;
+  } catch {
+    return DEFAULT_ACCENT;
+  }
+};
+
+const storedUseAccentColor = () => {
+  try {
+    return window.localStorage.getItem(OBS_ACCENT_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const storedHideWhenPaused = () => {
+  try {
+    const value = window.localStorage.getItem(OBS_HIDE_STORAGE_KEY);
+    return value == null ? true : value === 'true';
+  } catch {
+    return true;
+  }
+};
+
 const blankState = (): ObsOverlayState => ({
   id: '',
   title: '',
@@ -24,6 +55,9 @@ const blankState = (): ObsOverlayState => ({
   time: 0,
   duration: 0,
   updatedAt: Date.now(),
+  accent: storedAccent(),
+  useAccentColor: storedUseAccentColor(),
+  hideWhenPaused: storedHideWhenPaused(),
 });
 
 const text = (selector: string) =>
@@ -88,10 +122,6 @@ export default createRenderer<ObsOverlayRendererState>({
   publish() {
     if (!this.ipc) return;
 
-    // YouTube exposes slightly different player objects across accounts and
-    // experiments. Never make the whole OBS state depend on one private method.
-    // The 143 player DOM is a stable fallback and is enough to keep the overlay
-    // useful even when getPlayerResponse/onPlayerApiReady differs for a profile.
     const domPlayer = document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
     const player = (this.player ?? domPlayer) as Partial<MusicPlayer> | null;
 
@@ -160,6 +190,9 @@ export default createRenderer<ObsOverlayRendererState>({
       time,
       duration,
       updatedAt: Date.now(),
+      accent: storedAccent(),
+      useAccentColor: storedUseAccentColor(),
+      hideWhenPaused: storedHideWhenPaused(),
     };
 
     void this.ipc.invoke('obs-overlay:update', state).catch(() => {
@@ -171,8 +204,6 @@ export default createRenderer<ObsOverlayRendererState>({
     this.ipc = ipc;
     this.publish();
     if (this.timer !== null) window.clearInterval(this.timer);
-    // Start publishing regardless of whether YouTube calls onPlayerApiReady.
-    // This also survives account switches that replace the underlying player.
     this.timer = window.setInterval(() => this.publish(), 1000);
   },
 

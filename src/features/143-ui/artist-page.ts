@@ -50,6 +50,14 @@ const subtitle = (item: SearchResultItem) => {
   return text;
 };
 
+const normalizeArtistName = (value: string) =>
+  value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+
 export type ArtistPageController = ReturnType<typeof mountArtistPage>;
 
 export const mountArtistPage = (
@@ -72,6 +80,7 @@ export const mountArtistPage = (
   let restoreSearch = false;
   const history: ArtistRef[] = [];
   let currentTrackId = engine.getState().track.id;
+  const artistResolveCache = new Map<string, Promise<ArtistRef | null>>();
 
   const setVisible = (visible: boolean) => {
     root.hidden = !visible;
@@ -87,9 +96,11 @@ export const mountArtistPage = (
       const active = Boolean(
         currentTrackId && row.dataset.videoId === currentTrackId,
       );
-      if (row.classList.contains('is-now-playing') !== active) row.classList.toggle('is-now-playing', active);
+      if (row.classList.contains('is-now-playing') !== active)
+        row.classList.toggle('is-now-playing', active);
       if (active) {
-        if (row.getAttribute('aria-current') !== 'true') row.setAttribute('aria-current', 'true');
+        if (row.getAttribute('aria-current') !== 'true')
+          row.setAttribute('aria-current', 'true');
       } else if (row.hasAttribute('aria-current')) row.removeAttribute('aria-current');
     }
   };
@@ -166,40 +177,283 @@ export const mountArtistPage = (
 
     void getArtistLibraryState(artist.browseId)
       .then((next) => {
-        if (current?.browseId !== pageId) return;
+        if (!button.isConnected && current?.browseId !== pageId) return;
         state = next;
         renderState();
       })
       .catch((error) => {
         console.warn('[143 Music] Could not read artist library state', error);
-        if (current?.browseId !== pageId) return;
+        if (!button.isConnected && current?.browseId !== pageId) return;
         button.textContent = '+ Follow';
         button.disabled = false;
       });
 
-    button.addEventListener('click', async () => {
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       if (busy) return;
       try {
         if (!state) state = await getArtistLibraryState(artist.browseId);
-        if (current?.browseId !== pageId) return;
         busy = true;
         renderState();
         const desired = !state.saved;
         await setArtistLibraryState(state, desired);
-        if (current?.browseId !== pageId) return;
         state = { ...state, saved: desired };
       } catch (error) {
         console.error('[143 Music] Could not update artist library state', error);
       } finally {
         busy = false;
-        if (current?.browseId === pageId) renderState();
+        if (button.isConnected) renderState();
       }
     });
 
     return button;
   };
 
-  const renderHero = (profile: SearchArtistProfile, artist: ArtistRef) => {
+  const playableArtistTracks = (items: readonly SearchResultItem[]) => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (item.kind !== 'song' || !item.videoId || seen.has(item.videoId))
+        return false;
+      seen.add(item.videoId);
+      return true;
+    });
+  };
+
+  const startArtistRadio = async (
+    artist: ArtistRef,
+    knownTracks?: readonly SearchResultItem[],
+  ) => {
+    const tracks = playableArtistTracks(
+      knownTracks?.length
+        ? knownTracks
+        : (await engine.getArtistCatalog(artist.browseId, artist.name)).topTracks,
+    );
+    if (!tracks.length) return false;
+    const startIndex = Math.floor(Math.random() * tracks.length);
+    return engine.playContext(
+      tracks,
+      startIndex,
+      {
+        kind: 'artist',
+        title: `Artist Radio · ${artist.name}`,
+        browseId: artist.browseId,
+      },
+      { shuffle: true },
+    );
+  };
+
+  const artistRadioButton = (
+    artist: ArtistRef,
+    knownTracks?: readonly SearchResultItem[],
+  ) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ui143-artist-library-action ui143-artist-radio-action';
+    button.textContent = 'Artist Radio';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (button.disabled) return;
+      button.disabled = true;
+      const previous = button.textContent;
+      button.textContent = 'Starting…';
+      void startArtistRadio(artist, knownTracks)
+        .catch((error) => {
+          console.error('[143 Music] Artist radio failed', error);
+        })
+        .finally(() => {
+          if (!button.isConnected) return;
+          button.disabled = false;
+          button.textContent = previous;
+        });
+    });
+    return button;
+  };
+
+  const resolveArtist = (name: string) => {
+    const key = normalizeArtistName(name);
+    if (!key) return Promise.resolve(null);
+    const cached = artistResolveCache.get(key);
+    if (cached) return cached;
+    const request = engine
+      .searchCatalog(name)
+      .then((catalog) => {
+        const candidates: ArtistRef[] = [];
+        const featured = catalog.featuredArtist;
+        if (featured?.browseId)
+          candidates.push({ name: featured.title || name, browseId: featured.browseId });
+        for (const item of catalog.artists) {
+          if (item.browseId)
+            candidates.push({ name: item.title || name, browseId: item.browseId });
+        }
+        return (
+          candidates.find(
+            (candidate) => normalizeArtistName(candidate.name) === key,
+          ) ??
+          candidates[0] ??
+          null
+        );
+      })
+      .catch((error) => {
+        console.warn('[143 Music] Could not resolve artist search action', error);
+        artistResolveCache.delete(key);
+        return null;
+      });
+    artistResolveCache.set(key, request);
+    return request;
+  };
+
+  const makeSearchActions = (name: string) => {
+    const actions = document.createElement('div');
+    actions.dataset.ui143ArtistActions = '';
+    actions.style.display = 'flex';
+    actions.style.alignItems = 'center';
+    actions.style.gap = '7px';
+    actions.style.zIndex = '4';
+
+    const follow = document.createElement('button');
+    follow.type = 'button';
+    follow.className = 'ui143-artist-library-action';
+    follow.textContent = '+ Follow';
+    follow.disabled = true;
+
+    const radio = document.createElement('button');
+    radio.type = 'button';
+    radio.className = 'ui143-artist-library-action ui143-artist-radio-action';
+    radio.textContent = 'Artist Radio';
+    radio.disabled = true;
+
+    let artist: ArtistRef | null = null;
+    let libraryState: ArtistLibraryState | null = null;
+    let busy = false;
+
+    const renderFollow = () => {
+      if (!libraryState) {
+        follow.textContent = '+ Follow';
+        follow.disabled = !artist || busy;
+        follow.classList.remove('is-saved');
+        return;
+      }
+      follow.textContent = libraryState.saved ? '✓ Following' : '+ Follow';
+      follow.disabled = busy;
+      follow.classList.toggle('is-saved', libraryState.saved);
+    };
+
+    void resolveArtist(name).then(async (resolved) => {
+      if (!actions.isConnected || !resolved) return;
+      artist = resolved;
+      radio.disabled = false;
+      try {
+        libraryState = await getArtistLibraryState(resolved.browseId);
+      } catch {
+        libraryState = null;
+      }
+      if (actions.isConnected) renderFollow();
+    });
+
+    follow.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!artist || busy) return;
+      busy = true;
+      renderFollow();
+      try {
+        if (!libraryState)
+          libraryState = await getArtistLibraryState(artist.browseId);
+        const desired = !libraryState.saved;
+        await setArtistLibraryState(libraryState, desired);
+        libraryState = { ...libraryState, saved: desired };
+      } catch (error) {
+        console.error('[143 Music] Search artist follow failed', error);
+      } finally {
+        busy = false;
+        if (actions.isConnected) renderFollow();
+      }
+    });
+
+    radio.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!artist || radio.disabled) return;
+      radio.disabled = true;
+      radio.textContent = 'Starting…';
+      void startArtistRadio(artist)
+        .catch((error) => {
+          console.error('[143 Music] Search artist radio failed', error);
+        })
+        .finally(() => {
+          if (!actions.isConnected) return;
+          radio.disabled = false;
+          radio.textContent = 'Artist Radio';
+        });
+    });
+
+    actions.append(follow, radio);
+    return actions;
+  };
+
+  const mountSearchArtistActions = () => {
+    const searchRoot = document.getElementById('ui143-search-page');
+    if (!searchRoot || searchRoot.hidden) return;
+
+    const featured = searchRoot.querySelector<HTMLElement>(
+      '.ui143-search-featured-artist',
+    );
+    const featuredCard = featured?.querySelector<HTMLElement>(
+      '.ui143-search-featured-artist-card',
+    );
+    if (
+      featured &&
+      featuredCard &&
+      !featured.querySelector('[data-ui143-artist-actions]')
+    ) {
+      const name = featuredCard
+        .querySelector<HTMLElement>('.ui143-search-artist-copy > strong')
+        ?.textContent?.trim();
+      if (name) {
+        featured.style.position = 'relative';
+        const actions = makeSearchActions(name);
+        actions.style.position = 'absolute';
+        actions.style.right = '18px';
+        actions.style.bottom = '18px';
+        featured.append(actions);
+      }
+    }
+
+    for (const section of searchRoot.querySelectorAll<HTMLElement>(
+      '.ui143-search-section',
+    )) {
+      const heading = section.querySelector('h2')?.textContent?.trim() ?? '';
+      if (!/^artists\b/iu.test(heading)) continue;
+      for (const card of section.querySelectorAll<HTMLElement>(
+        '.ui143-search-card',
+      )) {
+        if (card.closest('[data-ui143-artist-card-wrap]')) continue;
+        const name = card.querySelector<HTMLElement>('strong')?.textContent?.trim();
+        if (!name) continue;
+        const wrap = document.createElement('div');
+        wrap.dataset.ui143ArtistCardWrap = '';
+        wrap.style.minWidth = '0';
+        wrap.style.position = 'relative';
+        card.replaceWith(wrap);
+        card.style.width = '100%';
+        const actions = makeSearchActions(name);
+        actions.style.marginTop = '8px';
+        actions.style.flexWrap = 'wrap';
+        wrap.append(card, actions);
+      }
+    }
+  };
+
+  const searchActionsTimer = window.setInterval(mountSearchArtistActions, 700);
+  mountSearchArtistActions();
+
+  const renderHero = (
+    profile: SearchArtistProfile,
+    artist: ArtistRef,
+    tracks: readonly SearchResultItem[],
+  ) => {
     const hero = document.createElement('section');
     hero.className = 'ui143-artist-hero';
     if (profile.banner) {
@@ -236,7 +490,10 @@ export const mountArtistPage = (
     }
     const actions = document.createElement('div');
     actions.className = 'ui143-artist-hero-actions';
-    actions.append(artistLibraryButton(artist));
+    actions.append(
+      artistLibraryButton(artist),
+      artistRadioButton(artist, tracks),
+    );
     copy.append(label, title, metrics, actions);
     identity.append(copy);
     hero.append(shade, identity);
@@ -314,7 +571,7 @@ export const mountArtistPage = (
 
   const render = (artist: ArtistRef, catalog: ArtistCatalog) => {
     content.replaceChildren();
-    content.append(renderHero(catalog.profile, artist));
+    content.append(renderHero(catalog.profile, artist, catalog.topTracks));
     if (catalog.topTracks.length)
       content.append(renderTopTracks(catalog.topTracks));
     if (catalog.albums.length)
@@ -397,6 +654,7 @@ export const mountArtistPage = (
     isOpen: () => !root.hidden,
     dispose() {
       ++request;
+      window.clearInterval(searchActionsTimer);
       unsubscribe();
       document.documentElement.classList.remove('ui143-artist-open');
       root.remove();

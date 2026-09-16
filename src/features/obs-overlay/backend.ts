@@ -12,6 +12,7 @@ const HOST = '127.0.0.1';
 const PREFERRED_PORT = 14321;
 const PORT_ATTEMPTS = 10;
 const MAX_ARTWORK_BYTES = 5 * 1024 * 1024;
+const DEFAULT_ACCENT = '#60519B';
 
 const emptyState = (): ObsOverlayState => ({
   id: '',
@@ -23,6 +24,9 @@ const emptyState = (): ObsOverlayState => ({
   time: 0,
   duration: 0,
   updatedAt: Date.now(),
+  accent: DEFAULT_ACCENT,
+  useAccentColor: false,
+  hideWhenPaused: true,
 });
 
 const cleanText = (value: unknown, maxLength = 240) =>
@@ -34,6 +38,11 @@ const cleanNumber = (value: unknown) =>
 const cleanArtwork = (value: unknown) => {
   const artwork = cleanText(value, 2048);
   return /^https:\/\//iu.test(artwork) ? artwork : '';
+};
+
+const cleanAccent = (value: unknown) => {
+  const accent = cleanText(value, 7).toUpperCase();
+  return /^#[\dA-F]{6}$/u.test(accent) ? accent : DEFAULT_ACCENT;
 };
 
 const sanitizeState = (value: unknown): ObsOverlayState => {
@@ -52,6 +61,9 @@ const sanitizeState = (value: unknown): ObsOverlayState => {
     time: cleanNumber(input.time),
     duration: cleanNumber(input.duration),
     updatedAt: Date.now(),
+    accent: cleanAccent(input.accent),
+    useAccentColor: input.useAccentColor === true,
+    hideWhenPaused: input.hideWhenPaused !== false,
   };
 };
 

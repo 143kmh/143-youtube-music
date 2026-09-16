@@ -18,13 +18,14 @@ import type { FeatureConfig } from '@/types/features';
 
 const DISCORD_APPLICATION_ID = '1549504717527322724';
 const WINDOWS_APP_ID = 'com.143aimclub.music';
+const DISCORD_PAUSE_TIMEOUT_MINUTES = 0.5;
 const DEFAULT_DISCORD_SETTINGS: DiscordPresenceSettings = {
   enabled: false,
   applicationId: DISCORD_APPLICATION_ID,
   autoReconnect: true,
   showRemainingTime: true,
   clearOnPause: true,
-  pauseTimeoutMinutes: 10,
+  pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES,
   playButton: true,
 };
 
@@ -75,6 +76,7 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
     ...DEFAULT_DISCORD_SETTINGS,
     ...(config.get('options.discordRichPresence') ?? {}),
     applicationId: DISCORD_APPLICATION_ID,
+    pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES,
   });
 
   const applyDiscordSettings = (settings: DiscordPresenceSettings) => {
@@ -90,10 +92,15 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
       ...discordSettings(),
       ...patch,
       applicationId: DISCORD_APPLICATION_ID,
+      pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES,
     };
     config.set('options.discordRichPresence', next);
     applyDiscordSettings(next);
   };
+
+  const startWithWindowsSupported = process.platform === 'win32' && app.isPackaged;
+  const startWithWindows = () =>
+    startWithWindowsSupported && app.getLoginItemSettings().openAtLogin;
 
   const read = () => {
     const discord = discordSettings();
@@ -105,7 +112,6 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
         config.features.getOptions<QualityConfig>('force-high-audio-quality')
           ?.enabled ?? false,
       discordEnabled: discord.enabled,
-      discordApplicationId: DISCORD_APPLICATION_ID,
       discordAutoReconnect: discord.autoReconnect,
       discordShowDuration: discord.showRemainingTime,
       discordClearOnPause: discord.clearOnPause,
@@ -114,6 +120,9 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
       discordStatus: presence.getStatus(),
       alwaysOnTop: config.get('options.alwaysOnTop'),
       resumeOnStart: config.get('options.resumeOnStart'),
+      startWithWindows: startWithWindows(),
+      startWithWindowsSupported,
+      appVersion: app.getVersion(),
       customFrame: process.platform !== 'darwin',
       maximized: window.isMaximized(),
     };
@@ -134,8 +143,6 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
       );
     } else if (key === 'discordEnabled' && typeof value === 'boolean') {
       updateDiscordSettings({ enabled: value });
-    } else if (key === 'discordApplicationId' && typeof value === 'string') {
-      updateDiscordSettings({ applicationId: DISCORD_APPLICATION_ID });
     } else if (
       key === 'discordAutoReconnect' &&
       typeof value === 'boolean'
@@ -156,9 +163,7 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
       typeof value === 'number' &&
       Number.isFinite(value)
     ) {
-      updateDiscordSettings({
-        pauseTimeoutMinutes: Math.max(0, Math.min(1440, Math.round(value))),
-      });
+      updateDiscordSettings({ pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES });
     } else if (
       key === 'discordPlayButton' &&
       typeof value === 'boolean'
@@ -169,6 +174,13 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
       window.setAlwaysOnTop(value);
     } else if (key === 'resumeOnStart' && typeof value === 'boolean') {
       config.set('options.resumeOnStart', value);
+    } else if (key === 'startWithWindows' && typeof value === 'boolean') {
+      if (startWithWindowsSupported) {
+        app.setLoginItemSettings({
+          openAtLogin: value,
+          path: process.execPath,
+        });
+      }
     } else throw new Error('Unsupported setting');
     return read();
   });
