@@ -8,6 +8,10 @@ export const obsOverlayPage = `<!doctype html>
   :root {
     color-scheme: dark;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --accent: #60519b;
+    --accent-hi: #a797e8;
+    --accent-soft: rgba(96,81,155,.16);
+    --accent-glow: rgba(96,81,155,.50);
   }
 
   * { box-sizing: border-box; }
@@ -40,14 +44,15 @@ export const obsOverlayPage = `<!doctype html>
     border: 0;
     border-radius: 26px;
     background:
-      radial-gradient(circle at 16% 8%, rgba(96,81,155,.16), transparent 42%),
+      radial-gradient(circle at 16% 8%, var(--accent-soft), transparent 42%),
       linear-gradient(135deg, rgba(16,16,20,.92), rgba(8,8,11,.86));
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     opacity: 0;
     transform: translateY(8px) scale(.985);
-    transition: opacity .22s ease, transform .22s ease;
+    pointer-events: none;
+    transition: opacity .32s ease, transform .32s ease, background .2s ease;
   }
 
   #card::before,
@@ -55,7 +60,7 @@ export const obsOverlayPage = `<!doctype html>
     content: none;
   }
 
-  body.has-track #card {
+  body.is-visible #card {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
@@ -112,16 +117,14 @@ export const obsOverlayPage = `<!doctype html>
     justify-content: space-between;
     gap: 14px;
     margin-bottom: 7px;
-    color: #9188b7;
+    color: color-mix(in srgb, var(--accent-hi) 58%, #777582);
     font-size: 11px;
     font-weight: 800;
     letter-spacing: .12em;
     text-transform: uppercase;
   }
 
-  #brand {
-    color: #a797e8;
-  }
+  #brand { color: var(--accent-hi); }
 
   #state {
     display: inline-flex;
@@ -140,8 +143,8 @@ export const obsOverlayPage = `<!doctype html>
   }
 
   body.playing #dot {
-    background: #9686df;
-    box-shadow: 0 0 12px rgba(150,134,223,.72);
+    background: var(--accent-hi);
+    box-shadow: 0 0 12px var(--accent-glow);
   }
 
   #title,
@@ -205,9 +208,9 @@ export const obsOverlayPage = `<!doctype html>
     width: 0%;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #60519b, #a18ced);
-    box-shadow: 0 0 12px rgba(96,81,155,.50);
-    transition: width .22s linear;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hi));
+    box-shadow: 0 0 12px var(--accent-glow);
+    transition: width .22s linear, background .2s ease;
   }
 </style>
 </head>
@@ -228,6 +231,8 @@ export const obsOverlayPage = `<!doctype html>
   </section>
 <script>
 (() => {
+  const DEFAULT_ACCENT = '#60519B';
+  const PAUSE_HIDE_MS = 30000;
   const card = document.getElementById('card');
   const art = document.getElementById('art');
   const title = document.getElementById('title');
@@ -242,6 +247,8 @@ export const obsOverlayPage = `<!doctype html>
   let lastId = '';
   let lastArtwork = '';
   let artworkAttempt = 'none';
+  let lastAccent = '';
+  let pausedSince = 0;
 
   const formatTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -249,6 +256,33 @@ export const obsOverlayPage = `<!doctype html>
     const minutes = Math.floor(rounded / 60);
     const rest = String(rounded % 60).padStart(2, '0');
     return minutes + ':' + rest;
+  };
+
+  const applyTheme = () => {
+    const requested = state && state.useAccentColor && /^#[\\da-f]{6}$/i.test(state.accent || '')
+      ? state.accent
+      : DEFAULT_ACCENT;
+    if (requested === lastAccent) return;
+    lastAccent = requested;
+    const root = document.documentElement;
+    root.style.setProperty('--accent', requested);
+    root.style.setProperty('--accent-hi', 'color-mix(in srgb, ' + requested + ' 68%, white)');
+    root.style.setProperty('--accent-soft', 'color-mix(in srgb, ' + requested + ' 16%, transparent)');
+    root.style.setProperty('--accent-glow', 'color-mix(in srgb, ' + requested + ' 50%, transparent)');
+  };
+
+  const hasTrack = () => Boolean(state && state.id && state.title);
+
+  const updateVisibility = () => {
+    const track = hasTrack();
+    let visible = track;
+    if (track && state.hideWhenPaused !== false && !state.playing) {
+      const since = pausedSince || Date.now();
+      visible = Date.now() - since < PAUSE_HIDE_MS;
+    }
+    document.body.classList.toggle('has-track', track);
+    document.body.classList.toggle('is-visible', visible);
+    document.body.classList.toggle('playing', Boolean(state && state.playing));
   };
 
   const effectiveTime = () => {
@@ -308,11 +342,18 @@ export const obsOverlayPage = `<!doctype html>
   };
 
   const render = (next) => {
+    const wasPlaying = Boolean(state && state.playing);
+    const previousId = state && state.id ? state.id : '';
     state = next || null;
-    const hasTrack = Boolean(state && state.id && state.title);
-    document.body.classList.toggle('has-track', hasTrack);
-    document.body.classList.toggle('playing', Boolean(state && state.playing));
-    if (!hasTrack) return;
+    applyTheme();
+
+    if (!hasTrack()) pausedSince = 0;
+    else if (state.playing) pausedSince = 0;
+    else if (wasPlaying || previousId !== state.id || pausedSince === 0)
+      pausedSince = Date.now();
+
+    updateVisibility();
+    if (!hasTrack()) return;
 
     if (state.id !== lastId) {
       lastId = state.id;
@@ -340,7 +381,10 @@ export const obsOverlayPage = `<!doctype html>
     try { render(JSON.parse(event.data)); } catch {}
   };
 
-  window.setInterval(renderProgress, 250);
+  window.setInterval(() => {
+    renderProgress();
+    updateVisibility();
+  }, 250);
 })();
 </script>
 </body>

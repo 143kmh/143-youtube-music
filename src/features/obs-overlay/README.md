@@ -12,6 +12,8 @@
 
 The overlay shows the current cover, title, artist, album, play/pause state, and a smooth progress bar. It disappears when no track is available.
 
+In **Settings → Appearance → OBS overlay**, **Use accent color in OBS widget** can make the widget follow the current 143 Music accent color. The original purple widget theme remains the default.
+
 Everything is served only on `127.0.0.1`; no now-playing data is uploaded anywhere.
 
 Useful local endpoints:

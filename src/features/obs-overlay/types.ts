@@ -8,4 +8,7 @@ export type ObsOverlayState = Readonly<{
   time: number;
   duration: number;
   updatedAt: number;
+  accent: string;
+  useAccentColor: boolean;
+  hideWhenPaused: boolean;
 }>;

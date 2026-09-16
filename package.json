@@ -2,7 +2,7 @@
   "name": "youtube-music",
   "desktopName": "com.143aimclub.music",
   "productName": "143 Music",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "143 Music desktop client for YouTube Music with custom UI, high-quality audio and Discord presence",
   "main": "./dist/main/index.js",
   "type": "module",
