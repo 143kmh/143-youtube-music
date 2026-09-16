@@ -7,6 +7,10 @@ import { store } from './store';
 import type { FeatureConfig as BaseFeatureConfig } from '@/types/features';
 
 type FeatureConfig = BaseFeatureConfig & Record<string, unknown>;
+type LegacyStoreAccess = {
+  get: (key: string) => unknown;
+  delete: (key: string) => void;
+};
 
 const featureDefaults: Record<string, FeatureConfig> = {
   '143-ui': { enabled: true },
@@ -14,6 +18,7 @@ const featureDefaults: Record<string, FeatureConfig> = {
 };
 
 const featureIds = new Set(Object.keys(featureDefaults));
+const legacyStore = store as unknown as LegacyStoreAccess;
 
 const readFeatureState = () =>
   (store.get('features') ?? {}) as Record<string, FeatureConfig>;
@@ -32,7 +37,7 @@ export async function isEnabled(feature: string) {
   const featureConfig = deepmerge(
     featureDefaults[feature],
     readFeatureState()[feature] ?? {},
-  );
+  ) as FeatureConfig;
   return featureConfig.enabled;
 }
 
@@ -43,7 +48,10 @@ export async function isEnabled(feature: string) {
  */
 export async function enforceAllowedFeatures() {
   const stored = readFeatureState();
-  const legacy = (store.get('plugins') ?? {}) as Record<string, FeatureConfig>;
+  const legacy = (legacyStore.get('plugins') ?? {}) as Record<
+    string,
+    FeatureConfig
+  >;
   const next: Record<string, FeatureConfig> = {};
 
   for (const id of featureIds) {
@@ -51,11 +59,11 @@ export async function enforceAllowedFeatures() {
       featureDefaults[id],
       legacy[id] ?? {},
       stored[id] ?? {},
-    );
+    ) as FeatureConfig;
   }
 
   store.set('features', next);
-  store.delete('plugins');
+  legacyStore.delete('plugins');
 }
 
 export function setOptions<T>(
