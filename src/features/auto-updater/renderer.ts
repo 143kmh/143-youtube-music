@@ -22,6 +22,7 @@ type UpdateSnapshot = {
 };
 
 const CARD_ID = 'ui143-update-card';
+const MOUNT_INTERVAL_MS = 1000;
 
 const messageFor = (state: UpdateSnapshot) => {
   const version = state.availableVersion;
@@ -45,11 +46,15 @@ const messageFor = (state: UpdateSnapshot) => {
   }
 };
 
+const setText = (element: HTMLElement | null, value: string) => {
+  if (element && element.textContent !== value) element.textContent = value;
+};
+
 export default createRenderer<{
-  observer: MutationObserver | null;
+  mountTimer: number | null;
   snapshot: UpdateSnapshot | null;
 }>({
-  observer: null,
+  mountTimer: null,
   snapshot: null,
 
   async start({ ipc }: RendererContext<FeatureConfig>) {
@@ -64,29 +69,38 @@ export default createRenderer<{
       const progress = card.querySelector<HTMLElement>('[data-update-progress]');
       const fill = card.querySelector<HTMLElement>('[data-update-progress-fill]');
 
-      if (status) status.textContent = messageFor(state);
+      setText(status, messageFor(state));
       if (error) {
-        error.textContent = state.phase === 'error' ? state.error ?? '' : '';
+        setText(error, state.phase === 'error' ? state.error ?? '' : '');
         error.hidden = state.phase !== 'error';
       }
 
       if (progress && fill) {
         const visible = state.phase === 'available' || state.phase === 'downloading';
         progress.hidden = !visible;
-        fill.style.width = `${Math.max(0, Math.min(100, state.progress ?? 0))}%`;
+        const width = `${Math.max(0, Math.min(100, state.progress ?? 0))}%`;
+        if (fill.style.width !== width) fill.style.width = width;
       }
 
       if (!action) return;
       action.disabled = state.phase === 'checking' || state.phase === 'downloading';
-      action.textContent =
-        state.phase === 'downloaded' ? 'Restart to update' : 'Check for updates';
+      setText(
+        action,
+        state.phase === 'downloaded' ? 'Restart to update' : 'Check for updates',
+      );
     };
 
     const mount = () => {
       const panel = document.querySelector<HTMLElement>(
         '.ui143-settings-panel[data-settings-panel="app"]',
       );
-      if (!panel || panel.querySelector(`#${CARD_ID}`)) return;
+      if (!panel) return false;
+
+      const existing = panel.querySelector<HTMLElement>(`#${CARD_ID}`);
+      if (existing) {
+        renderState();
+        return true;
+      }
 
       const card = document.createElement('section');
       card.id = CARD_ID;
@@ -128,7 +142,19 @@ export default createRenderer<{
           error: null,
         };
         renderState();
-        this.snapshot = (await ipc.invoke('app:update:check')) as UpdateSnapshot;
+        try {
+          this.snapshot = (await ipc.invoke('app:update:check')) as UpdateSnapshot;
+        } catch (error) {
+          this.snapshot = {
+            ...(this.snapshot ?? {
+              currentVersion: '',
+              availableVersion: null,
+              progress: null,
+            }),
+            phase: 'error',
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
         renderState();
       });
 
@@ -143,9 +169,20 @@ export default createRenderer<{
       card.append(copy, action, progress);
       panel.append(card);
       renderState();
+      return true;
     };
 
-    this.snapshot = (await ipc.invoke('app:update:status')) as UpdateSnapshot;
+    try {
+      this.snapshot = (await ipc.invoke('app:update:status')) as UpdateSnapshot;
+    } catch (error) {
+      this.snapshot = {
+        phase: 'error',
+        currentVersion: '',
+        availableVersion: null,
+        progress: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
 
     ipc.on('app:update:state', (_event: unknown, state: UpdateSnapshot) => {
       this.snapshot = state;
@@ -153,18 +190,16 @@ export default createRenderer<{
       renderState();
     });
 
-    this.observer = new MutationObserver(() => {
-      mount();
-      renderState();
-    });
-    this.observer.observe(document.body, { childList: true, subtree: true });
+    // Settings rebuilds its panel when opened or when a value changes. A cheap,
+    // low-frequency mount check avoids observing YouTube Music's very busy DOM
+    // and, importantly, cannot react recursively to our own text updates.
+    this.mountTimer = window.setInterval(mount, MOUNT_INTERVAL_MS);
     mount();
-    renderState();
   },
 
   stop({ ipc }: RendererContext<FeatureConfig>) {
-    this.observer?.disconnect();
-    this.observer = null;
+    if (this.mountTimer !== null) window.clearInterval(this.mountTimer);
+    this.mountTimer = null;
     this.snapshot = null;
     document.getElementById(CARD_ID)?.remove();
     ipc.removeAllListeners('app:update:state');
