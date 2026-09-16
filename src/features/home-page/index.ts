@@ -5,6 +5,7 @@ import style from './style.css?inline';
 
 import type { AlbumPageController } from '@/features/143-ui/album-page';
 import type { ArtistPageController } from '@/features/143-ui/artist-page';
+import type { LibraryPageController } from '@/features/143-ui/library-page';
 import type { PlaybackContextAdapter } from '@/features/143-ui/playback-context';
 import type { SearchPageController } from '@/features/143-ui/search-page';
 import type { SearchResultItem } from '@/features/143-ui/youtube-music';
@@ -35,6 +36,7 @@ type UiState = {
   searchPage: SearchPageController | null;
   artistPage: ArtistPageController | null;
   albumPage: AlbumPageController | null;
+  libraryPage: LibraryPageController | null;
 };
 
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -275,6 +277,7 @@ const renderer = createRenderer<{
     state.searchPage?.close();
     state.artistPage?.close();
     state.albumPage?.close();
+    state.libraryPage?.close();
     this.root.hidden = false;
     setHomeNav(true);
     if (!refresh && this.content.dataset.loaded === 'true') return;
