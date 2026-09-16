@@ -16,12 +16,21 @@ html[data-143-ui] ytmusic-app-layout #content {
   border-radius: 0 !important;
 }
 
+#ui143-home-page,
+#ui143-search-page,
+#ui143-library-page,
+#ui143-library-collections,
+#ui143-artist-page,
+#ui143-album-page,
 #ui143-now-playing {
   top: var(--ui143-topbar-height) !important;
   right: 0 !important;
   bottom: var(--ui143-player-height) !important;
   left: var(--ui143-sidebar-width) !important;
   border-radius: 0 !important;
+}
+
+#ui143-now-playing {
   background:
     radial-gradient(circle at 20% 16%, rgb(var(--ui143-now-playing-rgb) / .19), transparent 42%),
     radial-gradient(circle at 76% 72%, rgb(var(--ui143-now-playing-rgb) / .08), transparent 44%),
@@ -47,10 +56,14 @@ html[data-143-ui] ytmusic-app-layout #content {
 
 .ui143-now-playing-art-shell {
   width: min(100%, 480px) !important;
+  border: 0 !important;
+  box-shadow:
+    0 28px 78px rgba(0,0,0,.46),
+    0 0 96px rgb(var(--ui143-now-playing-rgb) / .08) !important;
 }
 
 .ui143-now-playing-title {
-  min-height: 2.16em;
+  min-height: 2.2em;
 }
 
 .ui143-now-playing-panel {
@@ -92,13 +105,33 @@ html[data-143-ui] ytmusic-app-layout #content {
 }
 
 .ui143-now-playing-lyrics {
-  padding: 28% 8px 34% !important;
+  padding: 30% 8px 38% !important;
   mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%) !important;
 }
 
 .ui143-now-playing-lyric {
-  padding-inline: 4px !important;
+  padding: 17px 4px !important;
   font-size: clamp(23px, 2vw, 36px) !important;
+  line-height: 1.34 !important;
+  transition:
+    color 700ms ease,
+    opacity 700ms ease,
+    transform 850ms cubic-bezier(.22,.7,.2,1),
+    text-shadow 850ms ease !important;
+}
+
+.ui143-now-playing-lyric.is-current {
+  transform: translate3d(0, -3px, 0) !important;
+}
+
+.ui143-now-playing-lyric.is-past {
+  opacity: .45;
+  transform: translate3d(0, -2px, 0) !important;
+}
+
+.ui143-now-playing-lyric.is-upcoming {
+  opacity: .76;
+  transform: translate3d(0, 4px, 0) !important;
 }
 
 .ui143-now-playing-list {
@@ -139,14 +172,8 @@ html[data-143-ui] ytmusic-app-layout #content {
     padding: 30px !important;
   }
 
-  .ui143-now-playing-left {
-    padding-top: 34px !important;
-  }
-
-  .ui143-now-playing-art-shell {
-    width: min(100%, 370px) !important;
-  }
-
+  .ui143-now-playing-left { padding-top: 34px !important; }
+  .ui143-now-playing-art-shell { width: min(100%, 370px) !important; }
   .ui143-now-playing-panel {
     height: min(78vh, 680px) !important;
     min-height: 390px !important;
@@ -160,17 +187,9 @@ html[data-143-ui] ytmusic-app-layout #content {
     padding: 22px !important;
   }
 
-  .ui143-now-playing-left {
-    padding-top: 24px !important;
-  }
-
-  .ui143-now-playing-art-shell {
-    width: min(100%, 300px) !important;
-  }
-
-  .ui143-now-playing-lyric {
-    font-size: clamp(19px, 2.4vw, 28px) !important;
-  }
+  .ui143-now-playing-left { padding-top: 24px !important; }
+  .ui143-now-playing-art-shell { width: min(100%, 300px) !important; }
+  .ui143-now-playing-lyric { font-size: clamp(19px, 2.4vw, 28px) !important; }
 }
 
 @media (max-height: 720px) {
@@ -179,14 +198,8 @@ html[data-143-ui] ytmusic-app-layout #content {
     padding-bottom: 24px !important;
   }
 
-  .ui143-now-playing-left {
-    padding-top: 8px !important;
-  }
-
-  .ui143-now-playing-art-shell {
-    width: min(100%, 310px) !important;
-  }
-
+  .ui143-now-playing-left { padding-top: 8px !important; }
+  .ui143-now-playing-art-shell { width: min(100%, 310px) !important; }
   .ui143-now-playing-panel {
     height: calc(100vh - var(--ui143-topbar-height) - var(--ui143-player-height) - 28px) !important;
     min-height: 360px !important;
@@ -194,30 +207,13 @@ html[data-143-ui] ytmusic-app-layout #content {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui143-now-playing-star {
+  .ui143-now-playing-star,
+  .ui143-now-playing-lyric {
     animation: none !important;
+    transition: none !important;
   }
 }
 `;
-
-const submitArtistSearch = (name: string) => {
-  const value = name.trim();
-  if (!value) return;
-  const input = document.getElementById('ui143-search') as HTMLInputElement | null;
-  const form = input?.closest<HTMLFormElement>('form');
-  if (!input || !form) return;
-  input.value = value;
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  form.requestSubmit();
-};
-
-const closeNowPlaying = () => {
-  const root = document.getElementById('ui143-now-playing');
-  if (!root || root.hidden) return;
-  root
-    .querySelector<HTMLButtonElement>('.ui143-now-playing-close')
-    ?.click();
-};
 
 const addStars = () => {
   const container = document.querySelector<HTMLElement>('.ui143-now-playing-stars');
@@ -243,86 +239,20 @@ const addStars = () => {
 
 const renderer = createRenderer<{
   styleSheet: CSSStyleSheet | null;
-  clickHandler: ((event: MouseEvent) => void) | null;
-  submitHandler: ((event: SubmitEvent) => void) | null;
   timer: number | null;
 }>({
   styleSheet: null,
-  clickHandler: null,
-  submitHandler: null,
   timer: null,
 
   async start() {
     this.styleSheet = new CSSStyleSheet();
     await this.styleSheet.replace(STYLE);
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.styleSheet];
-
-    this.clickHandler = (event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-
-      if (
-        target.closest('.ui143-sidebar .ui143-nav-item') ||
-        target.closest('.ui143-search') ||
-        target.closest('.ui143-history')
-      )
-        closeNowPlaying();
-
-      if (
-        target.closest('#ui143-player .ui143-player-art') ||
-        target.closest('#ui143-player .ui143-player-title')
-      ) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        document
-          .querySelector<HTMLButtonElement>('#ui143-player button[aria-label="Karaoke"]')
-          ?.click();
-        return;
-      }
-
-      const artistButton = target.closest<HTMLElement>('.ui143-player-artist-button');
-      if (artistButton) {
-        const name = artistButton.textContent?.trim() ?? '';
-        closeNowPlaying();
-        window.setTimeout(() => {
-          const page = document.getElementById('ui143-artist-page');
-          if (!page || page.hidden) submitArtistSearch(name);
-        }, 350);
-        return;
-      }
-
-      const artistText = target.closest<HTMLElement>(
-        '.ui143-player-artist, .ui143-now-playing-artist',
-      );
-      if (artistText && !artistText.querySelector('.ui143-player-artist-button')) {
-        const name = artistText.textContent?.trim() ?? '';
-        if (name) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          closeNowPlaying();
-          submitArtistSearch(name);
-        }
-      }
-    };
-    document.addEventListener('click', this.clickHandler, true);
-
-    this.submitHandler = (event) => {
-      if (!(event.target instanceof Element)) return;
-      if (event.target.matches('.ui143-search')) closeNowPlaying();
-    };
-    document.addEventListener('submit', this.submitHandler, true);
-
     addStars();
     this.timer = window.setInterval(addStars, 1000);
   },
 
   stop() {
-    if (this.clickHandler)
-      document.removeEventListener('click', this.clickHandler, true);
-    if (this.submitHandler)
-      document.removeEventListener('submit', this.submitHandler, true);
-    this.clickHandler = null;
-    this.submitHandler = null;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     if (this.styleSheet) {
@@ -336,7 +266,7 @@ const renderer = createRenderer<{
 
 export default createFeature({
   name: () => 'Release Polish',
-  description: () => 'Final navigation and full-page now-playing polish for 143 Music.',
+  description: () => 'Final layout and now-playing polish for 143 Music.',
   config: { enabled: true },
   renderer,
 });
