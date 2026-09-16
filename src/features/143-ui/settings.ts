@@ -25,6 +25,7 @@ type Settings = {
 };
 
 type BackendSettings = Omit<Settings, 'accent'>;
+type SettingsTab = 'appearance' | 'audio' | 'discord' | 'app';
 
 type BooleanSettingKey =
   | 'enabled'
@@ -131,27 +132,100 @@ const installBrandTheme = () => {
       box-shadow: 0 0 0 1px var(--ui143-accent-soft) !important;
     }
 
-    .ui143-player-progress-fill::after {
-      background: linear-gradient(
-        105deg,
-        transparent 0 18%,
-        color-mix(in srgb, var(--ui143-accent) 10%, transparent) 30%,
-        color-mix(in srgb, var(--ui143-accent-strong) 86%, transparent) 48%,
-        rgba(255,255,255,.7) 55%,
-        transparent 74% 100%
-      ) !important;
+    .ui143-settings {
+      width: min(760px, 92vw) !important;
+      max-height: min(720px, 88vh);
+      padding: 0 !important;
+      overflow: hidden;
+      border-color: rgba(255,255,255,.09) !important;
+      border-radius: 15px !important;
+      background: #151517 !important;
+      box-shadow: 0 30px 100px rgba(0,0,0,.58);
     }
 
-    .ui143-search-hero-grid:has(> .ui143-search-top-tracks:only-child) {
-      grid-template-columns: minmax(0, 1fr) !important;
+    .ui143-settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 72px;
+      padding: 0 24px;
+      border-bottom: 1px solid rgba(255,255,255,.055);
     }
 
-    .ui143-search-hero-grid > .ui143-search-top-tracks:only-child {
-      grid-column: 1 / -1;
+    .ui143-settings-header h2 {
+      margin: 0 !important;
+      font-size: 20px !important;
+      letter-spacing: -.025em;
+    }
+
+    .ui143-settings-close {
+      width: 34px;
+      height: 34px;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 50% !important;
+      background: rgba(255,255,255,.045) !important;
+      color: #aaa !important;
+      font-size: 21px;
+      cursor: pointer;
+    }
+
+    .ui143-settings-close:hover {
+      background: rgba(255,255,255,.09) !important;
+      color: #fff !important;
+    }
+
+    .ui143-settings-tabs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.045);
+      background: rgba(255,255,255,.012);
+    }
+
+    .ui143-settings-tab {
+      margin: 0 !important;
+      padding: 8px 13px !important;
+      border: 0 !important;
+      border-radius: 999px !important;
+      background: transparent !important;
+      color: #8f8f92 !important;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .ui143-settings-tab:hover {
+      color: #ddd !important;
+      background: rgba(255,255,255,.045) !important;
+    }
+
+    .ui143-settings-tab.is-active {
+      color: #fff !important;
+      background: var(--ui143-accent-soft) !important;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui143-accent-strong) 28%, transparent);
+    }
+
+    .ui143-settings-panels {
+      min-height: 360px;
+      max-height: calc(min(720px, 88vh) - 126px);
+      overflow: auto;
+      padding: 10px 24px 26px;
+    }
+
+    .ui143-settings-panel[hidden] { display: none !important; }
+    .ui143-settings-panel { animation: ui143-settings-panel-in 140ms ease; }
+
+    @keyframes ui143-settings-panel-in {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .ui143-settings-section-title {
-      margin: 22px 0 9px;
+      margin: 20px 0 9px;
       color: #aaa;
       font-size: 11px;
       font-weight: 800;
@@ -160,16 +234,23 @@ const installBrandTheme = () => {
     }
 
     .ui143-settings-note {
-      margin: -2px 0 9px;
+      margin: -2px 0 12px;
       color: #777;
       font-size: 10.5px;
-      line-height: 1.45;
+      line-height: 1.5;
     }
 
-    .ui143-settings-discord-status {
-      margin-top: 0;
-      color: #aaa;
+    .ui143-settings-discord-status { color: #aaa; }
+
+    .ui143-settings-panel > label {
+      min-height: 42px;
+      margin: 8px 0 !important;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.022);
     }
+
+    .ui143-settings-panel > label:hover { background: rgba(255,255,255,.038); }
 
     .ui143-settings-inline {
       display: grid !important;
@@ -189,16 +270,19 @@ const installBrandTheme = () => {
       font: inherit;
     }
 
-    .ui143-settings-inline input[type="number"]:disabled {
-      opacity: .45;
+    .ui143-settings-inline input[type="number"]:disabled { opacity: .45; }
+
+    .ui143-settings-app-id {
+      display: block !important;
+      padding: 10px !important;
     }
 
     .ui143-settings-app-id input[type="text"] {
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
-      margin-top: 6px;
-      padding: 8px 10px;
+      margin-top: 8px;
+      padding: 9px 10px;
       border: 1px solid rgba(255,255,255,.14);
       border-radius: 7px;
       background: #202020;
@@ -206,46 +290,63 @@ const installBrandTheme = () => {
       font: inherit;
     }
 
+    .ui143-settings-panel select {
+      margin-left: auto;
+      min-width: min(320px, 50%);
+    }
+
+    .ui143-settings-panel > button {
+      margin: 10px 8px 0 0 !important;
+    }
+
+    .ui143-settings-status {
+      min-height: 18px;
+      margin: 12px 2px 0;
+      color: #d98c8c;
+      font-size: 11px;
+    }
+
     .ui143-accent-picker {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
-      margin: 6px 0 14px;
+      gap: 9px;
+      margin: 10px 0 18px;
     }
 
     .ui143-accent-swatch {
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border: 2px solid transparent;
-      border-radius: 50%;
-      background: var(--swatch);
+      width: 30px;
+      height: 30px;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 2px solid transparent !important;
+      border-radius: 50% !important;
+      background: var(--swatch) !important;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
       cursor: pointer;
     }
 
-    .ui143-accent-swatch:hover {
-      transform: scale(1.07);
-    }
-
+    .ui143-accent-swatch:hover { transform: scale(1.07); }
     .ui143-accent-swatch.is-selected {
-      border-color: #fff;
+      border-color: #fff !important;
       box-shadow: 0 0 0 2px var(--ui143-accent-soft);
     }
 
     .ui143-accent-custom {
       display: inline-flex !important;
       align-items: center;
+      min-height: 0 !important;
       gap: 9px !important;
       margin: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
       color: #aaa;
       font-size: 12px;
     }
 
     .ui143-accent-custom input[type="color"] {
-      width: 34px;
-      height: 28px;
+      width: 36px;
+      height: 30px;
       padding: 2px;
       border: 1px solid rgba(255,255,255,.16);
       border-radius: 7px;
@@ -259,6 +360,7 @@ const installBrandTheme = () => {
 
 export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
   let disposed = false;
+  let activeTab: SettingsTab = 'appearance';
   const removeBrandTheme = installBrandTheme();
   applyAccent(storedAccent());
 
@@ -270,6 +372,7 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
   gear.title = 'Settings';
   gear.textContent = '⚙';
   topbar?.append(gear);
+
   const dialog = document.createElement('dialog');
   dialog.className = 'ui143-settings';
   dialog.setAttribute('aria-label', '143 Music settings');
@@ -290,9 +393,22 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
 
   const render = (settings: Settings) => {
     dialog.replaceChildren();
+
+    const header = document.createElement('div');
+    header.className = 'ui143-settings-header';
     const title = document.createElement('h2');
     title.textContent = '143 Music settings';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'ui143-settings-close';
+    close.setAttribute('aria-label', 'Close settings');
+    close.title = 'Close';
+    close.textContent = '×';
+    close.addEventListener('click', () => dialog.close());
+    header.append(title, close);
+
     const status = document.createElement('p');
+    status.className = 'ui143-settings-status';
     status.setAttribute('role', 'status');
 
     const save = async (
@@ -330,16 +446,22 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.checked = settings[key];
-      input.addEventListener('change', () => {
-        return save(key, input.checked, input);
-      });
+      input.addEventListener('change', () => save(key, input.checked, input));
       row.append(input, document.createTextNode(label));
       return row;
     };
 
-    const appearanceTitle = document.createElement('div');
-    appearanceTitle.className = 'ui143-settings-section-title';
-    appearanceTitle.textContent = 'Appearance';
+    const sectionTitle = (label: string) => {
+      const element = document.createElement('div');
+      element.className = 'ui143-settings-section-title';
+      element.textContent = label;
+      return element;
+    };
+
+    const appearancePanel = document.createElement('section');
+    appearancePanel.className = 'ui143-settings-panel';
+    appearancePanel.dataset.settingsPanel = 'appearance';
+    const appearanceTitle = sectionTitle('Appearance');
     const accentLabel = document.createElement('div');
     accentLabel.textContent = 'Accent color';
     const accents = document.createElement('div');
@@ -367,17 +489,20 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
     customInput.addEventListener('input', () => setAccent(customInput.value));
     customAccent.append(customInput, document.createTextNode('Custom'));
     accents.append(customAccent);
+    appearancePanel.append(appearanceTitle, accentLabel, accents);
 
-    const audioTitle = document.createElement('div');
-    audioTitle.className = 'ui143-settings-section-title';
-    audioTitle.textContent = 'Audio';
+    const audioPanel = document.createElement('section');
+    audioPanel.className = 'ui143-settings-panel';
+    audioPanel.dataset.settingsPanel = 'audio';
+    const audioTitle = sectionTitle('Audio');
     const qualityLabel = document.createElement('label');
-    qualityLabel.textContent = 'Audio quality';
+    const qualityText = document.createElement('span');
+    qualityText.textContent = 'Audio quality';
     const quality = document.createElement('select');
     for (const [value, label] of [
       ['default', 'YouTube Music default'],
       ['maximum', 'Premium HQ · AAC'],
-      ['opus', 'Premium HQ · Opus (experimental)'],
+      ['opus', 'Premium HQ · Opus'],
     ]) {
       const option = document.createElement('option');
       option.value = value;
@@ -385,18 +510,25 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
       quality.append(option);
     }
     quality.value = settings.quality;
-    quality.addEventListener('change', () => {
-      return save('quality', quality.value, quality);
-    });
-    qualityLabel.append(quality);
+    quality.addEventListener('change', () => save('quality', quality.value, quality));
+    qualityLabel.append(qualityText, quality);
+    audioPanel.append(
+      audioTitle,
+      checkbox('Enable Premium HQ audio', 'enabled'),
+      qualityLabel,
+      button('Audio details', () => {
+        void ipc.invoke('143:window', 'audio-details');
+      }),
+    );
 
-    const discordTitle = document.createElement('div');
-    discordTitle.className = 'ui143-settings-section-title';
-    discordTitle.textContent = 'Discord';
+    const discordPanel = document.createElement('section');
+    discordPanel.className = 'ui143-settings-panel';
+    discordPanel.dataset.settingsPanel = 'discord';
+    const discordTitle = sectionTitle('Discord');
     const discordNote = document.createElement('p');
     discordNote.className = 'ui143-settings-note';
     discordNote.textContent =
-      '143 Music connects to Discord directly. Create a Discord application named “143 Music” and paste its Application ID below.';
+      '143 Music connects to Discord directly. Paste the Application ID for your “143 Music” Discord application below.';
     const discordStatus = document.createElement('p');
     discordStatus.className = 'ui143-settings-note ui143-settings-discord-status';
     discordStatus.textContent = `Status: ${
@@ -437,7 +569,7 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
     timeout.addEventListener('change', () => {
       const minutes = Number(timeout.value);
       if (!Number.isFinite(minutes)) return;
-      return save(
+      void save(
         'discordPauseTimeoutMinutes',
         Math.max(0, Math.min(1440, Math.round(minutes))),
         timeout,
@@ -445,18 +577,7 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
     });
     timeoutLabel.append(timeoutText, timeout);
 
-    const appTitle = document.createElement('div');
-    appTitle.className = 'ui143-settings-section-title';
-    appTitle.textContent = 'App';
-
-    dialog.append(
-      title,
-      appearanceTitle,
-      accentLabel,
-      accents,
-      audioTitle,
-      checkbox('Enable Premium HQ audio', 'enabled'),
-      qualityLabel,
+    discordPanel.append(
       discordTitle,
       discordNote,
       discordStatus,
@@ -467,19 +588,65 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
       checkbox('Clear presence when paused', 'discordClearOnPause'),
       timeoutLabel,
       checkbox('Show “Play on YouTube Music” button', 'discordPlayButton'),
+    );
+
+    const appPanel = document.createElement('section');
+    appPanel.className = 'ui143-settings-panel';
+    appPanel.dataset.settingsPanel = 'app';
+    const appTitle = sectionTitle('App');
+    appPanel.append(
       appTitle,
       checkbox('Always on top', 'alwaysOnTop'),
       checkbox('Resume on start', 'resumeOnStart'),
-      button('Audio details', () => {
-        return ipc.invoke('143:window', 'audio-details');
-      }),
       button('Advanced settings', () => {
         dialog.close();
-        return ipc.invoke('143:window', 'advanced');
+        void ipc.invoke('143:window', 'advanced');
       }),
-      status,
-      button('Close', () => dialog.close()),
     );
+
+    const panels = new Map<SettingsTab, HTMLElement>([
+      ['appearance', appearancePanel],
+      ['audio', audioPanel],
+      ['discord', discordPanel],
+      ['app', appPanel],
+    ]);
+
+    const tabBar = document.createElement('nav');
+    tabBar.className = 'ui143-settings-tabs';
+    tabBar.setAttribute('aria-label', 'Settings sections');
+    const tabButtons = new Map<SettingsTab, HTMLButtonElement>();
+
+    const activate = (tab: SettingsTab) => {
+      activeTab = tab;
+      for (const [id, panel] of panels) panel.hidden = id !== tab;
+      for (const [id, control] of tabButtons) {
+        const active = id === tab;
+        control.classList.toggle('is-active', active);
+        control.setAttribute('aria-selected', String(active));
+      }
+    };
+
+    for (const [id, label] of [
+      ['appearance', 'Appearance'],
+      ['audio', 'Audio'],
+      ['discord', 'Discord'],
+      ['app', 'App'],
+    ] as const) {
+      const control = document.createElement('button');
+      control.type = 'button';
+      control.className = 'ui143-settings-tab';
+      control.textContent = label;
+      control.setAttribute('role', 'tab');
+      control.addEventListener('click', () => activate(id));
+      tabButtons.set(id, control);
+      tabBar.append(control);
+    }
+
+    const panelWrap = document.createElement('div');
+    panelWrap.className = 'ui143-settings-panels';
+    panelWrap.append(appearancePanel, audioPanel, discordPanel, appPanel, status);
+    dialog.append(header, tabBar, panelWrap);
+    activate(activeTab);
   };
 
   gear.addEventListener('click', async () => {
@@ -498,21 +665,19 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
   });
 
   dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) {
-      const rect = dialog.getBoundingClientRect();
-      if (
-        event.clientX < rect.left ||
-        event.clientX > rect.right ||
-        event.clientY < rect.top ||
-        event.clientY > rect.bottom
-      )
-        dialog.close();
-    }
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    )
+      dialog.close();
   });
 
   const controls = document.createElement('div');
   controls.className = 'ui143-window-controls';
-  // The frame mode is selected before BrowserWindow creation, independently of renderer timing.
   if (!navigator.userAgent.includes('Macintosh')) {
     for (const [label, symbol, action] of [
       ['Minimize', '−', 'minimize'],
@@ -520,7 +685,7 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
       ['Close window', '×', 'close'],
     ]) {
       const control = button(symbol, () => {
-        return ipc.invoke('143:window', action);
+        void ipc.invoke('143:window', action);
       });
       control.title = label;
       control.setAttribute('aria-label', label);
@@ -535,7 +700,7 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
       (event.target instanceof Element &&
         event.target.matches('.ui143-topbar-spacer, .ui143-product'))
     )
-      ipc.invoke('143:window', 'maximize');
+      void ipc.invoke('143:window', 'maximize');
   };
   topbar?.addEventListener('dblclick', doubleClick);
 
