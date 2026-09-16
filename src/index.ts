@@ -356,6 +356,7 @@ app.once('browser-window-created', (_event, win) => {
       if (is.dev()) console.log(log);
 
       if (
+        isMainFrame &&
         errorCode !== -3 &&
         !URL.parse(validatedURL)?.hostname?.includes('doubleclick.net')
       ) {
