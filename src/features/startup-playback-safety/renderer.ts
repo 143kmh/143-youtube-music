@@ -2,15 +2,14 @@ import { createRenderer } from '@/utils';
 
 import type { MusicPlayer } from '@/types/music-player';
 
-const SAFE_NON_AD_MS = 900;
 const TICK_MS = 100;
 
 type StartupPlaybackSafetyState = {
   player: MusicPlayer | null;
   timer: number | null;
   userArmed: boolean;
-  safePlayingSince: number;
   released: boolean;
+  mutedBySafety: boolean;
   pointerHandler: ((event: PointerEvent) => void) | null;
   keyHandler: ((event: KeyboardEvent) => void) | null;
   tick: () => void;
@@ -29,8 +28,8 @@ export default createRenderer<StartupPlaybackSafetyState>({
   player: null,
   timer: null,
   userArmed: false,
-  safePlayingSince: 0,
   released: false,
+  mutedBySafety: false,
   pointerHandler: null,
   keyHandler: null,
 
@@ -46,35 +45,25 @@ export default createRenderer<StartupPlaybackSafetyState>({
     const ad = isAdShowing();
 
     if (ad) {
-      this.safePlayingSince = 0;
-      if (!player.isMuted()) player.mute();
-      void window.ipcRenderer.invoke('startup-playback-safety:mute');
+      if (!player.isMuted()) {
+        player.mute();
+        this.mutedBySafety = true;
+      }
       return;
     }
 
-    if (!playing) {
-      this.safePlayingSince = 0;
-      return;
-    }
+    if (!playing) return;
 
     // Anything that starts before the user has interacted with the app is
-    // autoplay. Kill it instead of allowing YouTube to start a track or ad.
+    // autoplay. Pause it, but never globally mute Electron or the player.
     if (!this.userArmed) {
       player.pauseVideo();
-      if (!player.isMuted()) player.mute();
-      void window.ipcRenderer.invoke('startup-playback-safety:mute');
-      this.safePlayingSince = 0;
       return;
     }
 
-    // Keep the first moment of user-started playback silent. This gives the
-    // player enough time to mark an ad before any audio can escape.
-    if (!this.safePlayingSince) this.safePlayingSince = performance.now();
-    if (performance.now() - this.safePlayingSince < SAFE_NON_AD_MS) return;
-
     this.released = true;
-    if (player.isMuted()) player.unMute();
-    void window.ipcRenderer.invoke('startup-playback-safety:unmute');
+    if (this.mutedBySafety && player.isMuted()) player.unMute();
+    this.mutedBySafety = false;
 
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
@@ -82,9 +71,8 @@ export default createRenderer<StartupPlaybackSafetyState>({
 
   start() {
     this.userArmed = false;
-    this.safePlayingSince = 0;
     this.released = false;
-    void window.ipcRenderer.invoke('startup-playback-safety:mute');
+    this.mutedBySafety = false;
 
     this.pointerHandler = () => this.arm();
     this.keyHandler = (event) => {
@@ -105,13 +93,11 @@ export default createRenderer<StartupPlaybackSafetyState>({
   onPlayerApiReady(playerApi) {
     this.player = playerApi;
     this.released = false;
-    this.safePlayingSince = 0;
+    this.mutedBySafety = false;
 
-    // Always start paused and silent. The old resume-on-start preference is not
-    // allowed to make audio play automatically anymore.
-    playerApi.mute();
+    // Start paused, but do not mute. Muting the whole release build (or even the
+    // player here) can strand fresh profiles in a permanently silent state.
     playerApi.pauseVideo();
-    void window.ipcRenderer.invoke('startup-playback-safety:mute');
     this.tick();
   },
 
@@ -124,10 +110,10 @@ export default createRenderer<StartupPlaybackSafetyState>({
       window.removeEventListener('keydown', this.keyHandler, true);
     this.pointerHandler = null;
     this.keyHandler = null;
+    if (this.mutedBySafety && this.player?.isMuted()) this.player.unMute();
     this.player = null;
     this.userArmed = false;
-    this.safePlayingSince = 0;
     this.released = false;
-    void window.ipcRenderer.invoke('startup-playback-safety:unmute');
+    this.mutedBySafety = false;
   },
 });
