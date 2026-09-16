@@ -239,6 +239,12 @@ export class DiscordRichPresence {
         this.clearActivity();
         return;
       }
+      const pausedFor = Date.now() - (this.pauseStartedAt || Date.now());
+      if (pausedFor >= timeoutMs) {
+        this.clearPauseTimer();
+        this.clearActivity();
+        return;
+      }
       this.schedulePauseClear(timeoutMs);
     } else {
       this.clearPauseTimer();
