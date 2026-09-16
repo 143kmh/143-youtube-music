@@ -156,11 +156,7 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
   const onPlayContext = (event: Event) => {
     const detail = (event as CustomEvent<PlayContextDetail>).detail;
     if (!detail?.items?.length) return;
-    engine.playContext(
-      detail.items,
-      detail.startIndex,
-      detail.source,
-    );
+    engine.playContext(detail.items, detail.startIndex, detail.source);
   };
   const onPlayContextIndex = (event: Event) => {
     const index = Number((event as CustomEvent<number>).detail);
@@ -170,11 +166,10 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
   document.addEventListener(PLAY_CONTEXT_EVENT, onPlayContext);
   document.addEventListener(PLAY_CONTEXT_INDEX_EVENT, onPlayContextIndex);
 
+  // Playback-context changes are already event-driven, so a second 120 ms poll
+  // only burned renderer time while idle. The subscription is the single source
+  // of truth for both the panel and its player button.
   const unsubscribe = engine.subscribePlaybackContext(render);
-  const buttonSyncTimer = window.setInterval(
-    () => syncPlayerButton(Boolean(engine.getPlaybackContext()?.queueOpen)),
-    120,
-  );
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && engine.getPlaybackContext()?.queueOpen)
       engine.closeContextQueue();
@@ -195,7 +190,6 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
 
   return () => {
     unsubscribe();
-    window.clearInterval(buttonSyncTimer);
     window.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     document.removeEventListener(PLAY_CONTEXT_EVENT, onPlayContext);
