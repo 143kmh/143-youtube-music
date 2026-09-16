@@ -5,21 +5,12 @@ import { createBackend } from '@/utils';
 import { startDesktop } from './desktop';
 
 const createYouTubeMusicSignInUrl = () => {
-  const continueUrl = new URL('https://www.youtube.com/signin');
-  continueUrl.search = new URLSearchParams({
-    action_handle_signin: 'true',
-    app: 'desktop',
-    hl: 'en',
-    next: 'https://music.youtube.com/',
-  }).toString();
-
   const loginUrl = new URL('https://accounts.google.com/ServiceLogin');
   loginUrl.search = new URLSearchParams({
+    ltmpl: 'music',
     service: 'youtube',
-    uilel: '3',
     passive: 'true',
-    continue: continueUrl.toString(),
-    hl: 'en',
+    continue: 'https://music.youtube.com/',
   }).toString();
 
   return loginUrl.toString();
@@ -56,7 +47,10 @@ export default createBackend<{
             target.searchParams.get('service') === 'youtube' &&
             target.searchParams.get('ltmpl') === 'music';
 
-          if (isLegacyYouTubeSignIn) {
+          if (
+            isLegacyYouTubeSignIn &&
+            target.searchParams.get('continue') !== 'https://music.youtube.com/'
+          ) {
             callback({ redirectURL: createYouTubeMusicSignInUrl() });
             return;
           }
