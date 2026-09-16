@@ -240,6 +240,8 @@ export const obsOverlayPage = `<!doctype html>
 
   let state = null;
   let lastId = '';
+  let lastArtwork = '';
+  let artworkAttempt = 'none';
 
   const formatTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -267,6 +269,44 @@ export const obsOverlayPage = `<!doctype html>
     fill.style.width = (ratio * 100).toFixed(3) + '%';
   };
 
+  const hideArtwork = () => {
+    art.removeAttribute('src');
+    art.style.visibility = 'hidden';
+    card.style.setProperty('--artwork-bg', 'none');
+    artworkAttempt = 'none';
+  };
+
+  art.addEventListener('load', () => {
+    art.style.visibility = 'visible';
+  });
+
+  art.addEventListener('error', () => {
+    if (artworkAttempt === 'proxy' && state && state.artwork) {
+      artworkAttempt = 'direct';
+      art.src = state.artwork;
+      return;
+    }
+    hideArtwork();
+  });
+
+  const renderArtwork = () => {
+    const nextArtwork = state && state.artwork ? state.artwork : '';
+    if (!nextArtwork) {
+      if (lastArtwork) {
+        lastArtwork = '';
+        hideArtwork();
+      }
+      return;
+    }
+    if (nextArtwork === lastArtwork && art.getAttribute('src')) return;
+
+    lastArtwork = nextArtwork;
+    artworkAttempt = 'proxy';
+    art.style.visibility = 'visible';
+    art.src = '/artwork?track=' + encodeURIComponent(state.id || '') + '&v=' + Date.now();
+    card.style.setProperty('--artwork-bg', 'none');
+  };
+
   const render = (next) => {
     state = next || null;
     const hasTrack = Boolean(state && state.id && state.title);
@@ -286,17 +326,7 @@ export const obsOverlayPage = `<!doctype html>
     artist.textContent = state.artist || 'Unknown artist';
     album.textContent = state.album || '';
     stateText.textContent = state.playing ? 'PLAYING' : 'PAUSED';
-
-    if (state.artwork) {
-      art.src = state.artwork;
-      art.style.visibility = 'visible';
-      const artworkUrl = state.artwork.replaceAll('"', '%22');
-      card.style.setProperty('--artwork-bg', 'url("' + artworkUrl + '")');
-    } else {
-      art.removeAttribute('src');
-      art.style.visibility = 'hidden';
-      card.style.setProperty('--artwork-bg', 'none');
-    }
+    renderArtwork();
     renderProgress();
   };
 
