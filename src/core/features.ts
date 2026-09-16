@@ -1,4 +1,5 @@
 import ui from '@/features/143-ui';
+import autoUpdater from '@/features/auto-updater';
 import shellControls from '@/features/shell-controls';
 import audio from '@/features/force-high-audio-quality';
 import homePage from '@/features/home-page';
@@ -14,6 +15,7 @@ export const coreFeatures: Record<
   FeatureDef<unknown, unknown, unknown>
 > = {
   '143-ui': ui,
+  'auto-updater': autoUpdater,
   'shell-controls': shellControls,
   'force-high-audio-quality': audio,
   'home-page': homePage,
