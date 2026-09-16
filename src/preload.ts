@@ -107,6 +107,75 @@ if (isAuthWindow) {
   }
 
   if (isYouTubeMusicPage) {
+    // Pear's current in-player blocker takes the safest route for YouTube Music:
+    // remove ad metadata before the player sees it instead of blocking media or
+    // Google requests at the network layer. Keep this in the main world and run
+    // it before YouTube's application scripts initialize.
+    contextBridge.executeInMainWorld({
+      func: () => {
+        type UnknownRecord = Record<string, unknown>;
+        const page = window as Window & { __143AdblockInstalled?: boolean };
+        if (page.__143AdblockInstalled) return;
+        page.__143AdblockInstalled = true;
+
+        const isRecord = (value: unknown): value is UnknownRecord =>
+          typeof value === 'object' && value !== null;
+
+        const stripAdFields = (value: unknown) => {
+          if (!isRecord(value)) return value;
+
+          delete value.playerAds;
+          delete value.adPlacements;
+          delete value.adSlots;
+
+          for (const key of ['playerResponse', 'ytInitialPlayerResponse']) {
+            const nested = value[key];
+            if (!isRecord(nested)) continue;
+            delete nested.playerAds;
+            delete nested.adPlacements;
+            delete nested.adSlots;
+          }
+
+          return value;
+        };
+
+        JSON.parse = new Proxy(JSON.parse, {
+          apply(target, thisArg, args) {
+            return stripAdFields(Reflect.apply(target, thisArg, args));
+          },
+        });
+
+        Response.prototype.json = new Proxy(Response.prototype.json, {
+          apply(target, thisArg, args) {
+            const result = Reflect.apply(target, thisArg, args) as Promise<unknown>;
+            return result.then(stripAdFields);
+          },
+        });
+
+        // Initial player data can also be assigned directly by an inline script,
+        // bypassing JSON.parse/Response.json. Prune those assignments as well.
+        for (const key of ['ytInitialPlayerResponse', 'playerResponse']) {
+          const owner = window as unknown as UnknownRecord;
+          let current = stripAdFields(owner[key]);
+          const descriptor = Object.getOwnPropertyDescriptor(owner, key);
+          if (descriptor && descriptor.configurable === false) continue;
+
+          try {
+            Object.defineProperty(owner, key, {
+              configurable: true,
+              enumerable: descriptor?.enumerable ?? true,
+              get: () => current,
+              set: (value: unknown) => {
+                current = stripAdFields(value);
+              },
+            });
+          } catch {
+            // JSON/Response pruning still covers normal player API responses.
+          }
+        }
+      },
+    });
+
     // YouTube's page ships the legacy custom-elements adapter even though the
     // embedded Chromium already supports custom elements. Keep the existing guard
     // scoped to YouTube Music so account/login pages remain untouched.
