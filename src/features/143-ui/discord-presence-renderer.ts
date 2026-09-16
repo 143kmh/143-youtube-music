@@ -2,7 +2,7 @@ import type { DiscordPresenceTrack } from './discord-rich-presence';
 import type { PlaybackContextAdapter } from './playback-context';
 import type { MusicState } from './youtube-music';
 import type { RendererContext } from '@/types/contexts';
-import type { PluginConfig } from '@/types/plugins';
+import type { FeatureConfig } from '@/types/features';
 
 const HEARTBEAT_MS = 30_000;
 const SEEK_TOLERANCE_SECONDS = 3;
@@ -37,7 +37,7 @@ const metadataChanged = (
 
 export const mountDiscordPresenceBridge = (
   engine: PlaybackContextAdapter,
-  ipc: RendererContext<PluginConfig>['ipc'],
+  ipc: RendererContext<FeatureConfig>['ipc'],
 ) => {
   let previous: { track: DiscordPresenceTrack; at: number } | null = null;
   let lastSentAt = 0;
