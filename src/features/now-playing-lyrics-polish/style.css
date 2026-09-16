@@ -1,3 +1,18 @@
+#ui143-now-playing .ui143-now-playing-title {
+  margin-bottom: 0 !important;
+}
+
+#ui143-now-playing .ui143-now-playing-artist {
+  margin-top: 2px !important;
+  line-height: 1.18 !important;
+}
+
+#ui143-now-playing .ui143-now-playing-album {
+  min-height: 15px !important;
+  margin-top: 2px !important;
+  line-height: 1.2 !important;
+}
+
 #ui143-now-playing .ui143-now-playing-lyrics {
   padding:
     min(31vh, 280px)
