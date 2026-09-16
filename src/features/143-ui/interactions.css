@@ -27,19 +27,18 @@ html[data-143-ui] .ui143-player-art:active {
   transform: scale(0.975);
 }
 
-/* Empty Search belongs to the 143 shell too. The search controller intentionally
-   stays hidden until there is a query, so cover the native YouTube surface with
-   a quiet 143 placeholder while Search is active and no results page is open. */
+/* Empty Search belongs to the 143 shell too. Extend its surface underneath the
+   topbar so the page reads as one continuous panel instead of a hard cut. */
 html[data-143-ui]:has(.ui143-nav-item[data-key='search'].is-active):not(.ui143-search-open)
   #ui143-root::before {
   content: '';
   position: fixed;
-  top: calc(8px + var(--ui143-topbar-height));
+  top: 8px;
   right: 8px;
   bottom: var(--ui143-player-height);
   left: var(--ui143-sidebar-width);
   z-index: 0;
-  border-radius: 0 0 9px 0;
+  border-radius: 9px 9px 9px 0;
   background:
     radial-gradient(circle at 50% 42%, rgba(117, 103, 184, 0.07), transparent 30%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 190px),
