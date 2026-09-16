@@ -294,7 +294,7 @@ const renderer = createRenderer<NowPlayingState>({
     tabs.className = 'ui143-now-playing-tabs';
     tabs.append(
       button('Lyrics', 'lyrics'),
-      button('Playlist', 'playlist'),
+      button('Play next', 'playlist'),
       button('Album', 'album'),
     );
     const close = document.createElement('button');
@@ -396,21 +396,25 @@ const renderer = createRenderer<NowPlayingState>({
   },
 
   setTab(tab) {
-    this.activeTab = tab;
     if (!this.root) return;
+    const requested = this.root.querySelector<HTMLButtonElement>(
+      `[data-tab="${tab}"]`,
+    );
+    const nextTab: TabId = tab === 'lyrics' && requested?.disabled ? 'playlist' : tab;
+    this.activeTab = nextTab;
     this.root
       .querySelectorAll<HTMLButtonElement>('[data-tab]')
       .forEach((control) => {
-        const active = control.dataset.tab === tab;
+        const active = control.dataset.tab === nextTab;
         control.classList.toggle('is-active', active);
         control.setAttribute('aria-selected', String(active));
       });
     this.root.querySelectorAll<HTMLElement>('[data-pane]').forEach((pane) => {
-      pane.hidden = pane.dataset.pane !== tab;
+      pane.hidden = pane.dataset.pane !== nextTab;
     });
-    if (tab === 'lyrics') this.syncLyrics();
-    if (tab === 'playlist') this.syncPlaylist();
-    if (tab === 'album') this.resolveAlbum();
+    if (nextTab === 'lyrics') this.syncLyrics();
+    if (nextTab === 'playlist') this.syncPlaylist();
+    if (nextTab === 'album') this.resolveAlbum();
   },
 
   sync() {
@@ -470,6 +474,13 @@ const renderer = createRenderer<NowPlayingState>({
       this.lyricsKey = '';
       this.activeLyricIndex = -1;
       this.playlistKey = '';
+      const lyricsTab = this.root.querySelector<HTMLButtonElement>(
+        '[data-tab="lyrics"]',
+      );
+      if (lyricsTab) {
+        lyricsTab.disabled = false;
+        lyricsTab.classList.remove('is-disabled');
+      }
       if (this.activeTab === 'album') this.renderAlbum();
     }
   },
@@ -477,44 +488,42 @@ const renderer = createRenderer<NowPlayingState>({
   syncLyrics() {
     if (!this.root || this.activeTab !== 'lyrics') return;
     const pane = this.root.querySelector<HTMLElement>('[data-pane="lyrics"]');
+    const lyricsTab = this.root.querySelector<HTMLButtonElement>(
+      '[data-tab="lyrics"]',
+    );
     if (!pane) return;
     const result = currentLyrics();
     const data = result?.data;
     const lineCount = data?.lines?.length ?? 0;
-    const plainLength = data?.lyrics?.length ?? 0;
-    const key = `${this.trackId}|${lyricsStore.provider}|${result?.state}|${lineCount}|${plainLength}`;
+    const plainLength = data?.lyrics?.trim().length ?? 0;
+    const hasLyrics = lineCount > 0 || plainLength > 0;
+    const unavailable =
+      result?.state === 'error' || (result?.state === 'done' && !hasLyrics);
 
+    if (lyricsTab) {
+      lyricsTab.disabled = unavailable;
+      lyricsTab.classList.toggle('is-disabled', unavailable);
+      lyricsTab.title = unavailable ? 'Lyrics unavailable from LRCLib' : 'Lyrics';
+    }
+
+    if (unavailable) {
+      this.setTab('playlist');
+      return;
+    }
+
+    const key = `${this.trackId}|${lyricsStore.provider}|${result?.state}|${lineCount}|${plainLength}`;
     if (key !== this.lyricsKey) {
       this.lyricsKey = key;
       this.activeLyricIndex = -1;
       if (!result || result.state === 'fetching') {
-        message(
-          pane,
-          'Finding lyrics…',
-          '143 Music is checking the selected lyrics provider.',
-        );
+        message(pane, 'Finding lyrics…', 'Checking LRCLib for this track.');
         return;
       }
-      if (result.state === 'error') {
-        message(
-          pane,
-          'Lyrics unavailable',
-          'The lyrics provider returned an error.',
-        );
-        return;
-      }
-      if (!data) {
-        message(
-          pane,
-          'No lyrics found',
-          'This track has no lyrics from the selected provider.',
-        );
-        return;
-      }
+      if (!data) return;
       pane.replaceChildren();
       const provider = document.createElement('div');
       provider.className = 'ui143-now-playing-provider';
-      provider.textContent = `Lyrics · ${lyricsStore.provider}`;
+      provider.textContent = 'Lyrics · LRCLib';
       pane.append(provider);
       const scroll = document.createElement('div');
       scroll.className = 'ui143-now-playing-lyrics';
@@ -869,15 +878,31 @@ const renderer = createRenderer<NowPlayingState>({
     const wash = this.root.querySelector<HTMLElement>(
       '.ui143-now-playing-wash',
     );
-    if (wash)
-      wash.style.backgroundImage = artwork
-        ? `url("${artwork.replaceAll('"', '%22')}")`
-        : '';
     const expected = artwork;
+    if (wash) wash.style.opacity = '0';
+
     if (!artwork) {
+      if (wash) wash.style.backgroundImage = '';
       this.root.style.setProperty('--ui143-now-playing-rgb', '96 81 155');
       return;
     }
+
+    const preload = new Image();
+    preload.decoding = 'async';
+    preload.onload = () => {
+      if (!this.root || this.artwork !== expected || !wash) return;
+      wash.style.backgroundImage = `url("${artwork.replaceAll('"', '%22')}")`;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (this.artwork === expected) wash.style.opacity = '0.24';
+        });
+      });
+    };
+    preload.onerror = () => {
+      if (wash && this.artwork === expected) wash.style.opacity = '0.12';
+    };
+    preload.src = artwork;
+
     void sampleArtwork(artwork)
       .then(([r, g, b]) => {
         if (!this.root || this.artwork !== expected) return;
