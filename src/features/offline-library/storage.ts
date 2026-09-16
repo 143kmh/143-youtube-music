@@ -1,7 +1,8 @@
 import { app, dialog, shell } from 'electron';
-import { copyFile, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
-import { extname, basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { copyFile, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { basename, extname, join } from 'node:path';
+import { Mutex } from 'async-mutex';
 
 import type { OfflineLibrarySnapshot, OfflineTrack } from './types';
 
@@ -34,6 +35,7 @@ type Manifest = {
   tracks: OfflineTrack[];
 };
 
+const manifestMutex = new Mutex();
 const root = () => join(app.getPath('userData'), '143-music-offline');
 const tracksDir = () => join(root(), 'tracks');
 const manifestPath = () => join(root(), 'library.json');
@@ -65,18 +67,18 @@ const writeManifest = async (manifest: Manifest) => {
   await rename(temporary, target);
 };
 
+const snapshot = (manifest: Manifest): OfflineLibrarySnapshot => ({
+  tracks: manifest.tracks,
+  totalBytes: manifest.tracks.reduce((sum, track) => sum + track.bytes, 0),
+});
+
 export const getOfflineTrack = async (id: string): Promise<OfflineTrack | null> => {
   const manifest = await readManifest();
   return manifest.tracks.find((track) => track.id === id) ?? null;
 };
 
-export const getOfflineLibrary = async (): Promise<OfflineLibrarySnapshot> => {
-  const manifest = await readManifest();
-  return {
-    tracks: manifest.tracks,
-    totalBytes: manifest.tracks.reduce((sum, track) => sum + track.bytes, 0),
-  };
-};
+export const getOfflineLibrary = async (): Promise<OfflineLibrarySnapshot> =>
+  snapshot(await readManifest());
 
 export const importLocalAudio = async (): Promise<OfflineLibrarySnapshot> => {
   const result = await dialog.showOpenDialog({
@@ -91,54 +93,57 @@ export const importLocalAudio = async (): Promise<OfflineLibrarySnapshot> => {
   });
   if (result.canceled || !result.filePaths.length) return getOfflineLibrary();
 
-  const manifest = await readManifest();
-  for (const sourcePath of result.filePaths) {
-    const extension = extname(sourcePath).toLocaleLowerCase();
-    if (!AUDIO_EXTENSIONS.has(extension)) continue;
+  return manifestMutex.runExclusive(async () => {
+    const manifest = await readManifest();
+    for (const sourcePath of result.filePaths) {
+      const extension = extname(sourcePath).toLocaleLowerCase();
+      if (!AUDIO_EXTENSIONS.has(extension)) continue;
 
-    const info = await stat(sourcePath);
-    if (!info.isFile()) continue;
+      const info = await stat(sourcePath);
+      if (!info.isFile()) continue;
 
-    const id = randomUUID();
-    const fileName = `${id}${extension}`;
-    const destination = join(tracksDir(), fileName);
-    await copyFile(sourcePath, destination);
+      const id = randomUUID();
+      const fileName = `${id}${extension}`;
+      const destination = join(tracksDir(), fileName);
+      await copyFile(sourcePath, destination);
 
-    const title = basename(sourcePath, extension).trim() || 'Untitled';
-    manifest.tracks.unshift({
-      id,
-      title,
-      artist: '',
-      album: '',
-      artwork: '',
-      fileName,
-      filePath: destination,
-      mimeType: MIME_BY_EXTENSION[extension] ?? 'application/octet-stream',
-      bytes: info.size,
-      provider: 'local-file',
-      sourceId: sourcePath,
-      addedAt: new Date().toISOString(),
-    });
-  }
+      const title = basename(sourcePath, extension).trim() || 'Untitled';
+      manifest.tracks.unshift({
+        id,
+        title,
+        artist: '',
+        album: '',
+        artwork: '',
+        fileName,
+        filePath: destination,
+        mimeType: MIME_BY_EXTENSION[extension] ?? 'application/octet-stream',
+        bytes: info.size,
+        provider: 'local-file',
+        sourceId: sourcePath,
+        addedAt: new Date().toISOString(),
+      });
+    }
 
-  await writeManifest(manifest);
-  return getOfflineLibrary();
+    await writeManifest(manifest);
+    return snapshot(manifest);
+  });
 };
 
-export const removeOfflineTrack = async (id: string): Promise<OfflineLibrarySnapshot> => {
-  const manifest = await readManifest();
-  const target = manifest.tracks.find((track) => track.id === id);
-  if (!target) return getOfflineLibrary();
+export const removeOfflineTrack = async (id: string): Promise<OfflineLibrarySnapshot> =>
+  manifestMutex.runExclusive(async () => {
+    const manifest = await readManifest();
+    const target = manifest.tracks.find((track) => track.id === id);
+    if (!target) return snapshot(manifest);
 
-  try {
-    await unlink(target.filePath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-  }
-  manifest.tracks = manifest.tracks.filter((track) => track.id !== id);
-  await writeManifest(manifest);
-  return getOfflineLibrary();
-};
+    try {
+      await unlink(target.filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    manifest.tracks = manifest.tracks.filter((track) => track.id !== id);
+    await writeManifest(manifest);
+    return snapshot(manifest);
+  });
 
 export const revealOfflineTrack = async (id: string) => {
   const manifest = await readManifest();
