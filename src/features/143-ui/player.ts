@@ -66,8 +66,12 @@ const setIcon = (el: HTMLButtonElement, icon: keyof typeof icons) => {
 };
 
 const setActive = (el: HTMLButtonElement, active: boolean) => {
-  el.classList.toggle('is-active', active);
-  el.setAttribute('aria-pressed', String(active));
+  if (el.classList.contains('is-active') !== active) el.classList.toggle('is-active', active);
+  if (el.getAttribute('aria-pressed') !== String(active)) el.setAttribute('aria-pressed', String(active));
+};
+
+const setText = (el: HTMLElement, value: string) => {
+  if (el.textContent !== value) el.textContent = value;
 };
 
 export const mountPlayer = (
@@ -267,12 +271,20 @@ export const mountPlayer = (
   placeholder.textContent = '♪';
   meta.insertBefore(placeholder, art);
   let artistKey = '';
+  let lastControls: ReturnType<YouTubeMusicAdapter['getState']> | undefined;
   const unsubscribe = engine.subscribe((state) => {
     const track = state.track;
-    progress.disabled = state.duration <= 0;
     if (pendingSeek && seekTrackId !== track.id) cancelScrub();
+    if (!scrubbing) {
+      setProgressVisual(state.duration > 0 ? state.time / state.duration : 0);
+      setText(elapsed, formatTime(state.time));
+    }
+    const controlKeys = ['track', 'playing', 'duration', 'volume', 'muted', 'liked', 'shuffle', 'repeat', 'lyricsAvailable', 'lyricsActive', 'queueActive'] as const;
+    if (lastControls && controlKeys.every((key) => lastControls![key] === state[key])) return;
+    lastControls = state;
+    progress.disabled = state.duration <= 0;
     root.classList.toggle('is-idle', !track.id && !track.title);
-    title.textContent = track.title || 'Nothing playing';
+    setText(title, track.title || 'Nothing playing');
     if (track.artwork) {
       if (art.getAttribute('src') !== track.artwork) art.src = track.artwork;
     } else art.removeAttribute('src');
@@ -318,11 +330,7 @@ export const mountPlayer = (
     karaoke.classList.toggle('is-disabled', !state.lyricsAvailable);
     setActive(karaoke, state.lyricsActive);
     setActive(queue, state.queueActive);
-    if (!scrubbing) {
-      setProgressVisual(state.duration > 0 ? state.time / state.duration : 0);
-      elapsed.textContent = formatTime(state.time);
-    }
-    duration.textContent = formatTime(state.duration);
+    setText(duration, formatTime(state.duration));
     renderPlayState(state.playing);
     progressWrap.classList.toggle('is-playing', state.playing);
     if (!volumeDragging) {

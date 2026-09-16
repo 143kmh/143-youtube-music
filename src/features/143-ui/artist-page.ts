@@ -75,23 +75,27 @@ export const mountArtistPage = (
 
   const setVisible = (visible: boolean) => {
     root.hidden = !visible;
+    if (visible) syncNowPlaying();
     document.documentElement.classList.toggle('ui143-artist-open', visible);
   };
 
   const syncNowPlaying = () => {
+    if (root.hidden) return;
     for (const row of root.querySelectorAll<HTMLButtonElement>(
       'button[data-video-id]',
     )) {
       const active = Boolean(
         currentTrackId && row.dataset.videoId === currentTrackId,
       );
-      row.classList.toggle('is-now-playing', active);
-      if (active) row.setAttribute('aria-current', 'true');
-      else row.removeAttribute('aria-current');
+      if (row.classList.contains('is-now-playing') !== active) row.classList.toggle('is-now-playing', active);
+      if (active) {
+        if (row.getAttribute('aria-current') !== 'true') row.setAttribute('aria-current', 'true');
+      } else if (row.hasAttribute('aria-current')) row.removeAttribute('aria-current');
     }
   };
 
   const unsubscribe = engine.subscribe((state) => {
+    if (currentTrackId === state.track.id) return;
     currentTrackId = state.track.id;
     syncNowPlaying();
   });

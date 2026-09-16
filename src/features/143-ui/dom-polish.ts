@@ -1,3 +1,5 @@
+import { observePages } from './page-observer';
+
 const STYLE_ID = 'ui143-hover-stability';
 
 const normalize = (value: string) =>
@@ -124,15 +126,13 @@ export const installDomPolish = () => {
     labelArtistMetrics();
     fillAlbumTrackArtwork();
   };
-  const observer =
-    typeof MutationObserver === 'undefined' ? null : new MutationObserver(polish);
-  observer?.observe(document.body, { childList: true, subtree: true });
+  const disconnect = observePages('#ui143-artist-page, #ui143-library-collections', polish);
   document.addEventListener('click', routeLikedSystemCard, true);
   polish();
 
   return () => {
     removeStyle();
-    observer?.disconnect();
+    disconnect();
     document.removeEventListener('click', routeLikedSystemCard, true);
   };
 };

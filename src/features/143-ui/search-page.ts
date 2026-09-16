@@ -315,25 +315,29 @@ export const mountSearchPage = (
   let variantViewRevision = 0;
 
   const syncNowPlaying = () => {
+    if (root.hidden) return;
     for (const button of root.querySelectorAll<HTMLButtonElement>(
       'button[data-video-id]',
     )) {
       const active = Boolean(
         currentTrackId && button.dataset.videoId === currentTrackId,
       );
-      button.classList.toggle('is-now-playing', active);
-      if (active) button.setAttribute('aria-current', 'true');
-      else button.removeAttribute('aria-current');
+      if (button.classList.contains('is-now-playing') !== active) button.classList.toggle('is-now-playing', active);
+      if (active) {
+        if (button.getAttribute('aria-current') !== 'true') button.setAttribute('aria-current', 'true');
+      } else if (button.hasAttribute('aria-current')) button.removeAttribute('aria-current');
     }
   };
 
   const unsubscribeState = engine.subscribe((state) => {
+    if (currentTrackId === state.track.id) return;
     currentTrackId = state.track.id;
     syncNowPlaying();
   });
 
   const setVisible = (visible: boolean) => {
     root.hidden = !visible;
+    if (visible) syncNowPlaying();
     document.documentElement.classList.toggle('ui143-search-open', visible);
   };
 
