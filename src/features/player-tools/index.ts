@@ -52,6 +52,7 @@ type PlayerToolsState = {
   sleepEndsAt: number;
   toastTimeout: number | null;
   mount: () => void;
+  finishMountWatch: () => void;
   renderSleepButton: () => void;
   showToast: (message: string) => void;
   copyTrackLink: () => Promise<void>;
@@ -101,6 +102,17 @@ const renderer = createRenderer<PlayerToolsState>({
     }
 
     this.renderSleepButton();
+    this.finishMountWatch();
+  },
+
+  finishMountWatch() {
+    if (
+      !document.getElementById(COPY_BUTTON_ID) ||
+      !document.getElementById(SLEEP_BUTTON_ID)
+    )
+      return;
+    this.observer?.disconnect();
+    this.observer = null;
   },
 
   renderSleepButton() {
@@ -265,13 +277,18 @@ const renderer = createRenderer<PlayerToolsState>({
     `;
     document.head.append(style);
 
-    this.observer?.disconnect();
-    this.observer = new MutationObserver(() => this.mount());
-    this.observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
     this.mount();
+    if (
+      !document.getElementById(COPY_BUTTON_ID) ||
+      !document.getElementById(SLEEP_BUTTON_ID)
+    ) {
+      this.observer?.disconnect();
+      this.observer = new MutationObserver(() => this.mount());
+      this.observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    }
   },
 
   onPlayerApiReady(playerApi) {
