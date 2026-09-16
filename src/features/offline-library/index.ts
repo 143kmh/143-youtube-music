@@ -67,6 +67,7 @@ const renderer = createRenderer<{
   hide: () => void;
   refresh: () => Promise<void>;
   render: () => void;
+  renderTrack: (track: OfflineTrack) => HTMLElement;
 }>({
   ctx: null,
   root: null,
@@ -140,6 +141,62 @@ const renderer = createRenderer<{
     this.render();
   },
 
+  renderTrack(track) {
+    const row = document.createElement('article');
+    row.className = 'ui143-offline-row';
+
+    const art = document.createElement('div');
+    art.className = 'ui143-offline-art';
+    if (track.artwork) {
+      const image = document.createElement('img');
+      image.src = track.artwork;
+      image.alt = '';
+      art.append(image);
+    } else {
+      art.textContent = '♪';
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'ui143-offline-meta';
+    const name = document.createElement('strong');
+    name.textContent = track.title;
+    const secondary = document.createElement('span');
+    secondary.textContent =
+      [track.artist, track.album].filter(Boolean).join(' • ') || 'Local audio';
+    const tertiary = document.createElement('small');
+    tertiary.textContent = `${track.mimeType} • ${formatBytes(track.bytes)}`;
+    meta.append(name, secondary, tertiary);
+
+    const actions = document.createElement('div');
+    actions.className = 'ui143-offline-row-actions';
+    const reveal = document.createElement('button');
+    reveal.type = 'button';
+    reveal.textContent = 'Show file';
+    reveal.addEventListener('click', () =>
+      void this.ctx?.ipc.invoke('offline-library:reveal', track.id),
+    );
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'is-danger';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', async () => {
+      if (!this.ctx) return;
+      remove.disabled = true;
+      try {
+        this.snapshot = (await this.ctx.ipc.invoke(
+          'offline-library:remove',
+          track.id,
+        )) as OfflineLibrarySnapshot;
+        this.render();
+      } finally {
+        remove.disabled = false;
+      }
+    });
+    actions.append(reveal, remove);
+    row.append(art, meta, actions);
+    return row;
+  },
+
   render() {
     const content = this.content;
     if (!content) return;
@@ -152,7 +209,8 @@ const renderer = createRenderer<{
     const title = document.createElement('h1');
     title.textContent = 'Downloads';
     const copy = document.createElement('p');
-    copy.textContent = 'Audio stored locally on this computer for the 143 Music offline library.';
+    copy.textContent =
+      'Audio stored locally on this computer for the 143 Music offline library.';
 
     const actions = document.createElement('div');
     actions.className = 'ui143-offline-actions';
@@ -204,9 +262,7 @@ const renderer = createRenderer<{
 
     const list = document.createElement('section');
     list.className = 'ui143-offline-list';
-    for (const track of this.snapshot.tracks) {
-      list.append(this.renderTrack(track));
-    }
+    for (const track of this.snapshot.tracks) list.append(this.renderTrack(track));
     content.append(list);
   },
 
@@ -246,79 +302,21 @@ const renderer = createRenderer<{
       this.styleSheet = null;
     }
   },
-
-  // Declared below via assignment so the lifecycle object remains easy to read.
-  renderTrack: undefined as never,
-} as never);
-
-(renderer as unknown as {
-  renderTrack: (track: OfflineTrack) => HTMLElement;
-}).renderTrack = function renderTrack(track: OfflineTrack) {
-  const row = document.createElement('article');
-  row.className = 'ui143-offline-row';
-
-  const art = document.createElement('div');
-  art.className = 'ui143-offline-art';
-  if (track.artwork) {
-    const image = document.createElement('img');
-    image.src = track.artwork;
-    image.alt = '';
-    art.append(image);
-  } else {
-    art.textContent = '♪';
-  }
-
-  const meta = document.createElement('div');
-  meta.className = 'ui143-offline-meta';
-  const name = document.createElement('strong');
-  name.textContent = track.title;
-  const secondary = document.createElement('span');
-  secondary.textContent =
-    [track.artist, track.album].filter(Boolean).join(' • ') || 'Local audio';
-  const tertiary = document.createElement('small');
-  tertiary.textContent = `${track.mimeType} • ${formatBytes(track.bytes)}`;
-  meta.append(name, secondary, tertiary);
-
-  const actions = document.createElement('div');
-  actions.className = 'ui143-offline-row-actions';
-  const reveal = document.createElement('button');
-  reveal.type = 'button';
-  reveal.textContent = 'Show file';
-  reveal.addEventListener('click', () =>
-    void renderer.ctx?.ipc.invoke('offline-library:reveal', track.id),
-  );
-  const remove = document.createElement('button');
-  remove.type = 'button';
-  remove.className = 'is-danger';
-  remove.textContent = 'Remove';
-  remove.addEventListener('click', async () => {
-    if (!renderer.ctx) return;
-    remove.disabled = true;
-    try {
-      renderer.snapshot = (await renderer.ctx.ipc.invoke(
-        'offline-library:remove',
-        track.id,
-      )) as OfflineLibrarySnapshot;
-      renderer.render();
-    } finally {
-      remove.disabled = false;
-    }
-  });
-  actions.append(reveal, remove);
-  row.append(art, meta, actions);
-  return row;
-};
+});
 
 export default createFeature({
   name: () => 'Offline Library',
-  description: () => 'Local offline media storage and source-provider infrastructure for 143 Music.',
+  description: () =>
+    'Local offline media storage and source-provider infrastructure for 143 Music.',
   config: { enabled: true },
   backend: {
     storage: null as typeof import('./storage') | null,
     async start({ ipc }) {
       this.storage = await import('./storage');
       ipc.handle('offline-library:list', () => this.storage!.getOfflineLibrary());
-      ipc.handle('offline-library:import-local', () => this.storage!.importLocalAudio());
+      ipc.handle('offline-library:import-local', () =>
+        this.storage!.importLocalAudio(),
+      );
       ipc.handle('offline-library:remove', (id: string) =>
         this.storage!.removeOfflineTrack(id),
       );
