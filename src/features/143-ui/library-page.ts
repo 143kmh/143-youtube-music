@@ -6,6 +6,7 @@ import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
 
 type UnknownRecord = Record<string, unknown>;
 type LibraryMode = 'landing' | 'playlists' | 'songs' | 'playlist-detail';
+type LibraryBrowseMode = Exclude<LibraryMode, 'playlist-detail'>;
 
 type NavigationEndpoint = {
   watchEndpoint?: { videoId?: string };
@@ -27,11 +28,6 @@ type LibraryPlaylist = Readonly<{
   subtitle: string;
   artwork: string;
   browseId: string;
-}>;
-
-type TrackPage = Readonly<{
-  tracks: readonly SearchResultItem[];
-  continuation: string;
 }>;
 
 const ROOT_ID = 'ui143-library-page';
@@ -563,7 +559,11 @@ export const mountLibraryPage = (engine: PlaybackContextAdapter) => {
     return list;
   };
 
-  const section = (title: string, body: HTMLElement, seeAll?: LibraryMode) => {
+  const section = (
+    title: string,
+    body: HTMLElement,
+    seeAll?: LibraryBrowseMode,
+  ) => {
     const block = document.createElement('section');
     block.className = 'ui143-library-section';
     const head = document.createElement('div');
@@ -767,7 +767,7 @@ export const mountLibraryPage = (engine: PlaybackContextAdapter) => {
     }
   };
 
-  const open = async (target: Exclude<LibraryMode, 'playlist-detail'> = 'landing') => {
+  const open = async (target: LibraryBrowseMode = 'landing') => {
     mode = target;
     filter = '';
     const token = ++request;
