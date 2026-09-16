@@ -28,7 +28,7 @@ const STYLE = `
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .ui143-now-playing-header {
@@ -40,7 +40,7 @@ const STYLE = `
 
 .ui143-now-playing-body,
 .ui143-now-playing-pane {
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .ui143-now-playing-provider,
