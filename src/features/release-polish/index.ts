@@ -1,3 +1,4 @@
+import { getLoadedRendererFeature } from '@/core/renderer-features';
 import { createFeature, createRenderer } from '@/utils';
 
 const STYLE = `
@@ -62,9 +63,7 @@ html[data-143-ui] ytmusic-app-layout #content {
     0 0 96px rgb(var(--ui143-now-playing-rgb) / .08) !important;
 }
 
-.ui143-now-playing-title {
-  min-height: 2.2em;
-}
+.ui143-now-playing-title { min-height: 2.2em; }
 
 .ui143-now-playing-panel {
   height: min(82vh, 790px) !important;
@@ -86,9 +85,7 @@ html[data-143-ui] ytmusic-app-layout #content {
 }
 
 .ui143-now-playing-body,
-.ui143-now-playing-pane {
-  overflow: hidden !important;
-}
+.ui143-now-playing-pane { overflow: hidden !important; }
 
 .ui143-now-playing-provider,
 .ui143-now-playing-list-heading {
@@ -120,39 +117,27 @@ html[data-143-ui] ytmusic-app-layout #content {
     text-shadow 850ms ease !important;
 }
 
-.ui143-now-playing-lyric.is-current {
-  transform: translate3d(0, -3px, 0) !important;
-}
-
+.ui143-now-playing-lyric.is-current { transform: translate3d(0, -3px, 0) !important; }
 .ui143-now-playing-lyric.is-past {
   opacity: .45;
   transform: translate3d(0, -2px, 0) !important;
 }
-
 .ui143-now-playing-lyric.is-upcoming {
   opacity: .76;
   transform: translate3d(0, 4px, 0) !important;
 }
 
-.ui143-now-playing-list {
-  padding: 0 0 18px !important;
-}
-
+.ui143-now-playing-list { padding: 0 0 18px !important; }
 .ui143-now-playing-track {
   min-height: 66px !important;
   padding: 9px 8px !important;
   border-radius: 10px !important;
 }
-
 .ui143-now-playing-album-hero {
   padding-inline: 8px !important;
   border-bottom-color: rgba(255,255,255,.035) !important;
 }
-
-.ui143-now-playing-stars {
-  opacity: .9 !important;
-}
-
+.ui143-now-playing-stars { opacity: .9 !important; }
 .ui143-now-playing-star {
   animation-name: ui143-release-star-drift !important;
   animation-timing-function: ease-in-out !important;
@@ -171,7 +156,6 @@ html[data-143-ui] ytmusic-app-layout #content {
     gap: 30px !important;
     padding: 30px !important;
   }
-
   .ui143-now-playing-left { padding-top: 34px !important; }
   .ui143-now-playing-art-shell { width: min(100%, 370px) !important; }
   .ui143-now-playing-panel {
@@ -186,7 +170,6 @@ html[data-143-ui] ytmusic-app-layout #content {
     gap: 22px !important;
     padding: 22px !important;
   }
-
   .ui143-now-playing-left { padding-top: 24px !important; }
   .ui143-now-playing-art-shell { width: min(100%, 300px) !important; }
   .ui143-now-playing-lyric { font-size: clamp(19px, 2.4vw, 28px) !important; }
@@ -197,7 +180,6 @@ html[data-143-ui] ytmusic-app-layout #content {
     padding-top: 24px !important;
     padding-bottom: 24px !important;
   }
-
   .ui143-now-playing-left { padding-top: 8px !important; }
   .ui143-now-playing-art-shell { width: min(100%, 310px) !important; }
   .ui143-now-playing-panel {
@@ -214,6 +196,149 @@ html[data-143-ui] ytmusic-app-layout #content {
   }
 }
 `;
+
+type LibraryTarget = 'landing' | 'playlists' | 'songs';
+type MusicSection = 'library' | 'playlists' | 'songs';
+type UiBridge = {
+  engine: {
+    getState: () => {
+      track: {
+        byline: string;
+        artists: readonly { name: string; browseId: string }[];
+      };
+    };
+    navigateSection: (section: MusicSection) => boolean;
+  } | null;
+  searchPage: {
+    show: () => void;
+    search: (query: string) => Promise<void>;
+    close: () => void;
+  } | null;
+  artistPage: {
+    open: (name: string, browseId: string) => Promise<void> | void;
+    close: () => void;
+  } | null;
+  albumPage: { close: () => void } | null;
+  libraryPage: {
+    open: (target?: LibraryTarget) => Promise<void> | void;
+    close: () => void;
+  } | null;
+};
+
+type NowPlayingBridge = {
+  open: (tab?: 'lyrics' | 'playlist' | 'album') => void;
+  close: () => void;
+};
+
+const rendererState = <T,>(id: string): T | null => {
+  const feature = getLoadedRendererFeature(id);
+  if (!feature?.renderer || typeof feature.renderer === 'function') return null;
+  return feature.renderer as unknown as T;
+};
+
+const uiState = () => rendererState<UiBridge>('143-ui');
+const nowPlayingState = () => rendererState<NowPlayingBridge>('now-playing');
+
+const hideHome = () => {
+  const home = document.getElementById('ui143-home-page');
+  if (home) home.hidden = true;
+};
+
+const setActiveNav = (key: string) => {
+  document
+    .querySelectorAll<HTMLElement>('.ui143-nav-item[data-key]')
+    .forEach((item) => item.classList.toggle('is-active', item.dataset.key === key));
+};
+
+const closeUiPages = (ui: UiBridge | null) => {
+  ui?.searchPage?.close();
+  ui?.artistPage?.close();
+  ui?.albumPage?.close();
+  ui?.libraryPage?.close();
+  hideHome();
+  nowPlayingState()?.close();
+};
+
+const showSearchLanding = () => {
+  const root = document.getElementById('ui143-search-page');
+  if (!root) return;
+  root.hidden = false;
+  document.documentElement.classList.add('ui143-search-open');
+  const content = root.querySelector<HTMLElement>('.ui143-search-page-content');
+  if (content && !content.childElementCount) {
+    const state = document.createElement('div');
+    state.className = 'ui143-search-message';
+    const title = document.createElement('strong');
+    title.textContent = 'Search 143 Music';
+    const copy = document.createElement('span');
+    copy.textContent = 'Type an artist, album or track in the search bar above.';
+    state.append(title, copy);
+    content.append(state);
+  }
+};
+
+const showLibraryLoading = () => {
+  const root = document.getElementById('ui143-library-page');
+  if (!root) return;
+  root.hidden = false;
+  document.documentElement.classList.add('ui143-library-open');
+  const content = root.querySelector<HTMLElement>('.ui143-library-content');
+  if (!content) return;
+  content.replaceChildren();
+  const state = document.createElement('div');
+  state.className = 'ui143-library-message';
+  const title = document.createElement('strong');
+  title.textContent = 'Loading your library…';
+  const copy = document.createElement('span');
+  copy.textContent = 'Connecting to your YouTube Music library.';
+  state.append(title, copy);
+  content.append(state);
+};
+
+const openLibrary = (target: LibraryTarget) => {
+  const ui = uiState();
+  if (!ui?.libraryPage) return;
+  closeUiPages(ui);
+  showLibraryLoading();
+  setActiveNav(target === 'landing' ? 'library' : target);
+
+  const section: MusicSection = target === 'landing' ? 'library' : target;
+  ui.engine?.navigateSection(section);
+
+  let attempt = 0;
+  const finish = () => {
+    const app = document.querySelector<
+      HTMLElement & { networkManager?: { fetch?: unknown } }
+    >('ytmusic-app');
+    if (typeof app?.networkManager?.fetch === 'function' || attempt >= 80) {
+      void ui.libraryPage?.open(target);
+      return;
+    }
+    attempt++;
+    window.setTimeout(finish, 75);
+  };
+  finish();
+};
+
+const normalize = (value: string) =>
+  value.normalize('NFKC').toLocaleLowerCase().replaceAll(/\s+/gu, ' ').trim();
+
+const openArtist = (name: string) => {
+  const value = name.trim();
+  if (!value) return;
+  const ui = uiState();
+  if (!ui) return;
+  const artists = ui.engine?.getState().track.artists ?? [];
+  const match = artists.find((artist) => normalize(artist.name) === normalize(value));
+  closeUiPages(ui);
+  if (match?.browseId && ui.artistPage) {
+    setActiveNav('');
+    void ui.artistPage.open(match.name, match.browseId);
+    return;
+  }
+  setActiveNav('search');
+  void ui.searchPage?.search(value);
+};
 
 const addStars = () => {
   const container = document.querySelector<HTMLElement>('.ui143-now-playing-stars');
@@ -240,19 +365,78 @@ const addStars = () => {
 const renderer = createRenderer<{
   styleSheet: CSSStyleSheet | null;
   timer: number | null;
+  clickHandler: ((event: MouseEvent) => void) | null;
 }>({
   styleSheet: null,
   timer: null,
+  clickHandler: null,
 
   async start() {
     this.styleSheet = new CSSStyleSheet();
     await this.styleSheet.replace(STYLE);
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.styleSheet];
+
+    this.clickHandler = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const nav = target.closest<HTMLElement>('.ui143-nav-item[data-key]');
+      const key = nav?.dataset.key;
+      if (key === 'library' || key === 'playlists' || key === 'songs') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openLibrary(key === 'library' ? 'landing' : key);
+        return;
+      }
+      if (key === 'search') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const ui = uiState();
+        closeUiPages(ui);
+        setActiveNav('search');
+        ui?.searchPage?.show();
+        showSearchLanding();
+        document.getElementById('ui143-search')?.focus();
+        return;
+      }
+
+      if (
+        target.closest('#ui143-player .ui143-player-art') ||
+        target.closest('#ui143-player .ui143-player-title')
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        nowPlayingState()?.open('lyrics');
+        return;
+      }
+
+      const artistButton = target.closest<HTMLElement>(
+        '.ui143-player-artist-button, .ui143-player-artist-link',
+      );
+      if (artistButton) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openArtist(artistButton.textContent?.trim() ?? '');
+        return;
+      }
+
+      const artistText = target.closest<HTMLElement>('.ui143-player-artist');
+      if (artistText) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openArtist(artistText.textContent?.trim() ?? '');
+      }
+    };
+    document.addEventListener('click', this.clickHandler, true);
+
     addStars();
     this.timer = window.setInterval(addStars, 1000);
   },
 
   stop() {
+    if (this.clickHandler)
+      document.removeEventListener('click', this.clickHandler, true);
+    this.clickHandler = null;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     if (this.styleSheet) {
@@ -266,7 +450,7 @@ const renderer = createRenderer<{
 
 export default createFeature({
   name: () => 'Release Polish',
-  description: () => 'Final layout and now-playing polish for 143 Music.',
+  description: () => 'Final shell routing, layout and now-playing polish for 143 Music.',
   config: { enabled: true },
   renderer,
 });
