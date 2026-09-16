@@ -24,6 +24,10 @@ export const mainCoreFeatures: Record<string, CoreFeature> = {
   '143-ui': asCoreFeature(ui),
   'startup-playback-safety': asCoreFeature(startupPlaybackSafety),
   'auto-updater': asCoreFeature(autoUpdater),
+  'release-polish': rendererOnlyFeature(
+    'Release Polish',
+    'Final navigation and full-page now-playing polish for 143 Music.',
+  ),
   'shell-controls': rendererOnlyFeature(
     'Shell Controls',
     'Top-bar account control and small stability polish for the 143 Music shell.',
