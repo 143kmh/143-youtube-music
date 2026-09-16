@@ -1,4 +1,5 @@
 import type { PlaybackContextAdapter } from './playback-context';
+import type { SearchOptions } from './youtube-music';
 
 const normalize = (value: string) =>
   value
@@ -49,8 +50,17 @@ export const installCatalogCache = (engine: PlaybackContextAdapter) => {
   const albumCache = new Map<string, { value: ReturnType<typeof album>; expires: number }>();
   const autoplayCache = new Map<string, { value: ReturnType<typeof autoplay>; expires: number }>();
 
-  engine.searchCatalog = (query) =>
-    cachePromise(searchCache, normalize(query), 2 * 60_000, () => search(query));
+  engine.searchCatalog = (query: string, options?: SearchOptions) => {
+    // A caller's cancellation must not become another caller's cached result.
+    // The adapter still shares the underlying search/browse requests.
+    if (options?.isCurrent) return search(query, options);
+    return cachePromise(
+      searchCache,
+      `${options?.basic ? 'basic' : 'full'}:${normalize(query)}`,
+      2 * 60_000,
+      () => search(query, options),
+    );
+  };
   engine.getArtistCatalog = (browseId, fallbackName = '') =>
     cachePromise(artistCache, browseId, 5 * 60_000, () => artist(browseId, fallbackName));
   engine.getAlbumCatalog = (browseId, fallbackTitle = '') =>

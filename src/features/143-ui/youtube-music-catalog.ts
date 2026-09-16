@@ -616,6 +616,7 @@ export const installBrowseCatalog = (
 ): CatalogYouTubeMusicAdapter => {
   const app = () => document.querySelector<MusicPlayerAppElement>('ytmusic-app');
   const browse = async (browseId: string) => {
+    if (engine.browseCatalog) return engine.browseCatalog(browseId);
     const musicApp = app();
     if (!musicApp?.networkManager?.fetch)
       throw new Error('YouTube Music is not ready');

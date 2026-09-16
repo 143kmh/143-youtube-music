@@ -1,6 +1,7 @@
 import type {
   SearchCatalog,
   SearchResultItem,
+  SearchOptions,
   YouTubeMusicAdapter,
 } from './youtube-music';
 
@@ -162,8 +163,12 @@ const literalSong = (item: SearchResultItem): SearchResultItem => ({
 const requestedVariantMatches = (query: string, item: SearchResultItem) => {
   const normalizedQuery = normalize(query);
   const haystack = normalize(`${item.title} ${item.subtitle}`);
-  const requested = variantChecks.filter((check) => check.requested(normalizedQuery));
-  return requested.length > 0 && requested.every((check) => check.present(haystack));
+  const requested = variantChecks.filter((check) =>
+    check.requested(normalizedQuery),
+  );
+  return (
+    requested.length > 0 && requested.every((check) => check.present(haystack))
+  );
 };
 
 const literalScore = (query: string, item: SearchResultItem, index: number) => {
@@ -335,14 +340,18 @@ const mergeCatalogs = (
 export const installCatalogPolish = (engine: YouTubeMusicAdapter) => {
   const rawSearchCatalog = engine.searchCatalog.bind(engine);
 
-  engine.searchCatalog = async (query: string) => {
-    const raw = await rawSearchCatalog(query);
+  engine.searchCatalog = async (query: string, options?: SearchOptions) => {
+    const raw = await rawSearchCatalog(query, { basic: true });
     if (isVariantVideoQuery(query)) {
+      if (options?.basic || options?.isCurrent?.() === false)
+        return variantCatalog(query, [raw]);
       const queries = variantQueries(query).filter(
         (candidate) => normalize(candidate) !== normalize(query),
       );
       const settled = await Promise.allSettled(
-        queries.map((candidate) => rawSearchCatalog(candidate)),
+        queries.map((candidate) =>
+          rawSearchCatalog(candidate, { basic: true }),
+        ),
       );
       const extras = settled.flatMap((entry) =>
         entry.status === 'fulfilled' ? [entry.value] : [],
@@ -360,7 +369,14 @@ export const installCatalogPolish = (engine: YouTubeMusicAdapter) => {
     );
     const cleaned = cleanCatalog(raw, artist, strictArtist);
 
-    if (explicitHint || !artist || !raw.featuredArtist) return cleaned;
+    if (
+      options?.basic ||
+      options?.isCurrent?.() === false ||
+      explicitHint ||
+      !artist ||
+      !raw.featuredArtist
+    )
+      return cleaned;
 
     const requests = [
       `${artist} songs`,
@@ -369,7 +385,7 @@ export const installCatalogPolish = (engine: YouTubeMusicAdapter) => {
       `${artist} альбом`,
     ];
     const settled = await Promise.allSettled(
-      requests.map((value) => rawSearchCatalog(value)),
+      requests.map((value) => rawSearchCatalog(value, { basic: true })),
     );
     const extras = settled.flatMap((entry) =>
       entry.status === 'fulfilled'
