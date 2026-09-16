@@ -43,8 +43,6 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: "143 Music"
   runAfterFinish: true
-  installerIcon: assets/generated/icons/win/icon.ico
-  uninstallerIcon: assets/generated/icons/win/icon.ico
 linux:
   icon: assets/generated/icons/png
   category: AudioVideo
