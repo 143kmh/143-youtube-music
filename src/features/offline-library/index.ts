@@ -1,0 +1,341 @@
+import { createFeature, createRenderer } from '@/utils';
+
+import style from './style.css?inline';
+
+import type { RendererContext } from '@/types/contexts';
+import type { FeatureConfig } from '@/types/features';
+import type { OfflineLibrarySnapshot, OfflineTrack } from './types';
+
+const ROOT_ID = 'ui143-offline-page';
+const NAV_ID = 'ui143-offline-nav';
+
+const emptySnapshot: OfflineLibrarySnapshot = {
+  tracks: [],
+  totalBytes: 0,
+};
+
+const formatBytes = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const index = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+  );
+  const value = bytes / 1024 ** index;
+  return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
+};
+
+const downloadIcon = () => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('ui143-icon');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute(
+    'd',
+    'M11 3h2v10.17l3.59-3.58L18 11l-6 6-6-6 1.41-1.41L11 13.17V3Zm-6 16h14v2H5v-2Z',
+  );
+  svg.append(path);
+  return svg;
+};
+
+const hideOtherCustomPages = () => {
+  for (const id of ['ui143-home-page', 'ui143-now-playing']) {
+    const element = document.getElementById(id);
+    if (element) element.hidden = true;
+  }
+  document
+    .querySelectorAll<HTMLElement>(
+      '#ui143-search-page, #ui143-artist-page, #ui143-album-page',
+    )
+    .forEach((element) => {
+      element.hidden = true;
+    });
+};
+
+const renderer = createRenderer<{
+  ctx: RendererContext<FeatureConfig> | null;
+  root: HTMLElement | null;
+  content: HTMLElement | null;
+  snapshot: OfflineLibrarySnapshot;
+  observer: MutationObserver | null;
+  navClickHandler: ((event: MouseEvent) => void) | null;
+  styleSheet: CSSStyleSheet | null;
+  mount: () => void;
+  mountNav: () => void;
+  show: () => Promise<void>;
+  hide: () => void;
+  refresh: () => Promise<void>;
+  render: () => void;
+}>({
+  ctx: null,
+  root: null,
+  content: null,
+  snapshot: emptySnapshot,
+  observer: null,
+  navClickHandler: null,
+  styleSheet: null,
+
+  mount() {
+    if (this.root) return;
+
+    const root = document.createElement('main');
+    root.id = ROOT_ID;
+    root.hidden = true;
+    const content = document.createElement('div');
+    content.className = 'ui143-offline-content';
+    root.append(content);
+    document.body.append(root);
+    this.root = root;
+    this.content = content;
+    this.render();
+    this.mountNav();
+  },
+
+  mountNav() {
+    if (document.getElementById(NAV_ID)) return;
+    const collection = document.querySelector<HTMLElement>('.ui143-nav-secondary');
+    if (!collection) return;
+
+    const button = document.createElement('button');
+    button.id = NAV_ID;
+    button.type = 'button';
+    button.className = 'ui143-nav-item';
+    button.dataset.key = 'downloads';
+    button.append(downloadIcon());
+    const label = document.createElement('span');
+    label.textContent = 'Downloads';
+    button.append(label);
+    button.addEventListener('click', () => void this.show());
+    collection.append(button);
+  },
+
+  async show() {
+    this.mount();
+    if (!this.root) return;
+    hideOtherCustomPages();
+    this.root.hidden = false;
+    document
+      .querySelectorAll<HTMLElement>('.ui143-nav-item[data-key]')
+      .forEach((item) =>
+        item.classList.toggle('is-active', item.dataset.key === 'downloads'),
+      );
+    await this.refresh();
+  },
+
+  hide() {
+    if (this.root) this.root.hidden = true;
+  },
+
+  async refresh() {
+    if (!this.ctx || !this.content) return;
+    try {
+      this.snapshot = (await this.ctx.ipc.invoke(
+        'offline-library:list',
+      )) as OfflineLibrarySnapshot;
+    } catch (error) {
+      console.warn('[143 Music] Could not read offline library', error);
+      this.snapshot = emptySnapshot;
+    }
+    this.render();
+  },
+
+  render() {
+    const content = this.content;
+    if (!content) return;
+    content.replaceChildren();
+
+    const hero = document.createElement('header');
+    hero.className = 'ui143-offline-hero';
+    const eyebrow = document.createElement('span');
+    eyebrow.textContent = '143 Music';
+    const title = document.createElement('h1');
+    title.textContent = 'Downloads';
+    const copy = document.createElement('p');
+    copy.textContent = 'Audio stored locally on this computer for the 143 Music offline library.';
+
+    const actions = document.createElement('div');
+    actions.className = 'ui143-offline-actions';
+    const importButton = document.createElement('button');
+    importButton.type = 'button';
+    importButton.className = 'ui143-offline-primary';
+    importButton.textContent = 'Import audio';
+    importButton.addEventListener('click', async () => {
+      if (!this.ctx) return;
+      importButton.disabled = true;
+      try {
+        this.snapshot = (await this.ctx.ipc.invoke(
+          'offline-library:import-local',
+        )) as OfflineLibrarySnapshot;
+        this.render();
+      } finally {
+        importButton.disabled = false;
+      }
+    });
+
+    const stats = document.createElement('span');
+    stats.className = 'ui143-offline-stats';
+    stats.textContent = `${this.snapshot.tracks.length} tracks • ${formatBytes(this.snapshot.totalBytes)}`;
+    actions.append(importButton, stats);
+    hero.append(eyebrow, title, copy, actions);
+    content.append(hero);
+
+    const note = document.createElement('div');
+    note.className = 'ui143-offline-note';
+    const noteTitle = document.createElement('strong');
+    noteTitle.textContent = 'Offline source adapters';
+    const noteCopy = document.createElement('span');
+    noteCopy.textContent =
+      'The library is source-agnostic. Providers can add media that 143 Music is permitted to store locally; local-file import is enabled now.';
+    note.append(noteTitle, noteCopy);
+    content.append(note);
+
+    if (!this.snapshot.tracks.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ui143-offline-empty';
+      const emptyTitle = document.createElement('strong');
+      emptyTitle.textContent = 'No offline tracks yet';
+      const emptyCopy = document.createElement('span');
+      emptyCopy.textContent = 'Import audio files to populate the offline library.';
+      empty.append(emptyTitle, emptyCopy);
+      content.append(empty);
+      return;
+    }
+
+    const list = document.createElement('section');
+    list.className = 'ui143-offline-list';
+    for (const track of this.snapshot.tracks) {
+      list.append(this.renderTrack(track));
+    }
+    content.append(list);
+  },
+
+  async start(ctx) {
+    this.ctx = ctx;
+    this.styleSheet = new CSSStyleSheet();
+    await this.styleSheet.replace(style);
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.styleSheet];
+    this.mount();
+
+    this.observer = new MutationObserver(() => this.mountNav());
+    this.observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    this.navClickHandler = (event: MouseEvent) => {
+      if (!this.root || this.root.hidden || !(event.target instanceof Element)) return;
+      const nav = event.target.closest<HTMLElement>('.ui143-nav-item[data-key]');
+      if (nav && nav.dataset.key !== 'downloads') this.hide();
+    };
+    document.addEventListener('click', this.navClickHandler, true);
+  },
+
+  stop() {
+    this.observer?.disconnect();
+    this.observer = null;
+    if (this.navClickHandler)
+      document.removeEventListener('click', this.navClickHandler, true);
+    this.navClickHandler = null;
+    document.getElementById(NAV_ID)?.remove();
+    this.root?.remove();
+    this.root = null;
+    this.content = null;
+    this.ctx = null;
+    if (this.styleSheet) {
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+        (sheet) => sheet !== this.styleSheet,
+      );
+      this.styleSheet = null;
+    }
+  },
+
+  // Declared below via assignment so the lifecycle object remains easy to read.
+  renderTrack: undefined as never,
+} as never);
+
+(renderer as unknown as {
+  renderTrack: (track: OfflineTrack) => HTMLElement;
+}).renderTrack = function renderTrack(track: OfflineTrack) {
+  const row = document.createElement('article');
+  row.className = 'ui143-offline-row';
+
+  const art = document.createElement('div');
+  art.className = 'ui143-offline-art';
+  if (track.artwork) {
+    const image = document.createElement('img');
+    image.src = track.artwork;
+    image.alt = '';
+    art.append(image);
+  } else {
+    art.textContent = '♪';
+  }
+
+  const meta = document.createElement('div');
+  meta.className = 'ui143-offline-meta';
+  const name = document.createElement('strong');
+  name.textContent = track.title;
+  const secondary = document.createElement('span');
+  secondary.textContent =
+    [track.artist, track.album].filter(Boolean).join(' • ') || 'Local audio';
+  const tertiary = document.createElement('small');
+  tertiary.textContent = `${track.mimeType} • ${formatBytes(track.bytes)}`;
+  meta.append(name, secondary, tertiary);
+
+  const actions = document.createElement('div');
+  actions.className = 'ui143-offline-row-actions';
+  const reveal = document.createElement('button');
+  reveal.type = 'button';
+  reveal.textContent = 'Show file';
+  reveal.addEventListener('click', () =>
+    void renderer.ctx?.ipc.invoke('offline-library:reveal', track.id),
+  );
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'is-danger';
+  remove.textContent = 'Remove';
+  remove.addEventListener('click', async () => {
+    if (!renderer.ctx) return;
+    remove.disabled = true;
+    try {
+      renderer.snapshot = (await renderer.ctx.ipc.invoke(
+        'offline-library:remove',
+        track.id,
+      )) as OfflineLibrarySnapshot;
+      renderer.render();
+    } finally {
+      remove.disabled = false;
+    }
+  });
+  actions.append(reveal, remove);
+  row.append(art, meta, actions);
+  return row;
+};
+
+export default createFeature({
+  name: () => 'Offline Library',
+  description: () => 'Local offline media storage and source-provider infrastructure for 143 Music.',
+  config: { enabled: true },
+  backend: {
+    storage: null as typeof import('./storage') | null,
+    async start({ ipc }) {
+      this.storage = await import('./storage');
+      ipc.handle('offline-library:list', () => this.storage!.getOfflineLibrary());
+      ipc.handle('offline-library:import-local', () => this.storage!.importLocalAudio());
+      ipc.handle('offline-library:remove', (id: string) =>
+        this.storage!.removeOfflineTrack(id),
+      );
+      ipc.handle('offline-library:reveal', (id: string) =>
+        this.storage!.revealOfflineTrack(id),
+      );
+    },
+    stop({ ipc }) {
+      for (const channel of [
+        'offline-library:list',
+        'offline-library:import-local',
+        'offline-library:remove',
+        'offline-library:reveal',
+      ])
+        ipc.removeHandler(channel);
+      this.storage = null;
+    },
+  },
+  renderer,
+});
