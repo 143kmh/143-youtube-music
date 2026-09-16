@@ -24,7 +24,7 @@ type NavigationEndpoint = {
   browseEndpoint?: {
     browseId?: string;
     browseEndpointContextSupportedConfigs?: {
-      browseEndpointContextMusicConfig?: { pageType?: string };
+      browseEndpointMusicConfig?: { pageType?: string };
     };
   };
 };
@@ -146,7 +146,7 @@ const itemFrom = (candidate: UnknownRecord): SearchResultItem | null => {
   const browseId = target?.browseEndpoint?.browseId;
   const pageType =
     target?.browseEndpoint?.browseEndpointContextSupportedConfigs
-      ?.browseEndpointContextMusicConfig?.pageType ?? '';
+      ?.browseEndpointMusicConfig?.pageType ?? '';
   const videoType =
     target?.watchEndpoint?.watchEndpointMusicSupportedConfigs
       ?.watchEndpointMusicConfig?.musicVideoType ?? '';
@@ -449,7 +449,7 @@ const renderer = createRenderer<{
         const nav = target?.closest<HTMLElement>('.ui143-nav-item[data-key]');
         if (nav?.dataset.key === 'home') {
           event.preventDefault();
-          event.stopImmediatePropagation();
+          event.stopPropagation();
           void this.show(true);
           return;
         }
