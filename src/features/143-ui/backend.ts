@@ -26,6 +26,14 @@ const isGoogleOrYouTubeDomain = (domain: string) => {
   );
 };
 
+const hostname = (rawUrl: string) => {
+  try {
+    return new URL(rawUrl).hostname;
+  } catch {
+    return '';
+  }
+};
+
 const hasYouTubeAuthCookies = async (targetSession: Electron.Session) => {
   const cookies = await targetSession.cookies.get({});
   return cookies.some(
@@ -52,11 +60,6 @@ export default createBackend<{
       webContents.openDevTools = originalOpenDevTools;
     });
 
-    ipc.removeHandler('143:auth:status');
-    ipc.handle('143:auth:status', async () =>
-      hasYouTubeAuthCookies(webContents.session),
-    );
-
     ipc.removeHandler('143:auth:sign-in');
     ipc.handle('143:auth:sign-in', async () => {
       if (this.authWindow && !this.authWindow.isDestroyed()) {
@@ -66,8 +69,7 @@ export default createBackend<{
       }
 
       let completed = false;
-      let completionTimeout: NodeJS.Timeout | null = null;
-      let cookiePoll: NodeJS.Timeout | null = null;
+      let authStatePoll: NodeJS.Timeout | null = null;
       const chromeVersion = process.versions.chrome;
       const chromeMajor = chromeVersion.split('.')[0] || chromeVersion;
       const chromeUserAgent =
@@ -75,8 +77,9 @@ export default createBackend<{
         `AppleWebKit/537.36 (KHTML, like Gecko) ` +
         `Chrome/${chromeVersion} Safari/537.36`;
 
-      // A fresh in-memory partition avoids inheriting any request listeners,
-      // cookies or UA overrides from the main YouTube Music session.
+      // Keep Google login isolated from the main app's request hooks. The auth
+      // window gets a Chrome-like browser surface, then only its resulting
+      // Google/YouTube cookies are copied into the real 143 Music session.
       const authPartition = `143-google-auth-${Date.now()}`;
       const authWindow = new BrowserWindow({
         width: 980,
@@ -148,8 +151,25 @@ export default createBackend<{
         await webContents.session.cookies.flushStore();
       };
 
+      const authWindowIsActuallySignedIn = async () => {
+        if (authWindow.isDestroyed()) return false;
+        if (hostname(authWindow.webContents.getURL()) !== 'music.youtube.com')
+          return false;
+        try {
+          return (
+            (await authWindow.webContents.executeJavaScript(
+              `Boolean(globalThis.ytcfg?.get?.('LOGGED_IN'))`,
+              true,
+            )) === true
+          );
+        } catch {
+          return false;
+        }
+      };
+
       const completeSignIn = async () => {
         if (completed) return;
+        if (!(await authWindowIsActuallySignedIn())) return;
         completed = true;
         try {
           await copyAuthCookies();
@@ -161,25 +181,18 @@ export default createBackend<{
           console.warn('[143 Music] Could not copy Google session cookies', error);
           return;
         }
-        if (!authWindow.isDestroyed()) authWindow.close();
+
         if (!window.isDestroyed()) await webContents.loadURL(YOUTUBE_MUSIC_URL);
+        if (!authWindow.isDestroyed()) authWindow.close();
       };
 
-      const scheduleCompletion = () => {
-        if (completed || completionTimeout) return;
-        completionTimeout = setTimeout(() => {
-          completionTimeout = null;
-          void completeSignIn();
-        }, 900);
-      };
-
-      cookiePoll = setInterval(() => {
-        void hasYouTubeAuthCookies(authSession)
-          .then((signedIn) => {
-            if (signedIn) scheduleCompletion();
-          })
-          .catch(() => {});
-      }, 500);
+      // Do not treat the mere presence of SAPISID-like cookies as a successful
+      // login. Google can set some of them before YouTube itself considers the
+      // session authenticated. Wait until YouTube Music's own runtime reports
+      // LOGGED_IN=true, then transfer the session.
+      authStatePoll = setInterval(() => {
+        void completeSignIn();
+      }, 700);
 
       authWindow.webContents.setWindowOpenHandler(({ url }) => {
         authWindow.loadURL(url).catch((error) => {
@@ -192,18 +205,14 @@ export default createBackend<{
         if (!authWindow.isDestroyed()) authWindow.show();
       });
       authWindow.once('closed', () => {
-        if (completionTimeout) clearTimeout(completionTimeout);
-        if (cookiePoll) clearInterval(cookiePoll);
-        completionTimeout = null;
-        cookiePoll = null;
+        if (authStatePoll) clearInterval(authStatePoll);
+        authStatePoll = null;
         authSession.webRequest.onBeforeSendHeaders(null);
         if (this.authWindow === authWindow) this.authWindow = null;
       });
 
       try {
-        // Start at the real YouTube Music page and use its current native Sign in
-        // action. Completion is detected from YouTube auth cookies themselves,
-        // not from a fragile redirect/navigation sequence.
+        // Start at the real YouTube Music page and use its native Sign in action.
         await authWindow.loadURL(YOUTUBE_MUSIC_URL);
       } catch (error) {
         if (!authWindow.isDestroyed()) authWindow.close();
@@ -227,7 +236,6 @@ export default createBackend<{
   },
 
   stop({ ipc }) {
-    ipc.removeHandler('143:auth:status');
     ipc.removeHandler('143:auth:sign-in');
     ipc.removeHandler('synced-lyrics:fetch');
     if (this.authWindow && !this.authWindow.isDestroyed()) this.authWindow.close();
