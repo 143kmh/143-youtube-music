@@ -207,7 +207,7 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
         appIconPath: iconPath,
         appIconIndex: 0,
         relaunchCommand: process.execPath,
-        relaunchDisplayName: 'YouTube Music',
+        relaunchDisplayName: '143 Music',
       });
     } catch (error) {
       console.warn('[143 Music] Could not apply Windows window icon', error);
