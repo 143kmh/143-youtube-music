@@ -180,7 +180,8 @@ export default function (
             (namespaceImport?.findReferencesAsNodes().length ?? 0) > 0;
           const namedUsed = namedImports.some((specifier) => {
             const localName = specifier.getAliasNode() ?? specifier.getNameNode();
-            return localName.findReferencesAsNodes().length > 0;
+            const identifier = localName.asKind(ts.SyntaxKind.Identifier);
+            return (identifier?.findReferencesAsNodes().length ?? 0) > 0;
           });
 
           if (!defaultUsed && !namespaceUsed && !namedUsed) {
