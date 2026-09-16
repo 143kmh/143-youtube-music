@@ -135,13 +135,14 @@ export const installPlaylistSuggestions = (engine: PlaybackContextAdapter) => {
     }, 140);
   };
 
-  const observer = new MutationObserver(refresh);
-  observer.observe(document.body, { childList: true, subtree: true });
+  const observer =
+    typeof MutationObserver === 'undefined' ? null : new MutationObserver(refresh);
+  observer?.observe(document.body, { childList: true, subtree: true });
   refresh();
   return () => {
     revision++;
     window.clearTimeout(timer);
-    observer.disconnect();
+    observer?.disconnect();
     document.getElementById(ROOT_ID)?.remove();
     removeStyle();
   };
