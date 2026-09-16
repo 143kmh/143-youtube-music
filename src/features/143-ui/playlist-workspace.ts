@@ -853,7 +853,9 @@ export const mountPlaylistWorkspace = (engine: PlaybackContextAdapter) => {
     menu.className = 'ui143-track-menu';
     menu.append(
       menuButton('Start radio', () => startRadio(item)),
-      menuButton('Add to playlist', () => item.videoId && openPicker(item.videoId)),
+      menuButton('Add to playlist', () => {
+        if (item.videoId) return openPicker(item.videoId);
+      }),
     );
     if (playlistContext)
       menu.append(
@@ -1280,7 +1282,10 @@ export const mountPlaylistWorkspace = (engine: PlaybackContextAdapter) => {
       event.stopImmediatePropagation();
       void playlistFromCard(card)
         .then((playlist) => {
-          if (playlist) return openPlaylist(playlist, card);
+          if (playlist) {
+            void openPlaylist(playlist, card);
+            return;
+          }
           showToast('Could not resolve this playlist', true);
         })
         .catch((error) => {
