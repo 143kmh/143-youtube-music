@@ -9,17 +9,6 @@ const GATE_ID = 'ui143-login-gate';
 const AD_BADGE_ID = 'ui143-ad-badge';
 const OBS_SETTINGS_ID = 'ui143-obs-settings';
 const OBS_OVERLAY_URL = 'http://127.0.0.1:14321/overlay';
-const ACCOUNT_CHOOSER =
-  'https://accounts.google.com/AccountChooser?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F';
-
-const clickTarget = (element: Element | null): HTMLElement | null => {
-  if (!(element instanceof HTMLElement)) return null;
-  return (
-    element.closest<HTMLElement>(
-      'button, a, [role="button"], tp-yt-paper-icon-button, yt-button-shape, ytmusic-settings-button',
-    ) ?? element
-  );
-};
 
 const nativeSignIn = () => {
   const candidates = document.querySelectorAll<HTMLElement>(
@@ -28,21 +17,6 @@ const nativeSignIn = () => {
   for (const candidate of candidates) {
     const label = `${candidate.getAttribute('aria-label') ?? ''} ${candidate.textContent ?? ''}`;
     if (/\b(?:sign in|log in)\b|войти|увійти/iu.test(label)) return candidate;
-  }
-  return null;
-};
-
-const nativeAccountTrigger = () => {
-  const selectors = [
-    'ytmusic-nav-bar button[aria-label*="account" i]',
-    'ytmusic-nav-bar [role="button"][aria-label*="account" i]',
-    'ytmusic-nav-bar #avatar',
-    'ytmusic-nav-bar img[src*="googleusercontent.com"]',
-    'ytmusic-nav-bar img[src*="ggpht.com"]',
-  ];
-  for (const selector of selectors) {
-    const target = clickTarget(document.querySelector(selector));
-    if (target) return target;
   }
   return null;
 };
@@ -148,8 +122,8 @@ const renderer = createRenderer<{
 
     if (avatar) {
       button.classList.add('has-avatar');
-      button.title = 'Google account';
-      button.setAttribute('aria-label', 'Google account');
+      button.title = 'Switch YouTube channel';
+      button.setAttribute('aria-label', 'Switch YouTube channel');
       if (!current) {
         const image = document.createElement('img');
         image.className = 'ui143-account-avatar';
@@ -162,25 +136,17 @@ const renderer = createRenderer<{
     }
 
     button.classList.remove('has-avatar');
-    button.title = 'Sign in or switch Google account';
-    button.setAttribute('aria-label', 'Sign in or switch Google account');
+    button.title = 'Sign in to Google';
+    button.setAttribute('aria-label', 'Sign in to Google');
     if (current || !button.querySelector('.ui143-account-icon'))
       button.replaceChildren(userIcon());
   },
 
   openAccount() {
-    if (loggedInState() !== true) {
-      void window.ipcRenderer.invoke('143:auth:sign-in');
-      return;
-    }
-
-    const account = nativeAccountTrigger();
-    if (account) {
-      account.click();
-      return;
-    }
-
-    window.location.assign(ACCOUNT_CHOOSER);
+    void window.ipcRenderer.invoke(
+      '143:auth:sign-in',
+      loggedInState() === true ? 'channel' : 'sign-in',
+    );
   },
 
   mountAuthGate() {
@@ -330,7 +296,7 @@ const renderer = createRenderer<{
     const note = document.createElement('p');
     note.className = 'ui143-settings-note';
     note.textContent =
-      'Add a Browser Source in OBS at 520 × 140. The overlay stays local on this PC.';
+      'Add a Browser Source in OBS at 720 × 200. The overlay stays local on this PC.';
     const label = document.createElement('label');
     label.className = 'ui143-settings-app-id';
     label.append(document.createTextNode('Browser Source URL'));
