@@ -10,19 +10,19 @@ import playerTools from '@/features/player-tools';
 
 import type { FeatureDef } from '@/types/features';
 
-export const coreFeatures: Record<
-  string,
-  FeatureDef<unknown, unknown, unknown>
-> = {
-  '143-ui': ui,
-  'auto-updater': autoUpdater,
-  'shell-controls': shellControls,
-  'force-high-audio-quality': audio,
-  'home-page': homePage,
-  'now-playing': nowPlaying,
-  'obs-overlay': obsOverlay,
-  'offline-library': offlineLibrary,
-  'player-tools': playerTools,
+type CoreFeature = FeatureDef<unknown, unknown, unknown>;
+const asCoreFeature = (feature: unknown): CoreFeature => feature as CoreFeature;
+
+export const coreFeatures: Record<string, CoreFeature> = {
+  '143-ui': asCoreFeature(ui),
+  'auto-updater': asCoreFeature(autoUpdater),
+  'shell-controls': asCoreFeature(shellControls),
+  'force-high-audio-quality': asCoreFeature(audio),
+  'home-page': asCoreFeature(homePage),
+  'now-playing': asCoreFeature(nowPlaying),
+  'obs-overlay': asCoreFeature(obsOverlay),
+  'offline-library': asCoreFeature(offlineLibrary),
+  'player-tools': asCoreFeature(playerTools),
 };
 
 export type CoreFeatureId = keyof typeof coreFeatures;
