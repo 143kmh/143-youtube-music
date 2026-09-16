@@ -40,7 +40,9 @@ const hasYouTubeAuthCookies = async (targetSession: Electron.Session) => {
   const cookies = await targetSession.cookies.get({});
   return cookies.some(
     (cookie) =>
-      isGoogleOrYouTubeDomain(cookie.domain) && AUTH_COOKIE_NAMES.has(cookie.name),
+      Boolean(cookie.domain) &&
+      isGoogleOrYouTubeDomain(cookie.domain!) &&
+      AUTH_COOKIE_NAMES.has(cookie.name),
   );
 };
 
@@ -50,8 +52,9 @@ const copyGoogleYouTubeCookies = async (
 ) => {
   const cookies = await source.cookies.get({});
   for (const cookie of cookies) {
-    if (!isGoogleOrYouTubeDomain(cookie.domain)) continue;
-    const host = cookie.domain.replace(/^\./u, '');
+    const domain = cookie.domain;
+    if (!domain || !isGoogleOrYouTubeDomain(domain)) continue;
+    const host = domain.replace(/^\./u, '');
     const scheme = cookie.secure ? 'https' : 'http';
     const cookiePath = cookie.path || '/';
     const details: Electron.CookiesSetDetails = {
@@ -63,7 +66,7 @@ const copyGoogleYouTubeCookies = async (
       httpOnly: cookie.httpOnly,
       sameSite: cookie.sameSite,
     };
-    if (!cookie.hostOnly) details.domain = cookie.domain;
+    if (!cookie.hostOnly) details.domain = domain;
     if (cookie.expirationDate !== undefined)
       details.expirationDate = cookie.expirationDate;
     await target.cookies.set(details);
