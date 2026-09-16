@@ -65,6 +65,11 @@ const writeManifest = async (manifest: Manifest) => {
   await rename(temporary, target);
 };
 
+export const getOfflineTrack = async (id: string): Promise<OfflineTrack | null> => {
+  const manifest = await readManifest();
+  return manifest.tracks.find((track) => track.id === id) ?? null;
+};
+
 export const getOfflineLibrary = async (): Promise<OfflineLibrarySnapshot> => {
   const manifest = await readManifest();
   return {
