@@ -1,26 +1,44 @@
 import ui from '@/features/143-ui/backend-feature';
 import autoUpdater from '@/features/auto-updater';
 import audio from '@/features/force-high-audio-quality';
-import homePage from '@/features/home-page';
-import nowPlaying from '@/features/now-playing';
 import obsOverlay from '@/features/obs-overlay';
 import offlineLibrary from '@/features/offline-library';
-import playerTools from '@/features/player-tools';
-import shellControls from '@/features/shell-controls';
 
 import type { FeatureDef } from '@/types/features';
 
 type CoreFeature = FeatureDef<unknown, unknown, unknown>;
 const asCoreFeature = (feature: unknown): CoreFeature => feature as CoreFeature;
 
+const rendererOnlyFeature = (
+  name: string,
+  description: string,
+): CoreFeature =>
+  asCoreFeature({
+    name: () => name,
+    description: () => description,
+    config: { enabled: true },
+  });
+
 export const mainCoreFeatures: Record<string, CoreFeature> = {
   '143-ui': asCoreFeature(ui),
   'auto-updater': asCoreFeature(autoUpdater),
-  'shell-controls': asCoreFeature(shellControls),
+  'shell-controls': rendererOnlyFeature(
+    'Shell Controls',
+    'Top-bar account control and small stability polish for the 143 Music shell.',
+  ),
   'force-high-audio-quality': asCoreFeature(audio),
-  'home-page': asCoreFeature(homePage),
-  'now-playing': asCoreFeature(nowPlaying),
+  'home-page': rendererOnlyFeature(
+    '143 Music Home',
+    'Renders the personalized YouTube Music Home feed in the 143 UI.',
+  ),
+  'now-playing': rendererOnlyFeature(
+    '143 Now Playing',
+    'Custom album, lyrics and playlist listening view for 143 Music.',
+  ),
   'obs-overlay': asCoreFeature(obsOverlay),
   'offline-library': asCoreFeature(offlineLibrary),
-  'player-tools': asCoreFeature(playerTools),
+  'player-tools': rendererOnlyFeature(
+    'Player Tools',
+    'Small quality-of-life controls for the 143 Music player.',
+  ),
 };
