@@ -3,13 +3,13 @@
 
 # 143 Music
 
-**A lightweight YouTube Music desktop client with a custom UI and an experimental forced-Opus mode.**
+**A lightweight YouTube Music desktop client with a custom UI and forced Opus audio.**
 
 [**English**](./README.md) · [**Русский**](./README_RU.md)
 
 143 Music keeps the YouTube Music catalog, recommendations and account system, but replaces much of the desktop experience with its own cleaner interface and desktop features.
 
-It is designed to stay light in everyday use: inactive views stop doing background work, unnecessary polling is avoided, and the custom UI only refreshes what it actually needs.
+It is designed for low background load and gives you direct control over audio quality, including forced Opus playback when YouTube provides it.
 
 [**Download 143 Music for Windows →**](https://github.com/143kmh/143-youtube-music/releases)
 
@@ -23,43 +23,31 @@ It is designed to stay light in everyday use: inactive views stop doing backgrou
 
 ## Why 143 Music?
 
-143 Music is built around two ideas: **a faster, cleaner desktop experience** and **better control over YouTube Music audio quality**.
+- **Lightweight in everyday use** — inactive views stop doing unnecessary work and background polling is reduced.
+- **Forced Opus audio** — 143 Music can select the best Opus stream YouTube provides instead of staying on the lower-quality desktop fallback.
+- **Custom desktop UI** — Home, search, artists, albums, playlists, queue, player controls, Now Playing, lyrics and settings.
 
-The application uses YouTube Music as the service and playback source, while the 143 shell handles Home, search, artists, albums, playlists, queue, player controls, Now Playing, lyrics and settings. The UI has been tuned to reduce idle CPU work instead of constantly polling hidden screens and rebuilding state in the background.
+### Why Opus?
 
-### High-quality audio and forced Opus
+In our testing, normal desktop YouTube Music often selected about **128–130 kbps AAC-LC**. With Opus enabled, 143 Music can use the higher-quality Opus stream YouTube already provides, including **itag 774** on eligible Premium playback.
 
-143 Music includes a dedicated experimental **Opus mode**.
-
-When Opus mode is enabled, 143 Music keeps YouTube's native player response and signed media URLs, but changes the audio candidate list before YouTube's player chooses a stream. If YouTube offers Opus audio, 143 Music prefers the best available Opus candidate — prioritizing `AUDIO_QUALITY_HIGH`, non-DRC audio and the highest reported bitrate. On eligible Premium playback this can include **itag 774**.
-
-This is not transcoding and it does not create higher-quality audio that YouTube did not provide. The mode can only select from streams actually offered for your account, track and player session. If no Opus stream is available, playback falls back safely. Because this depends on private YouTube Music/player behavior, Opus mode is considered experimental and may need updates when YouTube changes its internals.
-
-For users who do not want the experimental Opus path, 143 Music also supports YouTube Music's normal playback and native Premium high-quality mode.
-
-### Why Opus instead of ~128 kbps AAC?
-
-On the normal desktop playback path tested during development, YouTube Music was selecting AAC-LC at roughly **128–130 kbps**. With 143 Music's Opus mode enabled, extended playback testing has successfully stayed on Opus for hours, and eligible Premium sessions can expose **Opus itag 774** at roughly **256–300+ kbps**, depending on the track and session.
-
-The advantage is not just the codec name. **Opus is generally more compression-efficient than AAC-LC at comparable bitrates**, and in this case it can also receive roughly twice the bitrate. In practice that means less aggressive lossy compression, more preserved detail in dense or transient-heavy passages, fewer audible compression artifacts, and more headroom before the codec has to throw information away.
-
-This does **not** make the stream lossless, and a higher bitrate does not guarantee that every listener will hear a dramatic difference on every track or every pair of headphones. The important part is that 143 Music can select the higher-quality Opus stream that YouTube already provides instead of staying on the lower-bitrate desktop fallback.
+Opus is more efficient than AAC-LC at similar bitrates, and the available Opus stream can also run at roughly twice the bitrate. That means less aggressive compression, fewer artifacts and better preserved detail. It is still lossy audio, but it is a clear upgrade over the 128 kbps AAC fallback when the higher-quality stream is available.
 
 ## Highlights
 
-- **Low-overhead custom UI** — background work is reduced when views are closed or inactive.
-- **Forced Opus mode** — experimentally prefers the best Opus stream actually offered by YouTube Music, including high-quality Opus when available.
-- **143 UI** — custom sidebar, Home, search, library, artist, album and playlist pages.
-- **Custom Now Playing** — artwork, synced lyrics, current playlist / Up Next and the full album in one screen.
-- **Personalized Home** — uses your real YouTube Music recommendations but renders them in the 143 Music UI.
-- **Synced lyrics** — integrated directly into the custom interface.
-- **Google account controls** — sign in and switch accounts from the 143 Music top bar using the existing YouTube Music session.
-- **Discord Rich Presence** — show what you are listening to in Discord.
-- **OBS Now Playing overlay** — a transparent local Browser Source for streamers.
-- **Offline / local library** — import and play local Opus, FLAC, M4A, MP3, OGG, WebM, WAV and AAC files without an internet connection.
-- **Desktop integration** — media controls, tray support, persistent settings and a native desktop window.
+- **Low-overhead custom UI**
+- **Forced Opus playback**
+- **143 UI** — custom sidebar, Home, search, library, artist, album and playlist pages
+- **Custom Now Playing** — artwork, synced lyrics, current playlist / Up Next and full album
+- **Personalized Home** — your real YouTube Music recommendations in the 143 Music UI
+- **Synced lyrics**
+- **Google account controls**
+- **Discord Rich Presence**
+- **OBS Now Playing overlay**
+- **Offline / local library** — Opus, FLAC, M4A, MP3, OGG, WebM, WAV and AAC
+- **Desktop integration** — media controls, tray and persistent settings
 
-> 143 Music is optimized to be lightweight in **runtime behavior and idle overhead**. It is still an Electron application, so the installed size includes the Electron/Chromium runtime.
+> 143 Music is lightweight in **runtime behavior and idle overhead**. It is still an Electron application, so the installed size includes Electron/Chromium.
 
 ## Install on Windows
 
@@ -101,7 +89,7 @@ A blue **Windows protected your PC** / **Unknown publisher** screen is the unsig
 
 If Windows Security instead says that it has detected actual **malware**, a **trojan**, or a **potentially unwanted application**, do not blindly disable Defender or add a global exclusion. Check that the file came from the official Releases page and report the detection so the build can be investigated.
 
-Some Windows 11 systems with **Smart App Control** enabled can block unknown unsigned apps without offering **Run anyway**. There is no clean per-app bypass for that mode. In that case, do not disable Windows security just for 143 Music; use a source build or wait for a signed release.
+Some Windows 11 systems with **Smart App Control** enabled can block unknown unsigned apps without offering **Run anyway**. In that case, use a source build or wait for a signed release rather than disabling Windows security.
 
 ## If the Releases page is empty
 
@@ -138,11 +126,11 @@ pnpm start
 
 1. Use the **account button** in the top-right corner to sign in or switch Google accounts.
 2. Open **Home** to load your YouTube Music recommendations.
-3. Use **Settings** to choose the audio mode, accent color, Discord Rich Presence options and other desktop preferences.
-4. If you have YouTube Music Premium and want the experimental highest-quality path, enable **Opus** in the audio-quality settings and start a new track.
-5. Click the artwork or use Karaoke / Queue controls to open the custom **Now Playing** screen.
+3. In **Settings**, choose your audio mode, accent color and Discord Rich Presence options.
+4. Enable **Opus** if you want the best Opus stream YouTube makes available to your session.
+5. Click the artwork or use Karaoke / Queue to open the custom **Now Playing** screen.
 
-YouTube Music Premium is required for YouTube Music features that are Premium-only, including corresponding high-quality playback modes and access to high-quality streams when YouTube offers them.
+YouTube Music Premium is required for Premium-only playback modes and high-quality streams when YouTube provides them.
 
 ## OBS overlay
 
@@ -185,7 +173,7 @@ pnpm dist:mac
 pnpm dist:mac:arm64
 ```
 
-Live YouTube Music behavior depends partly on private YouTube Music DOM and player APIs. Google can change those independently of this project, so some integrations may occasionally need updates.
+Some integrations depend on private YouTube Music DOM/player behavior and may need updates when YouTube changes its internals.
 
 ## Attribution
 
