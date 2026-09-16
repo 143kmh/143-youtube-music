@@ -7,6 +7,8 @@ import type { MusicPlayer } from '@/types/music-player';
 const BUTTON_ID = 'ui143-account-button';
 const GATE_ID = 'ui143-login-gate';
 const AD_BADGE_ID = 'ui143-ad-badge';
+const OBS_SETTINGS_ID = 'ui143-obs-settings';
+const OBS_OVERLAY_URL = 'http://127.0.0.1:14321/overlay';
 const ACCOUNT_CHOOSER =
   'https://accounts.google.com/AccountChooser?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F';
 
@@ -100,6 +102,7 @@ const renderer = createRenderer<{
   syncAuth: () => void;
   installPlayerSafety: () => void;
   syncAdState: () => void;
+  mountObsSettings: () => void;
 }>({
   button: null,
   gate: null,
@@ -309,6 +312,60 @@ const renderer = createRenderer<{
     if (this.adBadge) this.adBadge.hidden = true;
   },
 
+  mountObsSettings() {
+    const dialog = document.querySelector<HTMLDialogElement>('.ui143-settings');
+    if (!dialog?.open || dialog.querySelector(`#${OBS_SETTINGS_ID}`)) return;
+
+    const appTitle = [...dialog.querySelectorAll<HTMLElement>('.ui143-settings-section-title')]
+      .find((element) => element.textContent?.trim() === 'App');
+    if (!appTitle) return;
+
+    const section = document.createElement('div');
+    section.id = OBS_SETTINGS_ID;
+    section.className = 'ui143-obs-settings';
+
+    const title = document.createElement('div');
+    title.className = 'ui143-settings-section-title';
+    title.textContent = 'OBS';
+    const note = document.createElement('p');
+    note.className = 'ui143-settings-note';
+    note.textContent =
+      'Add a Browser Source in OBS at 520 × 140. The overlay stays local on this PC.';
+    const label = document.createElement('label');
+    label.className = 'ui143-settings-app-id';
+    label.append(document.createTextNode('Browser Source URL'));
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.readOnly = true;
+    input.value = OBS_OVERLAY_URL;
+    label.append(input);
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.textContent = 'Copy OBS URL';
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(input.value);
+        copy.textContent = 'Copied';
+        window.setTimeout(() => {
+          if (copy.isConnected) copy.textContent = 'Copy OBS URL';
+        }, 1200);
+      } catch {
+        input.focus();
+        input.select();
+      }
+    });
+
+    section.append(title, note, label, copy);
+    appTitle.before(section);
+
+    void window.ipcRenderer
+      .invoke('obs-overlay:get-url')
+      .then((value) => {
+        if (typeof value === 'string' && input.isConnected) input.value = value;
+      })
+      .catch(() => {});
+  },
+
   async start() {
     this.styleSheet = new CSSStyleSheet();
     await this.styleSheet.replace(style);
@@ -347,12 +404,13 @@ const renderer = createRenderer<{
       this.sync();
     }, 5000);
 
-    // Authentication and ad safety need a faster response, but both checks are
-    // only a couple of selectors/player flags and do no page-wide DOM work.
+    // Authentication, ad safety and the Settings bridge need a faster response,
+    // but these are only a few selectors/player flags and do no page-wide DOM work.
     this.authTimer = window.setInterval(() => {
       this.syncAuth();
       this.installPlayerSafety();
       this.syncAdState();
+      this.mountObsSettings();
     }, 750);
   },
 
@@ -380,6 +438,7 @@ const renderer = createRenderer<{
     this.gate = null;
     this.adBadge?.remove();
     this.adBadge = null;
+    document.getElementById(OBS_SETTINGS_ID)?.remove();
     this.button?.remove();
     this.button = null;
     if (this.styleSheet) {
