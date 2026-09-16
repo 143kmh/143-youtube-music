@@ -37,6 +37,14 @@ This is not transcoding and it does not create higher-quality audio that YouTube
 
 For users who do not want the experimental Opus path, 143 Music also supports YouTube Music's normal playback and native Premium high-quality mode.
 
+### Why Opus instead of ~128 kbps AAC?
+
+On the normal desktop playback path tested during development, YouTube Music was selecting AAC-LC at roughly **128–130 kbps**. With 143 Music's Opus mode enabled, extended playback testing has successfully stayed on Opus for hours, and eligible Premium sessions can expose **Opus itag 774** at roughly **256–300+ kbps**, depending on the track and session.
+
+The advantage is not just the codec name. **Opus is generally more compression-efficient than AAC-LC at comparable bitrates**, and in this case it can also receive roughly twice the bitrate. In practice that means less aggressive lossy compression, more preserved detail in dense or transient-heavy passages, fewer audible compression artifacts, and more headroom before the codec has to throw information away.
+
+This does **not** make the stream lossless, and a higher bitrate does not guarantee that every listener will hear a dramatic difference on every track or every pair of headphones. The important part is that 143 Music can select the higher-quality Opus stream that YouTube already provides instead of staying on the lower-bitrate desktop fallback.
+
 ## Highlights
 
 - **Low-overhead custom UI** — background work is reduced when views are closed or inactive.
