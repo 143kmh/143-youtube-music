@@ -169,7 +169,7 @@ export const setApplicationMenu = async (win: BrowserWindow) => {
   const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
 
-  // 143 Music owns its frame on Windows/Linux. Keep the native menu available
+  // YouTube Music owns its frame on Windows/Linux. Keep the native menu available
   // to the Advanced button without drawing an extra menu bar in the window.
   if (process.platform !== 'darwin') win.setMenu(null);
 };
