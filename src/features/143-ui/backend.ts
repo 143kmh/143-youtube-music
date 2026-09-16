@@ -69,6 +69,12 @@ export default createBackend<{
     );
     this.authCleanup = () => webRequest.onBeforeRequest(null);
 
+    ipc.removeHandler('143:auth:sign-in');
+    ipc.handle('143:auth:sign-in', async () => {
+      await webContents.loadURL(createYouTubeMusicSignInUrl());
+      return true;
+    });
+
     ipc.handle(
       'synced-lyrics:fetch',
       async (url: string, init: RequestInit) => {
@@ -83,6 +89,7 @@ export default createBackend<{
   },
 
   stop({ ipc }) {
+    ipc.removeHandler('143:auth:sign-in');
     ipc.removeHandler('synced-lyrics:fetch');
     this.authCleanup?.();
     this.authCleanup = null;
