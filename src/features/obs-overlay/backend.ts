@@ -1,0 +1,186 @@
+import { createServer } from 'node:http';
+
+import { createBackend } from '@/utils';
+
+import { obsOverlayPage } from './overlay-page';
+
+import type { Server, ServerResponse } from 'node:http';
+import type { ObsOverlayState } from './types';
+
+const HOST = '127.0.0.1';
+const PORT = 14321;
+
+const emptyState = (): ObsOverlayState => ({
+  id: '',
+  title: '',
+  artist: '',
+  album: '',
+  artwork: '',
+  playing: false,
+  time: 0,
+  duration: 0,
+  updatedAt: Date.now(),
+});
+
+const cleanText = (value: unknown, maxLength = 240) =>
+  typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
+
+const cleanNumber = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+
+const cleanArtwork = (value: unknown) => {
+  const artwork = cleanText(value, 2048);
+  return /^https:\/\//iu.test(artwork) ? artwork : '';
+};
+
+const sanitizeState = (value: unknown): ObsOverlayState => {
+  const input =
+    value && typeof value === 'object'
+      ? (value as Partial<ObsOverlayState>)
+      : {};
+
+  return {
+    id: cleanText(input.id, 128),
+    title: cleanText(input.title),
+    artist: cleanText(input.artist),
+    album: cleanText(input.album),
+    artwork: cleanArtwork(input.artwork),
+    playing: input.playing === true,
+    time: cleanNumber(input.time),
+    duration: cleanNumber(input.duration),
+    updatedAt: Date.now(),
+  };
+};
+
+type ObsOverlayBackendState = {
+  server: Server | null;
+  clients: Set<ServerResponse>;
+  state: ObsOverlayState;
+  url: string;
+  broadcast: () => void;
+};
+
+export default createBackend<ObsOverlayBackendState>({
+  server: null,
+  clients: new Set<ServerResponse>(),
+  state: emptyState(),
+  url: `http://${HOST}:${PORT}/overlay`,
+
+  broadcast() {
+    const payload = `data: ${JSON.stringify(this.state)}\n\n`;
+    for (const client of [...this.clients]) {
+      try {
+        client.write(payload);
+      } catch {
+        this.clients.delete(client);
+        client.end();
+      }
+    }
+  },
+
+  async start({ ipc }) {
+    this.state = emptyState();
+    this.clients.clear();
+
+    this.server = createServer((request, response) => {
+      const requestUrl = new URL(
+        request.url ?? '/',
+        `http://${request.headers.host ?? `${HOST}:${PORT}`}`,
+      );
+
+      if (requestUrl.pathname === '/' || requestUrl.pathname === '/overlay') {
+        response.writeHead(200, {
+          'Cache-Control': 'no-store',
+          'Content-Security-Policy':
+            "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'",
+          'Content-Type': 'text/html; charset=utf-8',
+          'X-Content-Type-Options': 'nosniff',
+        });
+        response.end(obsOverlayPage);
+        return;
+      }
+
+      if (requestUrl.pathname === '/state') {
+        response.writeHead(200, {
+          'Cache-Control': 'no-store',
+          'Content-Type': 'application/json; charset=utf-8',
+          'X-Content-Type-Options': 'nosniff',
+        });
+        response.end(JSON.stringify(this.state));
+        return;
+      }
+
+      if (requestUrl.pathname === '/events') {
+        response.writeHead(200, {
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'X-Accel-Buffering': 'no',
+        });
+        response.write(`data: ${JSON.stringify(this.state)}\n\n`);
+        this.clients.add(response);
+        request.once('close', () => {
+          this.clients.delete(response);
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === '/health') {
+        response.writeHead(200, {
+          'Cache-Control': 'no-store',
+          'Content-Type': 'text/plain; charset=utf-8',
+        });
+        response.end('143 Music OBS overlay is running');
+        return;
+      }
+
+      response.writeHead(404, {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'text/plain; charset=utf-8',
+      });
+      response.end('Not found');
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const server = this.server!;
+      const onError = (error: Error) => {
+        server.off('listening', onListening);
+        reject(error);
+      };
+      const onListening = () => {
+        server.off('error', onError);
+        resolve();
+      };
+      server.once('error', onError);
+      server.once('listening', onListening);
+      server.listen(PORT, HOST);
+    });
+
+    ipc.handle('obs-overlay:update', (value: unknown) => {
+      this.state = sanitizeState(value);
+      this.broadcast();
+      return true;
+    });
+
+    ipc.handle('obs-overlay:get-url', () => this.url);
+
+    console.log('[143 Music] OBS overlay available at', this.url);
+  },
+
+  async stop({ ipc }) {
+    ipc.removeHandler('obs-overlay:update');
+    ipc.removeHandler('obs-overlay:get-url');
+
+    for (const client of this.clients) client.end();
+    this.clients.clear();
+    this.state = emptyState();
+
+    const server = this.server;
+    this.server = null;
+    if (!server) return;
+
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  },
+});
