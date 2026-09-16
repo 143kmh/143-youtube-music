@@ -45,7 +45,7 @@ const makeRow = (
       await engine.addToPlaylist(playlistId, item.videoId);
       add.textContent = 'Added';
     } catch (error) {
-      console.error('[143 Music] Suggested track add failed', error);
+      console.error('[YouTube Music] Suggested track add failed', error);
       add.disabled = false;
       add.textContent = 'Retry';
     }
@@ -130,7 +130,7 @@ export const installPlaylistSuggestions = (engine: PlaybackContextAdapter) => {
         if (!suggestions.length) return;
         workspace.querySelector<HTMLElement>('.ui143-playlist-workspace-content')?.append(render(editor, playlistId, suggestions));
       } catch (error) {
-        console.warn('[143 Music] Could not load playlist suggestions', error);
+        console.warn('[YouTube Music] Could not load playlist suggestions', error);
       }
     }, 140);
   };
