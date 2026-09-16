@@ -7,7 +7,7 @@ if (process.platform !== 'win32') {
   process.exit(1);
 }
 
-const exePath = path.resolve('pack', 'win-unpacked', 'YouTube Music.exe');
+const exePath = path.resolve('pack', 'win-unpacked', '143 Music.exe');
 if (!fs.existsSync(exePath)) {
   console.error(`[143 Music] Missing unpacked executable: ${exePath}`);
   console.error('[143 Music] Run this command through pnpm start:win so the app is built first.');
