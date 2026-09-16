@@ -1,5 +1,4 @@
 import ui from '@/features/143-ui';
-import authSession from '@/features/auth-session';
 import autoUpdater from '@/features/auto-updater';
 import shellControls from '@/features/shell-controls';
 import startupPlaybackSafety from '@/features/startup-playback-safety';
@@ -20,7 +19,6 @@ export const coreFeatures: Record<string, CoreFeature> = {
   'startup-playback-safety': asCoreFeature(startupPlaybackSafety),
   'auto-updater': asCoreFeature(autoUpdater),
   'shell-controls': asCoreFeature(shellControls),
-  'auth-session': asCoreFeature(authSession),
   'force-high-audio-quality': asCoreFeature(audio),
   'home-page': asCoreFeature(homePage),
   'now-playing': asCoreFeature(nowPlaying),
