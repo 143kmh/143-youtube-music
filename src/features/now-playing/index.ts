@@ -40,6 +40,7 @@ type NowPlayingState = {
   albumRef: AlbumRef | null;
   albumCatalog: AlbumCatalog | null;
   albumRequest: number;
+  albumLoadingId: string;
   lyricsKey: string;
   activeLyricIndex: number;
   playlistKey: string;
@@ -97,10 +98,15 @@ const bestQueueArtwork = (row: ReturnType<typeof queueRow>) => {
 const currentAlbumRef = (videoId: string): AlbumRef | null => {
   const store = queueElement()?.queue?.store?.store?.getState?.();
   const rows = (store?.queue?.items ?? []).map(queueRow);
+  const matching = videoId
+    ? rows.find((row) => row?.videoId === videoId)
+    : undefined;
+  const selected = rows.find((row) => row?.selected);
   const current =
-    rows.find((row) => row?.videoId === videoId) ??
-    rows.find((row) => row?.selected);
-  for (const run of current?.longBylineText?.runs ?? []) {
+    matching ??
+    (!videoId || selected?.videoId === videoId ? selected : undefined);
+  if (!current) return null;
+  for (const run of current.longBylineText?.runs ?? []) {
     const browse = run.navigationEndpoint?.browseEndpoint;
     if (
       browse?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig
@@ -239,6 +245,7 @@ const renderer = createRenderer<NowPlayingState>({
   albumRef: null,
   albumCatalog: null,
   albumRequest: 0,
+  albumLoadingId: '',
   lyricsKey: '',
   activeLyricIndex: -1,
   playlistKey: '',
@@ -381,6 +388,7 @@ const renderer = createRenderer<NowPlayingState>({
     const nextTab = tab ?? this.activeTab;
     this.root!.hidden = false;
     document.documentElement.classList.add('ui143-now-playing-open');
+    this.syncTrack();
     this.setTab(nextTab);
     this.sync();
     if (this.timer === null)
@@ -414,7 +422,10 @@ const renderer = createRenderer<NowPlayingState>({
     });
     if (nextTab === 'lyrics') this.syncLyrics();
     if (nextTab === 'playlist') this.syncPlaylist();
-    if (nextTab === 'album') this.resolveAlbum();
+    if (nextTab === 'album') {
+      this.syncTrack();
+      this.resolveAlbum();
+    }
   },
 
   sync() {
@@ -458,7 +469,20 @@ const renderer = createRenderer<NowPlayingState>({
     this.albumRef = ref;
     if (albumChanged) {
       this.albumCatalog = null;
+      this.albumLoadingId = '';
       this.albumRequest++;
+      if (this.activeTab === 'album') {
+        const pane = this.root.querySelector<HTMLElement>('[data-pane="album"]');
+        if (pane) {
+          if (ref) message(pane, 'Loading album…', ref.title);
+          else
+            message(
+              pane,
+              'Album unavailable',
+              'YouTube Music did not expose an album for this track.',
+            );
+        }
+      }
     }
 
     if (nextArtwork !== this.artwork) {
@@ -481,7 +505,6 @@ const renderer = createRenderer<NowPlayingState>({
         lyricsTab.disabled = false;
         lyricsTab.classList.remove('is-disabled');
       }
-      if (this.activeTab === 'album') this.renderAlbum();
     }
   },
 
@@ -745,7 +768,9 @@ const renderer = createRenderer<NowPlayingState>({
     if (!this.root || this.activeTab !== 'album') return;
     const pane = this.root.querySelector<HTMLElement>('[data-pane="album"]');
     if (!pane) return;
-    if (!this.albumRef) {
+    const albumRef = this.albumRef;
+    if (!albumRef) {
+      this.albumLoadingId = '';
       message(
         pane,
         'Album unavailable',
@@ -753,27 +778,37 @@ const renderer = createRenderer<NowPlayingState>({
       );
       return;
     }
-    if (this.albumCatalog?.browseId === this.albumRef.browseId) return;
+    if (this.albumCatalog?.browseId === albumRef.browseId) return;
+    if (this.albumLoadingId === albumRef.browseId) return;
+
+    this.albumLoadingId = albumRef.browseId;
     const request = ++this.albumRequest;
-    message(pane, 'Loading album…', this.albumRef.title);
-    let task = albumCache.get(this.albumRef.browseId);
+    message(pane, 'Loading album…', albumRef.title);
+    let task = albumCache.get(albumRef.browseId);
     if (!task) {
-      task = albumReader.getAlbumCatalog(
-        this.albumRef.browseId,
-        this.albumRef.title,
-      );
-      albumCache.set(this.albumRef.browseId, task);
+      task = albumReader.getAlbumCatalog(albumRef.browseId, albumRef.title);
+      albumCache.set(albumRef.browseId, task);
     }
     void task
       .then((catalog) => {
-        if (request !== this.albumRequest) return;
+        if (
+          request !== this.albumRequest ||
+          this.albumRef?.browseId !== albumRef.browseId
+        )
+          return;
+        this.albumLoadingId = '';
         this.albumCatalog = catalog;
         this.renderAlbum();
       })
       .catch((error) => {
         console.warn('[143 Music] Could not load now-playing album', error);
-        if (request !== this.albumRequest) return;
-        albumCache.delete(this.albumRef!.browseId);
+        if (
+          request !== this.albumRequest ||
+          this.albumRef?.browseId !== albumRef.browseId
+        )
+          return;
+        this.albumLoadingId = '';
+        albumCache.delete(albumRef.browseId);
         message(
           pane,
           'Album unavailable',
