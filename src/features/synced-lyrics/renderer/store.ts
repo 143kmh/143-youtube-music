@@ -134,10 +134,16 @@ export const retrySearch = (_provider: ProviderName, info: SongInfo) => {
         [providerName]: { state: 'done', data: res, error: null },
       }));
     })
-    .catch((error) => {
+    .catch((error: unknown) => {
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error));
       setLyricsStore('lyrics', (old) => ({
         ...old,
-        [providerName]: { state: 'error', data: null, error },
+        [providerName]: {
+          state: 'error',
+          data: null,
+          error: normalizedError,
+        },
       }));
     });
 };
