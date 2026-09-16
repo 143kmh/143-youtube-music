@@ -1,100 +1,95 @@
 name: Bug Report
-description: Report a Pear Desktop bug
+description: Report a bug in the YouTube Music desktop client
 title: "[Bug]: "
 labels: "bug :beetle:"
 body:
-- type: checkboxes
-  attributes:
-    label: Preflight Checklist
-    description: Please ensure you've completed all of the following.
-    options:
-      - label: I use the latest version of Pear Desktop (Application).
-        required: true
-      - label: I have searched the [issue tracker](https://github.com/pear-devs/pear-desktop/issues) for a bug report that matches the one I want to file, without success.
-        required: true
-      - label: I understand that **pear-devs/pear-desktop has NO affiliation with Google or YouTube**
-        required: true
-- type: input
-  id: app-version
-  attributes:
-    label: Pear Desktop (Application) Version
-    description: |
-      What version of the Pear Desktop Application are you using?
+  - type: checkboxes
+    attributes:
+      label: Preflight Checklist
+      description: Please ensure you've completed all of the following.
+      options:
+        - label: I am using the latest version or current master build.
+          required: true
+        - label: I have searched this repository for an existing report of the same issue.
+          required: true
+        - label: I understand that this project is not affiliated with Google or YouTube.
+          required: true
 
-      Note: Please check if this issue is reproducible with the latest stable release.
-    placeholder: 2.0.0
-  validations:
-    required: true
-- type: checkboxes
-  attributes:
-    label: Checklists
-    options:
-      - label: I use the portable version of the Pear Desktop Application.
-      - label: I can reproduce this issue in the [official version of (WEB) YTM](https://music.youtube.com).
-- type: dropdown
-  id: os
-  attributes:
-    label: What operating system are you using?
-    options:
-      - Windows
-      - macOS
-      - Ubuntu
-      - Other Linux
-      - Other (specify below)
-  validations:
-    required: true
-- type: input
-  id: os-version
-  attributes:
-    label: Operating System Version
-    description: What operating system version are you using? On Windows, click the Start button > Settings > System > About. On macOS, click the Apple Menu > About This Mac. On Linux, use lsb_release or uname -a.
-    placeholder: "e.g. Windows 10 version 1909, macOS Catalina 10.15.7, or Ubuntu 20.04"
-  validations:
-    required: true
-- type: dropdown
-  id: cpu-arch
-  attributes:
-    label: What CPU architecture are you using?
-    options:
-      - x64
-      - ia32
-      - arm64 (including Apple Silicon)
-      - Other (specify below)
-  validations:
-    required: true
-- type: input
-  attributes:
-    label: Last Known Working Pear Desktop (Application) version
-    description: (If applicable) What is the last version of Pear Desktop this worked in?
-    placeholder: 1.20.0
-- type: textarea
-  attributes:
-    label: Reproduction steps
-    description: Provide steps to reproduce the issue.
-    placeholder: 1. Enable the X plugin.
-  validations:
-    required: true
-- type: textarea
-  attributes:
-    label: Expected Behavior
-    description: A clear and concise description of what you expected to happen.
-  validations:
-    required: true
-- type: textarea
-  attributes:
-    label: Actual Behavior
-    description: A clear description of what actually happens.
-  validations:
-    required: true
-- type: textarea
-  id: enabled-plugins
-  attributes:
-    label: Enabled plugins
-    description: Provide the list of plugins you enabled.
-    placeholder: 1. Album Color Theme
-  validations:
-    required: true
-- type: textarea
-  attributes:
-    label: Additional Information
-    description: If your problem needs further explanation, or if the issue you're seeing cannot be reproduced in a gist, please add more information here.
+  - type: input
+    id: app-version
+    attributes:
+      label: Application version
+      description: What version or commit are you using?
+      placeholder: "3.12.0 or commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Ubuntu
+        - Other Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: Operating system version
+      placeholder: "e.g. Windows 11 24H2, macOS 15, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cpu-arch
+    attributes:
+      label: CPU architecture
+      options:
+        - x64
+        - arm64
+        - ia32
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: Provide the shortest reliable sequence that reproduces the issue.
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Relevant features
+      description: If known, note the affected area, such as 143 UI, high-quality audio/Opus, Discord Rich Presence, or synced lyrics.
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Additional information
+      description: Add logs, screenshots, playback details, or any other useful context.
+    validations:
+      required: false
