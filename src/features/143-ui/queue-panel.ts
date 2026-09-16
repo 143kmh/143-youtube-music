@@ -1,8 +1,20 @@
 import queueStyle from './queue-panel.css?inline';
 
-import type { PlaybackContextAdapter } from './playback-context';
+import type {
+  PlaybackContextAdapter,
+  PlaybackContextSource,
+} from './playback-context';
+import type { SearchResultItem } from './youtube-music';
 
 const ROOT_ID = 'ui143-queue-panel';
+const PLAY_CONTEXT_EVENT = 'ui143:play-context';
+const PLAY_CONTEXT_INDEX_EVENT = 'ui143:play-context-index';
+
+type PlayContextDetail = Readonly<{
+  items: readonly SearchResultItem[];
+  startIndex: number;
+  source: PlaybackContextSource;
+}>;
 
 export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
   document.getElementById(ROOT_ID)?.remove();
@@ -58,8 +70,18 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
       list.replaceChildren();
       rows.clear();
       source.textContent = '';
+      delete root.dataset.sourceKind;
+      delete root.dataset.sourceTitle;
+      delete root.dataset.sourceBrowseId;
+      delete root.dataset.currentIndex;
       return;
     }
+
+    root.dataset.sourceKind = context.source.kind;
+    root.dataset.sourceTitle = context.source.title;
+    root.dataset.currentIndex = String(context.index);
+    if (context.source.browseId) root.dataset.sourceBrowseId = context.source.browseId;
+    else delete root.dataset.sourceBrowseId;
 
     source.textContent = `${context.source.title} • ${context.items.length} tracks`;
     if (context.items[0] !== firstItem) {
@@ -78,6 +100,7 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
       const existing = rows.get(item.videoId!);
       if (existing) {
         existing.classList.toggle('is-current', index === context.index);
+        existing.dataset.index = String(index);
         existing.querySelector('.ui143-queue-index')!.textContent =
           `${index + 1}/${context.items.length}`;
         continue;
@@ -86,6 +109,11 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
       rows.set(item.videoId!, row);
       row.type = 'button';
       row.className = 'ui143-queue-row';
+      row.dataset.videoId = item.videoId!;
+      row.dataset.index = String(index);
+      row.dataset.title = item.title;
+      row.dataset.subtitle = item.subtitle;
+      if (item.artwork) row.dataset.artwork = item.artwork;
       row.classList.toggle('is-current', index === context.index);
       row.addEventListener('click', () => engine.playContextIndex(index));
 
@@ -125,6 +153,23 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
     }
   };
 
+  const onPlayContext = (event: Event) => {
+    const detail = (event as CustomEvent<PlayContextDetail>).detail;
+    if (!detail?.items?.length) return;
+    engine.playContext(
+      detail.items,
+      detail.startIndex,
+      detail.source,
+    );
+  };
+  const onPlayContextIndex = (event: Event) => {
+    const index = Number((event as CustomEvent<number>).detail);
+    if (!Number.isInteger(index) || index < 0) return;
+    engine.playContextIndex(index);
+  };
+  document.addEventListener(PLAY_CONTEXT_EVENT, onPlayContext);
+  document.addEventListener(PLAY_CONTEXT_INDEX_EVENT, onPlayContextIndex);
+
   const unsubscribe = engine.subscribePlaybackContext(render);
   const buttonSyncTimer = window.setInterval(
     () => syncPlayerButton(Boolean(engine.getPlaybackContext()?.queueOpen)),
@@ -153,6 +198,8 @@ export const mountQueuePanel = (engine: PlaybackContextAdapter) => {
     window.clearInterval(buttonSyncTimer);
     window.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('pointerdown', onOutsidePointerDown, true);
+    document.removeEventListener(PLAY_CONTEXT_EVENT, onPlayContext);
+    document.removeEventListener(PLAY_CONTEXT_INDEX_EVENT, onPlayContextIndex);
     syncPlayerButton(false);
     root.remove();
     document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
