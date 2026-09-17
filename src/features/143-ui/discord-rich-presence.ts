@@ -69,53 +69,20 @@ const activityForTrack = (
   track: DiscordPresenceTrack,
   statusMode: DiscordStatusMode,
 ): SetActivity => {
-  const title = cleanText(track.title, 'Unknown track');
-  const artist = cleanText(track.artist, 'Unknown artist');
   const activity: SetActivity = {
-    name: '143 Music',
+    name: statusMode === 'listening-youtube' ? 'YouTube Music' : '143 Music',
     type: ActivityType.Listening,
-    statusDisplayType: StatusDisplayType.Name,
-    details: title,
-    state: artist,
+    statusDisplayType:
+      statusMode === 'listening-artist'
+        ? StatusDisplayType.State
+        : StatusDisplayType.Name,
+    details: cleanText(track.title, 'Unknown track'),
+    state: cleanText(track.artist, 'Unknown artist'),
     largeImageKey: track.artwork || undefined,
+    largeImageUrl: PROJECT_URL,
     largeImageText: '143 Music',
     buttons: [{ label: '143 Music', url: PROJECT_URL }],
   };
-
-  switch (statusMode) {
-    case 'listening-youtube':
-      activity.name = 'YouTube Music';
-      break;
-    case 'listening-artist':
-      activity.statusDisplayType = StatusDisplayType.State;
-      break;
-    case '143':
-      activity.type = ActivityType.Custom;
-      activity.statusDisplayType = StatusDisplayType.State;
-      activity.state = '143 Music';
-      break;
-    case 'youtube':
-      activity.type = ActivityType.Custom;
-      activity.statusDisplayType = StatusDisplayType.State;
-      activity.state = 'YouTube Music';
-      break;
-    case 'artist':
-      activity.type = ActivityType.Custom;
-      activity.statusDisplayType = StatusDisplayType.State;
-      activity.state = artist;
-      break;
-    case 'artist-track':
-      activity.type = ActivityType.Custom;
-      activity.statusDisplayType = StatusDisplayType.State;
-      activity.state = cleanText(
-        `${track.artist} - ${track.title}`,
-        '143 Music',
-      );
-      break;
-    case 'listening-143':
-    default:
-      break;
-  }
 
   return activity;
 };
