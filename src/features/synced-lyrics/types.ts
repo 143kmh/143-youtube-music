@@ -21,6 +21,7 @@ export type LineLyricsStatus = 'previous' | 'current' | 'upcoming';
 export type LineWordTiming = {
   timeInMs: number;
   word: string;
+  suffix?: string;
 };
 
 export type LineLyrics = {

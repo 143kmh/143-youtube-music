@@ -95,55 +95,37 @@ export const SyncedLine = (props: SyncedLineProps) => {
 
   const timedWords = createMemo(() =>
     (props.line.words ?? []).filter(
-      ({ word, timeInMs }) => word.trim().length > 0 && Number.isFinite(timeInMs),
+      ({ word, timeInMs }) =>
+        word.trim().length > 0 && Number.isFinite(timeInMs),
     ),
   );
 
+  const hasExactWordTiming = createMemo(() => timedWords().length > 0);
   const words = createMemo(() => {
     const exact = timedWords();
     if (exact.length > 0) return exact.map(({ word }) => word);
-    return text().split(/\s+/u).filter(Boolean);
+    return text() ? [text()] : [];
   });
 
-  // Enhanced LRC sometimes contains a real timestamp for every word. When it
-  // does, use it exactly. Most providers expose only line timestamps, so fall
-  // back to a length-weighted progression across the duration of the phrase.
+  // Only animate individual words when the provider supplied real timestamps.
+  // Line-synced providers such as LRCLib remain honestly line-synced instead of
+  // inventing word positions from word length and phrase duration.
   const activeWordIndex = createMemo(() => {
     const values = words();
     if (values.length === 0) return -1;
-    if (props.status === 'previous') return values.length - 1;
+    if (props.status === 'previous') return values.length;
     if (props.status !== 'current') return -1;
 
-    const now = currentTime();
     const exact = timedWords();
-    if (exact.length > 0) {
-      let active = 0;
-      for (let i = 0; i < exact.length; i++) {
-        if (now < exact[i].timeInMs) break;
-        active = i;
-      }
-      return Math.min(active, values.length - 1);
-    }
+    if (!exact.length) return 0;
 
-    const finiteDuration =
-      Number.isFinite(props.line.duration) && props.line.duration > 0
-        ? props.line.duration
-        : Math.max(1200, values.length * 420);
-    const elapsed = Math.max(0, now - props.line.timeInMs);
-    const progress = Math.min(0.999_999, elapsed / finiteDuration);
-    const weights = values.map((word) => {
-      const letters = word.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
-      return Math.max(1, letters);
-    });
-    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-    const target = progress * totalWeight;
-
-    let accumulated = 0;
-    for (let i = 0; i < weights.length; i++) {
-      accumulated += weights[i];
-      if (target < accumulated) return i;
+    const now = currentTime();
+    let active = -1;
+    for (let i = 0; i < exact.length; i++) {
+      if (now < exact[i].timeInMs) break;
+      active = i;
     }
-    return values.length - 1;
+    return Math.min(active, values.length - 1);
   });
 
   const [romanization, setRomanization] = createSignal('');
@@ -206,7 +188,13 @@ export const SyncedLine = (props: SyncedLineProps) => {
                   >
                     <yt-formatted-string
                       text={{
-                        runs: [{ text: `${word} ` }],
+                        runs: [
+                          {
+                            text: hasExactWordTiming()
+                              ? `${word}${timedWords()[index()]?.suffix ?? ' '}`
+                              : word.trim(),
+                          },
+                        ],
                       }}
                     />
                   </span>

@@ -3,6 +3,7 @@ import * as z from 'zod';
 import type { LyricResult } from '../types';
 
 export enum ProviderNames {
+  NetEase = 'NetEase',
   YTMusic = 'YTMusic',
   LRCLib = 'LRCLib',
   MusixMatch = 'MusixMatch',
