@@ -1,4 +1,5 @@
 import { mountDiscordSettingsControls } from './discord-settings';
+import { mountSettingsPolish } from './settings-polish';
 
 import type { DiscordPresenceTrack } from './discord-rich-presence';
 import type { PlaybackContextAdapter } from './playback-context';
@@ -44,6 +45,7 @@ export const mountDiscordPresenceBridge = (
   let previous: { track: DiscordPresenceTrack; at: number } | null = null;
   let lastSentAt = 0;
   let disposed = false;
+  const unmountSettingsPolish = mountSettingsPolish();
   const unmountSettingsControls = mountDiscordSettingsControls(ipc);
 
   const send = (track: DiscordPresenceTrack, now: number) => {
@@ -82,6 +84,7 @@ export const mountDiscordPresenceBridge = (
   return () => {
     disposed = true;
     unmountSettingsControls();
+    unmountSettingsPolish();
     unsubscribe();
   };
 };
