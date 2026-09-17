@@ -1,3 +1,5 @@
+import { mountDiscordSettingsControls } from './discord-settings';
+
 import type { DiscordPresenceTrack } from './discord-rich-presence';
 import type { PlaybackContextAdapter } from './playback-context';
 import type { MusicState } from './youtube-music';
@@ -42,6 +44,7 @@ export const mountDiscordPresenceBridge = (
   let previous: { track: DiscordPresenceTrack; at: number } | null = null;
   let lastSentAt = 0;
   let disposed = false;
+  const unmountSettingsControls = mountDiscordSettingsControls(ipc);
 
   const send = (track: DiscordPresenceTrack, now: number) => {
     lastSentAt = now;
@@ -78,6 +81,7 @@ export const mountDiscordPresenceBridge = (
 
   return () => {
     disposed = true;
+    unmountSettingsControls();
     unsubscribe();
   };
 };
