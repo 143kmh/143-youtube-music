@@ -85,7 +85,9 @@ const artworkFromNativeUi = () => {
   ];
 
   for (const selector of selectors) {
-    const source = imageSource(document.querySelector<HTMLImageElement>(selector));
+    const source = imageSource(
+      document.querySelector<HTMLImageElement>(selector),
+    );
     if (source) return source;
   }
   return '';
@@ -106,8 +108,9 @@ const parseClock = (value: string) => {
 };
 
 const uiTimes = () => {
-  const values = [...document.querySelectorAll<HTMLElement>('.ui143-player-time')]
-    .map((element) => parseClock(element.textContent ?? ''));
+  const values = [
+    ...document.querySelectorAll<HTMLElement>('.ui143-player-time'),
+  ].map((element) => parseClock(element.textContent ?? ''));
   return {
     time: values[0] ?? 0,
     duration: values.at(-1) ?? 0,
@@ -122,14 +125,17 @@ export default createRenderer<ObsOverlayRendererState>({
   publish() {
     if (!this.ipc) return;
 
-    const domPlayer = document.querySelector<HTMLElement & MusicPlayer>('#movie_player');
-    const player = (this.player ?? domPlayer) as Partial<MusicPlayer> | null;
+    const domPlayer = document.querySelector<HTMLElement & MusicPlayer>(
+      '#movie_player',
+    );
+    // YouTube Music can replace the player after navigation or reauthentication.
+    const player = (domPlayer ?? this.player) as Partial<MusicPlayer> | null;
 
     let response: ReturnType<MusicPlayer['getPlayerResponse']> | null = null;
     let videoData: ReturnType<MusicPlayer['getVideoData']> | null = null;
     let playerState: number | null = null;
-    let time = 0;
-    let duration = 0;
+    let time: number | null = null;
+    let duration: number | null = null;
 
     try {
       response = player?.getPlayerResponse?.() ?? null;
@@ -147,23 +153,31 @@ export default createRenderer<ObsOverlayRendererState>({
       // Fall back to the 143 play/pause control below.
     }
     try {
-      time = Math.max(0, player?.getCurrentTime?.() || 0);
+      const value = player?.getCurrentTime?.();
+      if (typeof value === 'number' && Number.isFinite(value))
+        time = Math.max(0, value);
     } catch {
       // Fall back to rendered time below.
     }
     try {
-      duration = Math.max(0, player?.getDuration?.() || 0);
+      const value = player?.getDuration?.();
+      if (typeof value === 'number' && Number.isFinite(value))
+        duration = Math.max(0, value);
     } catch {
       // Fall back to rendered duration below.
     }
 
-    const details = response?.videoDetails;
+    const rawVideoId =
+      videoData?.video_id || response?.videoDetails?.videoId || '';
+    const details =
+      response?.videoDetails?.videoId === rawVideoId
+        ? response.videoDetails
+        : undefined;
     const thumbnails = details?.thumbnail?.thumbnails ?? [];
     const domTitle = text('.ui143-player-title');
     const domArtist = text('.ui143-player-artist');
-    const title = details?.title ?? videoData?.title ?? domTitle;
-    const artist = details?.author ?? videoData?.author ?? domArtist;
-    const rawVideoId = details?.videoId ?? videoData?.video_id ?? '';
+    const title = videoData?.title || details?.title || domTitle;
+    const artist = videoData?.author || details?.author || domArtist;
     const artwork =
       httpsArtwork(thumbnails.at(-1)?.url) ||
       artworkFromNativeUi() ||
@@ -171,14 +185,15 @@ export default createRenderer<ObsOverlayRendererState>({
       artworkFromVideoId(rawVideoId);
     const times = uiTimes();
 
-    if (!time) time = times.time;
-    if (!duration) duration = times.duration;
+    if (time === null) time = times.time;
+    if (duration === null) duration = times.duration;
 
     const id = rawVideoId || (title ? `ui:${title}\u0000${artist}` : '');
     const playing =
       playerState === 1 ||
       (playerState == null &&
-        document.querySelector('#ui143-player button[aria-label="Pause"]') !== null);
+        document.querySelector('#ui143-player button[aria-label="Pause"]') !==
+          null);
 
     const state: ObsOverlayState = {
       id,

@@ -1,73 +1,12 @@
 import { currentTime } from '@/features/synced-lyrics/renderer/renderer';
 import { currentLyrics } from '@/features/synced-lyrics/renderer/store';
-import type { LineLyrics } from '@/features/synced-lyrics/types';
 import { createFeature, createRenderer } from '@/utils';
 
 import style from './style.css?inline';
 
 const ROOT_ID = 'ui143-now-playing';
 
-type TimedWord = Readonly<{
-  word: string;
-  timeInMs: number;
-}>;
-
-const wordsForLine = (line: LineLyrics) => {
-  const exact = (line.words ?? []).filter(
-    ({ word, timeInMs }) => word.trim().length > 0 && Number.isFinite(timeInMs),
-  );
-  if (exact.length > 0) return exact.map(({ word }) => word);
-  return line.text.trim().split(/\s+/u).filter(Boolean);
-};
-
-const timedWordsForLine = (line: LineLyrics): TimedWord[] =>
-  (line.words ?? [])
-    .filter(
-      ({ word, timeInMs }) =>
-        word.trim().length > 0 && Number.isFinite(timeInMs),
-    )
-    .map(({ word, timeInMs }) => ({ word, timeInMs }));
-
-const activeWordIndex = (
-  line: LineLyrics,
-  now: number,
-  status: 'previous' | 'current' | 'upcoming',
-) => {
-  const values = wordsForLine(line);
-  if (values.length === 0) return -1;
-  if (status === 'previous') return values.length - 1;
-  if (status !== 'current') return -1;
-
-  const exact = timedWordsForLine(line);
-  if (exact.length > 0) {
-    let active = 0;
-    for (let index = 0; index < exact.length; index++) {
-      if (now < exact[index].timeInMs) break;
-      active = index;
-    }
-    return Math.min(active, values.length - 1);
-  }
-
-  const finiteDuration =
-    Number.isFinite(line.duration) && line.duration > 0
-      ? line.duration
-      : Math.max(1200, values.length * 420);
-  const elapsed = Math.max(0, now - line.timeInMs);
-  const progress = Math.min(0.999_999, elapsed / finiteDuration);
-  const weights = values.map((word) => {
-    const letters = word.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
-    return Math.max(1, letters);
-  });
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  const target = progress * totalWeight;
-
-  let accumulated = 0;
-  for (let index = 0; index < weights.length; index++) {
-    accumulated += weights[index];
-    if (target < accumulated) return index;
-  }
-  return values.length - 1;
-};
+import { activeWordIndex, timedWordsForLine } from './timing';
 
 const renderer = createRenderer<{
   timer: number | null;
@@ -107,12 +46,13 @@ const renderer = createRenderer<{
         this.lastTrackKey = trackKey;
         this.lastCurrentIndex = -1;
         rows.forEach((row, index) => {
-          const words = wordsForLine(lines[index]);
+          const words = timedWordsForLine(lines[index]);
           row.replaceChildren();
+          if (!words.length) row.textContent = lines[index].text || '♪';
           // The base Now Playing feature also tries to scroll the current row.
           // Disable that per-row call so this feature is the only scroll owner.
           row.scrollIntoView = () => undefined;
-          words.forEach((word, wordIndex) => {
+          words.forEach(({ word }, wordIndex) => {
             const span = document.createElement('span');
             span.className = 'ui143-now-playing-word';
             span.dataset.wordIndex = String(wordIndex);
@@ -125,7 +65,7 @@ const renderer = createRenderer<{
       const now = currentTime();
       let currentIndex = -1;
       const statuses = lines.map((line, index) => {
-        if (line.timeInMs >= now) return 'upcoming' as const;
+        if (line.timeInMs > now) return 'upcoming' as const;
         if (now - line.timeInMs >= line.duration) return 'previous' as const;
         currentIndex = index;
         return 'current' as const;

@@ -129,6 +129,7 @@ export type MusicState = Readonly<{
 export const createYouTubeMusicAdapter = (lyricsBridge?: {
   attach: (api: MusicPlayer) => Promise<void>;
   stop: () => void;
+  available?: (videoId: string) => boolean;
 }) => {
   const isRecord = (value: unknown): value is UnknownRecord =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -1030,7 +1031,7 @@ export const createYouTubeMusicAdapter = (lyricsBridge?: {
       ),
       queue,
       queueActive: queueTab()?.getAttribute('aria-selected') === 'true',
-      lyricsAvailable: Boolean(id),
+      lyricsAvailable: Boolean(id) && (lyricsBridge?.available?.(id) ?? true),
       lyricsActive: lyricsActuallyActive(),
     });
   };

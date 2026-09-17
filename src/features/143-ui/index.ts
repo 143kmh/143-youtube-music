@@ -11,7 +11,7 @@ import { startDesktop } from './desktop';
 import { mountDiscordPresenceBridge } from './discord-presence-renderer';
 import { mountInteractions } from './interactions';
 import interactionStyle from './interactions.css?inline';
-import { attachKaraokePlayer, startKaraoke, stopKaraoke } from './karaoke';
+import { attachKaraokePlayer, startKaraoke, stopKaraoke, lyricsAvailableFor } from './karaoke';
 import { mountLibraryPage, type LibraryPageController } from './library-page';
 import {
   installPlaybackContext,
@@ -463,6 +463,7 @@ export default createFeature({
       const baseEngine = createYouTubeMusicAdapter({
         attach: attachKaraokePlayer,
         stop: stopKaraoke,
+        available: lyricsAvailableFor,
       });
       installCatalogPolish(baseEngine);
       const catalogEngine = installBrowseCatalog(baseEngine);

@@ -18,7 +18,7 @@ interface LRC {
 
 const tagRegex = /^\[(?<tag>\w+):\s*(?<value>.+?)\s*\]$/;
 // prettier-ignore
-const timestampRegex = /^\[(?<minutes>\d+):(?<seconds>\d+)\.(?<centiseconds>\d+)\]/m;
+const timestampRegex = /^\[(?<minutes>\d+):(?<seconds>\d{1,2})(?:\.(?<centiseconds>\d+))?\]/;
 
 // Enhanced-LRC can timestamp each word with <mm:ss.xx>. Capture everything
 // until the next word timestamp instead of using \w+, so Cyrillic and other
@@ -39,18 +39,18 @@ export const LRC = {
       line = line.trim();
       if (!line.startsWith('[')) continue;
 
-      const timestamps = [];
+      const timestamps: { time: string; timeInMs: number }[] = [];
       let match: Record<string, string> | undefined;
       while ((match = line.match(timestampRegex)?.groups)) {
         const { minutes, seconds, centiseconds } = match;
-        const milliseconds = match.centiseconds.padEnd(3, '0');
+        const milliseconds = (centiseconds ?? '0').slice(0, 3).padEnd(3, '0');
         const timeInMs =
           ((parseInt(minutes) * 60) * 1000) +
           (parseInt(seconds) * 1000) +
           parseInt(milliseconds);
 
         timestamps.push({
-          time: `${minutes}:${seconds}:${centiseconds}`,
+          time: `${minutes}:${seconds}.${milliseconds}`,
           timeInMs,
         });
 
@@ -61,7 +61,8 @@ export const LRC = {
         const tag = line.match(tagRegex)?.groups;
         if (tag) {
           if (tag.tag === 'offset') {
-            offset = parseInt(tag.value);
+            const value = Number(tag.value);
+            if (Number.isFinite(value)) offset = value;
             continue;
           }
 
@@ -76,7 +77,7 @@ export const LRC = {
       let text = line.trim();
       const words = Array.from(text.matchAll(wordRegex), ({ groups }) => {
         const { minutes, seconds, centiseconds, word } = groups!;
-        const milliseconds = centiseconds.padEnd(3, '0');
+        const milliseconds = centiseconds.slice(0, 3).padEnd(3, '0');
         const timeInMs =
           ((parseInt(minutes) * 60) * 1000) +
           (parseInt(seconds) * 1000) +
@@ -94,7 +95,7 @@ export const LRC = {
           time,
           timeInMs,
           text,
-          words,
+          words: words.map(word => ({ ...word, timeInMs: word.timeInMs + timeInMs - timestamps[0].timeInMs })),
           duration: Infinity,
         });
       }

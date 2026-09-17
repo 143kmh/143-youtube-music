@@ -1,15 +1,9 @@
 import type { LyricProvider, LyricResult, SearchSongInfo } from '../types';
 import type { MusicPlayerAppElement } from '@/types/music-player-app-element';
 
-const headers = {
-  'Accept': 'application/json',
-  'Content-Type': 'application/json',
-};
-
-const client = {
-  clientName: '26',
-  clientVersion: '7.01.05',
-};
+const unwrap = <T>(response: T | { data: T }): T =>
+  response && typeof response === 'object' && 'data' in response
+    ? (response as { data: T }).data : response as T;
 
 export class YTMusic implements LyricProvider {
   public name = 'YTMusic';
@@ -59,13 +53,13 @@ export class YTMusic implements LyricProvider {
         text: it.lyricLine.trim() === '♪' ? '' : it.lyricLine.trim(),
         status: 'upcoming' as const,
       }))
+        .filter(line => Number.isFinite(line.timeInMs) && line.timeInMs >= 0 && Number.isFinite(line.duration) && line.duration > 0)
+        .sort((a, b) => a.timeInMs - b.timeInMs)
       : undefined;
 
     const plain = !synced
       ? syncedLines?.length
         ? syncedLines.map((it) => it.lyricLine).join('\n')
-        : contents?.messageRenderer
-        ? contents?.messageRenderer?.text?.runs?.map((it) => it.text).join('\n')
         : contents?.sectionListRenderer?.contents?.[0]
           ?.musicDescriptionShelfRenderer?.description?.runs?.map((it) =>
             it.text,
@@ -78,7 +72,7 @@ export class YTMusic implements LyricProvider {
 
     if (synced?.length && synced[0].timeInMs > 300) {
       synced.unshift({
-        duration: 0,
+        duration: synced[0].timeInMs,
         text: '',
         time: '00:00.00',
         timeInMs: 0,
@@ -104,33 +98,25 @@ export class YTMusic implements LyricProvider {
       .padStart(2, '0')}.${remaining.toString().padStart(2, '0')}`;
   }
 
-  // RATE LIMITED (2 req per sec)
-  private PROXIED_ENDPOINT = 'https://ytmbrowseproxy.zvz.be/';
-
-  private fetchNext(videoId: string) {
+  private async fetchNext(videoId: string) {
     const app = document.querySelector<MusicPlayerAppElement>('ytmusic-app');
 
-    if (!app) return null;
+    if (!app?.networkManager?.fetch) return null;
 
-    return app.networkManager.fetch<
+    return unwrap(await app.networkManager.fetch<
       NextData,
       {
         videoId: string;
       }
     >('/next?prettyPrint=false', {
       videoId,
-    });
+    }));
   }
 
-  private fetchBrowse(browseId: string) {
-    return fetch(this.PROXIED_ENDPOINT + 'browse?prettyPrint=false', {
-      headers,
-      method: 'POST',
-      body: JSON.stringify({
-        browseId,
-        context: { client },
-      }),
-    }).then((res) => res.json()) as Promise<BrowseData>;
+  private async fetchBrowse(browseId: string): Promise<BrowseData> {
+    const app = document.querySelector<MusicPlayerAppElement>('ytmusic-app');
+    if (!app?.networkManager?.fetch) throw new Error('YouTube Music is not ready');
+    return unwrap(await app.networkManager.fetch<BrowseData, { browseId: string }>('/browse', { browseId }));
   }
 }
 
