@@ -6,6 +6,7 @@ import { Menu, app, nativeImage } from 'electron';
 
 import * as config from '@/config';
 
+import { isDiscordStatusMode } from './discord-presence-options';
 import { DiscordRichPresence } from './discord-rich-presence';
 
 import type {
@@ -26,7 +27,7 @@ const DEFAULT_DISCORD_SETTINGS: DiscordPresenceSettings = {
   showRemainingTime: true,
   clearOnPause: true,
   pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES,
-  playButton: true,
+  statusMode: 'listening-143',
 };
 
 const createSingleImageIco = (png: Buffer, width: number, height: number) => {
@@ -72,12 +73,32 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
 
   for (const channel of channels) ipc.removeHandler(channel);
 
-  const discordSettings = (): DiscordPresenceSettings => ({
-    ...DEFAULT_DISCORD_SETTINGS,
-    ...(config.get('options.discordRichPresence') ?? {}),
-    applicationId: DISCORD_APPLICATION_ID,
-    pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES,
-  });
+  const discordSettings = (): DiscordPresenceSettings => {
+    const stored = (config.get('options.discordRichPresence') ?? {}) as Partial<DiscordPresenceSettings>;
+    return {
+      enabled:
+        typeof stored.enabled === 'boolean'
+          ? stored.enabled
+          : DEFAULT_DISCORD_SETTINGS.enabled,
+      applicationId: DISCORD_APPLICATION_ID,
+      autoReconnect:
+        typeof stored.autoReconnect === 'boolean'
+          ? stored.autoReconnect
+          : DEFAULT_DISCORD_SETTINGS.autoReconnect,
+      showRemainingTime:
+        typeof stored.showRemainingTime === 'boolean'
+          ? stored.showRemainingTime
+          : DEFAULT_DISCORD_SETTINGS.showRemainingTime,
+      clearOnPause:
+        typeof stored.clearOnPause === 'boolean'
+          ? stored.clearOnPause
+          : DEFAULT_DISCORD_SETTINGS.clearOnPause,
+      pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES,
+      statusMode: isDiscordStatusMode(stored.statusMode)
+        ? stored.statusMode
+        : DEFAULT_DISCORD_SETTINGS.statusMode,
+    };
+  };
 
   const applyDiscordSettings = (settings: DiscordPresenceSettings) => {
     try {
@@ -116,7 +137,7 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
       discordShowDuration: discord.showRemainingTime,
       discordClearOnPause: discord.clearOnPause,
       discordPauseTimeoutMinutes: discord.pauseTimeoutMinutes,
-      discordPlayButton: discord.playButton,
+      discordStatusMode: discord.statusMode,
       discordStatus: presence.getStatus(),
       alwaysOnTop: config.get('options.alwaysOnTop'),
       resumeOnStart: config.get('options.resumeOnStart'),
@@ -164,11 +185,8 @@ export const startDesktop = ({ window, ipc }: BackendContext<FeatureConfig>) => 
       Number.isFinite(value)
     ) {
       updateDiscordSettings({ pauseTimeoutMinutes: DISCORD_PAUSE_TIMEOUT_MINUTES });
-    } else if (
-      key === 'discordPlayButton' &&
-      typeof value === 'boolean'
-    ) {
-      updateDiscordSettings({ playButton: value });
+    } else if (key === 'discordStatusMode' && isDiscordStatusMode(value)) {
+      updateDiscordSettings({ statusMode: value });
     } else if (key === 'alwaysOnTop' && typeof value === 'boolean') {
       config.set('options.alwaysOnTop', value);
       window.setAlwaysOnTop(value);

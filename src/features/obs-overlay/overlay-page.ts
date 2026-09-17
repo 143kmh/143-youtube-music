@@ -249,6 +249,12 @@ export const obsOverlayPage = `<!doctype html>
   let artworkAttempt = 'none';
   let lastAccent = '';
   let pausedSince = 0;
+  let lastReceived = 0;
+  let lastEvent = 0;
+  let events = null;
+  let polling = false;
+  let stopped = false;
+  const STALE_MS = 15000;
 
   const formatTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -275,10 +281,10 @@ export const obsOverlayPage = `<!doctype html>
 
   const updateVisibility = () => {
     const track = hasTrack();
-    let visible = track;
+    let visible = track && Date.now() - lastReceived < STALE_MS;
     if (track && state.hideWhenPaused !== false && !state.playing) {
       const since = pausedSince || Date.now();
-      visible = Date.now() - since < PAUSE_HIDE_MS;
+      visible = visible && Date.now() - since < PAUSE_HIDE_MS;
     }
     document.body.classList.toggle('has-track', track);
     document.body.classList.toggle('is-visible', visible);
@@ -342,6 +348,11 @@ export const obsOverlayPage = `<!doctype html>
   };
 
   const render = (next) => {
+    if (!next || typeof next !== 'object' || typeof next.id !== 'string' ||
+        typeof next.title !== 'string' || !Number.isFinite(next.updatedAt)) return;
+    // A slow fallback request must not overwrite a newer live event.
+    if (state && next.updatedAt < state.updatedAt) return;
+    lastReceived = Math.min(Date.now(), next.updatedAt);
     const wasPlaying = Boolean(state && state.playing);
     const previousId = state && state.id ? state.id : '';
     state = next || null;
@@ -371,20 +382,64 @@ export const obsOverlayPage = `<!doctype html>
     renderProgress();
   };
 
-  fetch('/state', { cache: 'no-store' })
-    .then((response) => response.json())
-    .then(render)
-    .catch(() => {});
-
-  const events = new EventSource('/events');
-  events.onmessage = (event) => {
-    try { render(JSON.parse(event.data)); } catch {}
+  const poll = async () => {
+    if (polling || stopped) return;
+    polling = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3000);
+    try {
+      const response = await fetch('/state', { cache: 'no-store', signal: controller.signal });
+      if (!response.ok) throw new Error('State HTTP ' + response.status);
+      const next = await response.json();
+      if (!stopped) render(next);
+    } catch {
+      // The application may be restarting. The watchdog retries automatically.
+    } finally {
+      window.clearTimeout(timeout);
+      polling = false;
+    }
   };
 
-  window.setInterval(() => {
+  const connect = () => {
+    if (stopped) return;
+    if (events) events.close();
+    lastEvent = Date.now();
+    if (typeof EventSource !== 'function') return;
+    try {
+      events = new EventSource('/events');
+      events.onmessage = (event) => {
+        try {
+          const next = JSON.parse(event.data);
+          render(next);
+          lastEvent = Date.now();
+        } catch {}
+      };
+      events.onerror = () => { void poll(); };
+    } catch { events = null; }
+  };
+
+  void poll();
+  connect();
+  const watchdog = window.setInterval(() => {
+    // Also covers an apparently open but silent SSE connection and browsers
+    // without EventSource. Only one bounded fallback request can be in flight.
+    if (Date.now() - lastReceived > 2500) void poll();
+    if (Date.now() - lastEvent > 10000) connect();
+  }, 2000);
+  const progressTimer = window.setInterval(() => {
     renderProgress();
     updateVisibility();
   }, 250);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !stopped) { void poll(); connect(); }
+  });
+  window.addEventListener('online', () => { void poll(); connect(); });
+  window.addEventListener('pagehide', () => {
+    stopped = true;
+    if (events) events.close();
+    window.clearInterval(watchdog);
+    window.clearInterval(progressTimer);
+  });
 })();
 </script>
 </body>

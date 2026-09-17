@@ -1,6 +1,7 @@
 import { ProviderNames } from '../synced-lyrics/providers';
 import { renderer as syncedLyricsRenderer } from '../synced-lyrics/renderer';
 import { setLyricsStore } from '../synced-lyrics/renderer/store';
+export { lyricsAvailableFor } from '../synced-lyrics/renderer/store';
 import syncedLyricsStyle from '../synced-lyrics/style.css?inline';
 
 import type { SyncedLyricsFeatureConfig } from '../synced-lyrics/types';

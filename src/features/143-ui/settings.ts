@@ -567,10 +567,6 @@ export const mountSettings = (ipc: RendererContext<FeatureConfig>['ipc']) => {
         'startWithWindows',
         !settings.startWithWindowsSupported,
       ),
-      actionButton('Advanced settings', () => {
-        dialog.close();
-        void ipc.invoke('143:window', 'advanced');
-      }),
     );
 
     const panels = new Map<SettingsTab, HTMLElement>([

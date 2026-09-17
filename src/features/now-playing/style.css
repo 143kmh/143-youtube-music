@@ -5,7 +5,8 @@
   right: 8px;
   bottom: var(--ui143-player-height);
   left: calc(var(--ui143-sidebar-width) + 8px);
-  z-index: 1040;
+  /* Keep the listening view above the playlist workspace (1070). */
+  z-index: 1080;
   overflow: hidden;
   border-radius: 0 0 9px 9px;
   background:

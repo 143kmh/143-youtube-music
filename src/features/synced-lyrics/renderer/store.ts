@@ -1,149 +1,69 @@
-import { createMemo, runWithOwner } from 'solid-js';
 import { createStore } from 'solid-js/store';
-
 import { getSongInfo } from '@/providers/song-info-front';
-
-import { reactiveOwner } from './reactive-root';
-
-import {
-  type ProviderName,
-  ProviderNames,
-  providerNames,
-  type ProviderState,
-} from '../providers';
+import { type ProviderName, ProviderNames, providerNames, type ProviderState } from '../providers';
 import { providers } from '../providers/renderer';
-
+import { findLyrics, hasLyrics } from '../lyrics-search';
 import type { SongInfo } from '@/providers/song-info';
 
 type LyricsStore = {
+  videoId: string;
   provider: ProviderName;
   current: ProviderState;
   lyrics: Record<ProviderName, ProviderState>;
 };
-
-const initialData = () =>
-  providerNames.reduce(
-    (acc, name) => {
-      acc[name] = { state: 'fetching', data: null, error: null };
-      return acc;
-    },
-    {} as LyricsStore['lyrics'],
-  );
-
+const initialData = () => Object.fromEntries(providerNames.map(name =>
+  [name, { state: 'fetching', data: null, error: null }])) as LyricsStore['lyrics'];
 export const [lyricsStore, setLyricsStore] = createStore<LyricsStore>({
+  videoId: '',
   provider: ProviderNames.LRCLib,
   lyrics: initialData(),
-  get current(): ProviderState {
-    return this.lyrics[this.provider];
-  },
+  get current(): ProviderState { return this.lyrics[this.provider]; },
 });
-
-export const currentLyrics = runWithOwner(reactiveOwner, () =>
-  createMemo(() => lyricsStore.lyrics[ProviderNames.LRCLib]),
-)!;
-
-type VideoId = string;
-type SearchCacheData = Record<ProviderName, ProviderState>;
-interface SearchCache {
-  state: 'loading' | 'done';
-  data: SearchCacheData;
-}
-
-const searchCache = new Map<VideoId, SearchCache>();
-
-const publishCache = (cache: SearchCache) => {
-  setLyricsStore('provider', ProviderNames.LRCLib);
-  setLyricsStore('lyrics', () =>
-    JSON.parse(JSON.stringify(cache.data)) as typeof cache.data,
-  );
+export const currentLyrics = () => lyricsStore.lyrics[lyricsStore.provider];
+export const lyricsAvailableFor = (videoId: string) => Boolean(videoId && lyricsStore.videoId === videoId &&
+  currentLyrics().state === 'done' && hasLyrics(currentLyrics().data));
+const listeners = new Set<() => void>();
+export const subscribeLyrics = (listener: () => void) => {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
 };
 
+type SearchCache = {
+  provider: ProviderName;
+  result: ProviderState;
+  expires: number;
+};
+const searchCache = new Map<string, SearchCache>();
+const publish = (videoId: string, cache: SearchCache) => {
+  if (getSongInfo().videoId !== videoId || searchCache.get(videoId) !== cache) return;
+  setLyricsStore({ videoId, provider: cache.provider, lyrics: {
+    ...initialData(), [cache.provider]: cache.result,
+  } });
+  for (const listener of listeners) listener();
+};
 export const fetchLyrics = (info: SongInfo) => {
+  if (!info.videoId) return;
   const existing = searchCache.get(info.videoId);
-  if (existing) {
-    if (getSongInfo().videoId === info.videoId) publishCache(existing);
+  if (existing && existing.expires > Date.now()) {
+    publish(info.videoId, existing);
     return;
   }
-
   const cache: SearchCache = {
-    state: 'loading',
-    data: initialData(),
+    provider: ProviderNames.LRCLib,
+    result: { state: 'fetching', data: null, error: null },
+    expires: Infinity,
   };
   searchCache.set(info.videoId, cache);
-  if (searchCache.size > 96) {
-    const oldest = searchCache.keys().next().value;
-    if (oldest !== undefined) searchCache.delete(oldest);
-  }
-
-  if (getSongInfo().videoId === info.videoId) publishCache(cache);
-
-  const providerName = ProviderNames.LRCLib;
-  const provider = providers[providerName];
-  const pCache = cache.data[providerName];
-
-  void provider
-    .search(info)
-    .then((res) => {
-      pCache.state = 'done';
-      pCache.data = res;
-      pCache.error = null;
-      cache.state = 'done';
-
-      if (getSongInfo().videoId === info.videoId) {
-        setLyricsStore('provider', ProviderNames.LRCLib);
-        setLyricsStore('lyrics', (old) => ({
-          ...old,
-          [providerName]: {
-            state: 'done',
-            data: res ? { ...res } : null,
-            error: null,
-          },
-        }));
-      }
-    })
-    .catch((error: Error) => {
-      pCache.state = 'error';
-      pCache.error = error;
-      pCache.data = null;
-      cache.state = 'done';
-      console.error(error);
-
-      if (getSongInfo().videoId === info.videoId) {
-        setLyricsStore('provider', ProviderNames.LRCLib);
-        setLyricsStore('lyrics', (old) => ({
-          ...old,
-          [providerName]: { state: 'error', error, data: null },
-        }));
-      }
-    });
+  if (searchCache.size > 96) searchCache.delete(searchCache.keys().next().value!);
+  publish(info.videoId, cache);
+  void findLyrics(info, providers).then(({ provider, result }) => {
+    cache.provider = provider;
+    cache.result = result;
+    cache.expires = Date.now() + (hasLyrics(result.data) ? 30 * 60_000 : 30_000);
+    publish(info.videoId, cache);
+  });
 };
-
 export const retrySearch = (_provider: ProviderName, info: SongInfo) => {
-  const providerName = ProviderNames.LRCLib;
-  setLyricsStore('provider', providerName);
-  setLyricsStore('lyrics', (old) => ({
-    ...old,
-    [providerName]: { state: 'fetching', data: null, error: null },
-  }));
-
-  providers[providerName]
-    .search(info)
-    .then((res) => {
-      setLyricsStore('lyrics', (old) => ({
-        ...old,
-        [providerName]: { state: 'done', data: res, error: null },
-      }));
-    })
-    .catch((error: unknown) => {
-      const normalizedError =
-        error instanceof Error ? error : new Error(String(error));
-      setLyricsStore('lyrics', (old) => ({
-        ...old,
-        [providerName]: {
-          state: 'error',
-          data: null,
-          error: normalizedError,
-        },
-      }));
-    });
+  searchCache.delete(info.videoId);
+  fetchLyrics(info);
 };

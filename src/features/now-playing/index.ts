@@ -6,7 +6,7 @@ import type {
   SearchResultItem,
   YouTubeMusicAdapter,
 } from '@/features/143-ui/youtube-music';
-import { currentLyrics, lyricsStore } from '@/features/synced-lyrics/renderer/store';
+import { currentLyrics, lyricsStore, lyricsAvailableFor, subscribeLyrics } from '@/features/synced-lyrics/renderer/store';
 
 import type { MusicPlayer } from '@/types/music-player';
 import type { QueueElement } from '@/types/queue';
@@ -33,6 +33,7 @@ type NowPlayingState = {
   player: MusicPlayer | null;
   root: HTMLElement | null;
   timer: number | null;
+  lyricsCleanup: (() => void) | null;
   clickHandler: ((event: MouseEvent) => void) | null;
   keyHandler: ((event: KeyboardEvent) => void) | null;
   activeTab: TabId;
@@ -55,6 +56,7 @@ type NowPlayingState = {
   sync: () => void;
   syncTrack: () => void;
   syncLyrics: () => void;
+  syncLyricsAvailability: () => void;
   syncPlaylist: () => void;
   resolveAlbum: () => void;
   renderAlbum: () => void;
@@ -257,6 +259,7 @@ const renderer = createRenderer<NowPlayingState>({
   player: null,
   root: null,
   timer: null,
+  lyricsCleanup: null,
   clickHandler: null,
   keyHandler: null,
   activeTab: 'lyrics',
@@ -382,7 +385,7 @@ const renderer = createRenderer<NowPlayingState>({
       ) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        this.open(this.activeTab);
+        this.open();
         return;
       }
       if (
@@ -401,12 +404,15 @@ const renderer = createRenderer<NowPlayingState>({
     };
     window.addEventListener('keydown', this.keyHandler);
     this.setTab(this.activeTab);
+    this.syncLyricsAvailability();
   },
 
   open(tab) {
     if (!this.root) this.mount();
-    if (!this.player?.getVideoData?.()?.video_id) return;
-    const nextTab = tab ?? this.activeTab;
+    const id = this.player?.getVideoData?.()?.video_id;
+    if (!id || (tab === 'lyrics' && !lyricsAvailableFor(id))) return;
+    let nextTab = tab ?? this.activeTab;
+    if (nextTab === 'lyrics' && !lyricsAvailableFor(id)) nextTab = 'playlist';
     this.root!.hidden = false;
     document.documentElement.classList.add('ui143-now-playing-open');
     this.syncTrack();
@@ -429,7 +435,8 @@ const renderer = createRenderer<NowPlayingState>({
     const requested = this.root.querySelector<HTMLButtonElement>(
       `[data-tab="${tab}"]`,
     );
-    const nextTab: TabId = tab === 'lyrics' && requested?.disabled ? 'playlist' : tab;
+    if (tab === 'lyrics' && (requested?.disabled || !lyricsAvailableFor(this.player?.getVideoData?.()?.video_id ?? ''))) return;
+    const nextTab: TabId = tab;
     this.activeTab = nextTab;
     this.root
       .querySelectorAll<HTMLButtonElement>('[data-tab]')
@@ -450,6 +457,7 @@ const renderer = createRenderer<NowPlayingState>({
   },
 
   sync() {
+    this.syncLyricsAvailability();
     if (!this.player || !this.root || this.root.hidden) return;
     this.syncTrack();
     if (this.activeTab === 'lyrics') this.syncLyrics();
@@ -521,18 +529,25 @@ const renderer = createRenderer<NowPlayingState>({
       this.lyricsKey = '';
       this.activeLyricIndex = -1;
       this.playlistKey = '';
-      const lyricsTab = this.root.querySelector<HTMLButtonElement>(
-        '[data-tab="lyrics"]',
-      );
-      if (lyricsTab) {
-        lyricsTab.disabled = false;
-        lyricsTab.classList.remove('is-disabled');
-      }
+      this.syncLyricsAvailability();
     }
+  },
+
+  syncLyricsAvailability() {
+    const id = this.player?.getVideoData?.()?.video_id ?? '';
+    const available = lyricsAvailableFor(id);
+    const tab = this.root?.querySelector<HTMLButtonElement>('[data-tab="lyrics"]');
+    if (tab) {
+      tab.disabled = !available;
+      tab.classList.toggle('is-disabled', !available);
+      tab.title = available ? 'Lyrics' : lyricsStore.videoId === id && currentLyrics()?.state === 'fetching' ? 'Finding lyrics…' : 'Lyrics unavailable';
+    }
+    if (!available && this.root && !this.root.hidden && this.activeTab === 'lyrics') this.setTab('playlist');
   },
 
   syncLyrics() {
     if (!this.root || this.activeTab !== 'lyrics') return;
+    if (!lyricsAvailableFor(this.player?.getVideoData?.()?.video_id ?? '')) return;
     const pane = this.root.querySelector<HTMLElement>('[data-pane="lyrics"]');
     const lyricsTab = this.root.querySelector<HTMLButtonElement>(
       '[data-tab="lyrics"]',
@@ -549,7 +564,7 @@ const renderer = createRenderer<NowPlayingState>({
     if (lyricsTab) {
       lyricsTab.disabled = unavailable;
       lyricsTab.classList.toggle('is-disabled', unavailable);
-      lyricsTab.title = unavailable ? 'Lyrics unavailable from LRCLib' : 'Lyrics';
+      lyricsTab.title = unavailable ? 'Lyrics unavailable' : 'Lyrics';
     }
 
     if (unavailable) {
@@ -562,14 +577,14 @@ const renderer = createRenderer<NowPlayingState>({
       this.lyricsKey = key;
       this.activeLyricIndex = -1;
       if (!result || result.state === 'fetching') {
-        message(pane, 'Finding lyrics…', 'Checking LRCLib for this track.');
+        message(pane, 'Finding lyrics…', 'Checking available sources for this track.');
         return;
       }
       if (!data) return;
       pane.replaceChildren();
       const provider = document.createElement('div');
       provider.className = 'ui143-now-playing-provider';
-      provider.textContent = 'Lyrics · LRCLib';
+      provider.textContent = `Lyrics · ${lyricsStore.provider === 'YTMusic' ? 'YouTube Music' : lyricsStore.provider}`;
       pane.append(provider);
       const scroll = document.createElement('div');
       scroll.className = 'ui143-now-playing-lyrics';
@@ -987,14 +1002,22 @@ const renderer = createRenderer<NowPlayingState>({
 
   start() {
     this.mount();
+    this.lyricsCleanup?.();
+    this.lyricsCleanup = subscribeLyrics(() => {
+      this.lyricsKey = '';
+      this.syncLyricsAvailability();
+    });
   },
 
   onPlayerApiReady(api) {
     this.player = api;
+    this.syncLyricsAvailability();
     if (this.root && !this.root.hidden) this.sync();
   },
 
   stop() {
+    this.lyricsCleanup?.();
+    this.lyricsCleanup = null;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
     if (this.clickHandler)

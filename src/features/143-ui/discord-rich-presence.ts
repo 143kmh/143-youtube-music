@@ -1,6 +1,9 @@
 import { Client as DiscordClient } from '@xhayper/discord-rpc';
 import { ActivityType, StatusDisplayType } from 'discord-api-types/v10';
 
+import { isDiscordStatusMode } from './discord-presence-options';
+
+import type { DiscordStatusMode } from './discord-presence-options';
 import type { SetActivity } from '@xhayper/discord-rpc/dist/structures/ClientUser';
 
 export type DiscordPresenceSettings = Readonly<{
@@ -10,7 +13,7 @@ export type DiscordPresenceSettings = Readonly<{
   showRemainingTime: boolean;
   clearOnPause: boolean;
   pauseTimeoutMinutes: number;
-  playButton: boolean;
+  statusMode: DiscordStatusMode;
 }>;
 
 export type DiscordPresenceTrack = Readonly<{
@@ -32,6 +35,7 @@ export type DiscordPresenceStatus =
 
 const RETRY_DELAY_MS = 5000;
 const DISCORD_TEXT_LIMIT = 128;
+const PROJECT_URL = 'https://github.com/143kmh/143-youtube-music';
 
 const cleanText = (value: string, fallback: string) => {
   const normalized = value.replaceAll(/\s+/g, ' ').trim() || fallback;
@@ -54,10 +58,34 @@ const normalizeSettings = (
       Number.isFinite(value.pauseTimeoutMinutes) ? value.pauseTimeoutMinutes : 10,
     ),
   ),
-  playButton: Boolean(value.playButton),
+  statusMode: isDiscordStatusMode(value.statusMode)
+    ? value.statusMode
+    : 'listening-143',
 });
 
 const validApplicationId = (value: string) => /^\d{15,22}$/u.test(value);
+
+const activityForTrack = (
+  track: DiscordPresenceTrack,
+  statusMode: DiscordStatusMode,
+): SetActivity => {
+  const activity: SetActivity = {
+    name: statusMode === 'listening-youtube' ? 'YouTube Music' : '143 Music',
+    type: ActivityType.Listening,
+    statusDisplayType:
+      statusMode === 'listening-artist'
+        ? StatusDisplayType.State
+        : StatusDisplayType.Name,
+    details: cleanText(track.title, 'Unknown track'),
+    state: cleanText(track.artist, 'Unknown artist'),
+    largeImageKey: track.artwork || undefined,
+    largeImageUrl: PROJECT_URL,
+    largeImageText: '143 Music',
+    buttons: [{ label: '143 Music', url: PROJECT_URL }],
+  };
+
+  return activity;
+};
 
 export class DiscordRichPresence {
   private rpc: DiscordClient | null = null;
@@ -73,7 +101,7 @@ export class DiscordRichPresence {
     showRemainingTime: true,
     clearOnPause: true,
     pauseTimeoutMinutes: 10,
-    playButton: true,
+    statusMode: 'listening-143',
   };
   private lastTrack: DiscordPresenceTrack | null = null;
   private pauseStartedAt = 0;
@@ -250,22 +278,7 @@ export class DiscordRichPresence {
       this.clearPauseTimer();
     }
 
-    const activity: SetActivity = {
-      type: ActivityType.Listening,
-      statusDisplayType: StatusDisplayType.State,
-      details: cleanText(track.title, 'Unknown track'),
-      state: cleanText(track.artist, 'Unknown artist'),
-      largeImageKey: track.artwork || undefined,
-    };
-
-    if (this.settings.playButton && track.id) {
-      activity.buttons = [
-        {
-          label: 'Play on YouTube Music',
-          url: `https://music.youtube.com/watch?v=${encodeURIComponent(track.id)}`,
-        },
-      ];
-    }
+    const activity = activityForTrack(track, this.settings.statusMode);
 
     if (
       track.playing &&

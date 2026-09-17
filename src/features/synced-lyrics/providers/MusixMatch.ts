@@ -1,9 +1,37 @@
+import { jaroWinkler } from '@skyra/jaro-winkler';
 import * as z from 'zod';
 
 import { LRC } from '../parsers/lrc';
+import { parseRichsync } from '../parsers/richsync';
 import { netFetch } from '../renderer';
 
 import type { LyricProvider, LyricResult, SearchSongInfo } from '../types';
+
+const normalize = (value: string) =>
+  value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s*[-–]\s*topic$/u, '')
+    .replace(/\((?:official\s+)?(?:audio|video|lyrics?)\)/gu, '')
+    .replace(/[\p{P}\p{S}]/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+
+const versions = (value: string) =>
+  [
+    ...normalize(value).matchAll(
+      /\b(live|remix|acoustic|instrumental|karaoke|sped up|slowed|nightcore|radio edit)\b/gu,
+    ),
+  ]
+    .map((match) => match[0])
+    .sort()
+    .join('|');
+
+const splitArtists = (value: string) =>
+  value
+    .split(/\s*(?:&|,|feat\.?|ft\.?)\s*/iu)
+    .map(normalize)
+    .filter(Boolean);
 
 export class MusixMatch implements LyricProvider {
   name = 'MusixMatch';
@@ -36,18 +64,45 @@ export class MusixMatch implements LyricProvider {
     const subtitle = getter('track.subtitles.get')?.subtitle_list?.[0];
 
     // either no track found, or musixmatch's algorithm returned "Coldplay - Paradise" for no reason whatsoever
-    if (!track || track.track_id === 115264642) return null;
+    if (
+      !track ||
+      track.track_id === 115264642 ||
+      track.instrumental === 1 ||
+      !matchesTrack(track, info)
+    )
+      return null;
+
+    if (track.has_richsync === 1 && track.commontrack_id) {
+      try {
+        const richsync = await this.api.query(Endpoint.getRichsync, {
+          commontrack_id: String(track.commontrack_id),
+        });
+        const body = richsync.body.richsync?.richsync_body;
+        if (body) {
+          const lines = parseRichsync(body);
+          if (lines.some((line) => line.words?.length)) {
+            return {
+              title: track.track_name,
+              artists: [track.artist_name],
+              lines,
+            };
+          }
+        }
+      } catch {
+        // RichSync is an optional upgrade. Keep the existing line/plain fallback.
+      }
+    }
 
     return {
       title: track.track_name,
       artists: [track.artist_name],
       lines: subtitle
-        ? LRC.parse(subtitle.subtitle.subtitle_body).lines.map((l) => ({
-            ...l,
+        ? LRC.parse(subtitle.subtitle.subtitle_body).lines.map((line) => ({
+            ...line,
             status: 'upcoming' as const,
           }))
         : undefined,
-      lyrics: lyrics,
+      lyrics,
     };
   }
 }
@@ -57,9 +112,50 @@ export class MusixMatch implements LyricProvider {
 const zBoolean = z.union([z.literal(0), z.literal(1)]);
 const Track = z.object({
   track_id: z.number(),
+  commontrack_id: z.number().optional(),
   track_name: z.string(),
   artist_name: z.string(),
+  album_name: z.string().optional(),
+  track_length: z.number().optional(),
+  has_richsync: zBoolean.optional(),
+  instrumental: zBoolean.optional(),
 });
+
+type TrackData = z.infer<typeof Track>;
+
+const matchesTrack = (track: TrackData, info: SearchSongInfo) => {
+  const titles = [info.title, info.alternativeTitle].filter(
+    (title): title is string => Boolean(title?.trim()),
+  );
+  const titleScore = Math.max(
+    0,
+    ...titles.map((title) =>
+      jaroWinkler(normalize(title), normalize(track.track_name)),
+    ),
+  );
+  const expectedArtists = splitArtists(info.artist);
+  const actualArtists = splitArtists(track.artist_name);
+  const artistScore = Math.max(
+    0,
+    ...actualArtists.flatMap((artist) =>
+      expectedArtists.map((expected) => jaroWinkler(expected, artist)),
+    ),
+  );
+  const versionMatches = titles.some(
+    (title) => versions(title) === versions(track.track_name),
+  );
+  const durationMatches =
+    info.songDuration <= 0 ||
+    typeof track.track_length !== 'number' ||
+    Math.abs(track.track_length - info.songDuration) <= 4;
+
+  return (
+    titleScore >= 0.93 &&
+    artistScore >= 0.9 &&
+    versionMatches &&
+    durationMatches
+  );
+};
 
 const Lyrics = z.object({
   instrumental: zBoolean,
@@ -74,8 +170,13 @@ const Subtitle = z.object({
   subtitle_language: z.string(),
 });
 
+const Richsync = z.object({
+  richsync_body: z.string(),
+});
+
 enum Endpoint {
   getMacroSubtitles = 'macro.subtitles.get',
+  getRichsync = 'track.richsync.get',
   searchTrack = 'track.search',
 }
 
@@ -92,6 +193,9 @@ type Params = {
     namespace: 'lyrics_richsynched';
     subtitle_format: 'lrc';
   };
+  [Endpoint.getRichsync]: {
+    commontrack_id: string;
+  };
   [Endpoint.searchTrack]: {
     q: string;
     f_has_lyrics: 'true' | 'false';
@@ -103,6 +207,9 @@ type Params = {
 const ResponseSchema = {
   [Endpoint.searchTrack]: z.object({
     track_list: z.array(z.object({ track: Track })),
+  }),
+  [Endpoint.getRichsync]: z.object({
+    richsync: Richsync.optional(),
   }),
   [Endpoint.getMacroSubtitles]: z.object({
     macro_calls: z.object({
@@ -133,7 +240,6 @@ const ResponseSchema = {
                 .transform(() => undefined)
                 .or(z.string().transform(() => undefined)),
             )
-
             .optional(),
         }),
       }),
@@ -170,10 +276,11 @@ class MusixMatchAPI {
     return api;
   }
 
-  public async reinit() {
+  public async reinit(force = false) {
     const [{ status }] = await Promise.allSettled([this.initPromise]);
-    if (status === 'rejected') {
+    if (force || status === 'rejected') {
       this.cookie = 'x-mxm-user-id=';
+      this.token = null;
       localStorage.removeItem(this.key);
       this.initPromise = this.init();
       await this.initPromise;
@@ -189,7 +296,11 @@ class MusixMatchAPI {
         ? z.infer<(typeof ResponseSchema)[T]>
         : unknown;
     },
-  >(endpoint: T, params: Params[T]): Promise<R> {
+  >(
+    endpoint: T,
+    params: Params[T],
+    retryUnauthorized = true,
+  ): Promise<R> {
     await this.initPromise;
     if (!this.token) throw new Error('Token not initialized');
 
@@ -224,10 +335,10 @@ class MusixMatchAPI {
       'message' in response && response.message && typeof response.message === 'object' &&
       'header' in response.message && response.message.header && typeof response.message.header === 'object' &&
       'status_code' in response.message.header && typeof response.message.header.status_code === 'number' &&
-      response.message.header.status_code === 401
+      response.message.header.status_code === 401 && retryUnauthorized
     ) {
-      await this.reinit();
-      return this.query(endpoint, params);
+      await this.reinit(true);
+      return this.query(endpoint, params, false);
     }
 
     const parsed = z
@@ -272,7 +383,10 @@ class MusixMatchAPI {
 
     localStorage.setItem(
       this.key,
-      JSON.stringify({ token: this.token, expires: Date.now() + (60 * 1000) }),
+      JSON.stringify({
+        token: this.token,
+        expires: Date.now() + 6 * 60 * 60 * 1000,
+      }),
     );
   }
 

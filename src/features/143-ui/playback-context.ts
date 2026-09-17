@@ -242,6 +242,7 @@ export const installPlaybackContext = (
       },
       duration: 0,
       time: 0,
+      lyricsAvailable: false,
     };
     ownNative();
     api()?.clearQueue?.();
