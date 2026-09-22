@@ -196,6 +196,18 @@ test.afterEach(async () => {
   dom.close();
 });
 
+test('ad completion stays on the song and reaches native ad handling', () => {
+  begin();
+  document.querySelector('#movie_player')!.classList.add('ad-showing');
+  controller.onPlayerStateChange(0);
+  ended();
+  expect(loads).toEqual(['a']);
+  expect(nativeEnds).toBe(1);
+  document.querySelector('#movie_player')!.classList.remove('ad-showing');
+  controller.onPlayerStateChange(0);
+  expect(loads).toEqual(['a', 'b']);
+});
+
 for (const trigger of ['manual', 'natural', 'seek'] as const)
   test(`${trigger} uses the same next item and keeps queue open`, () => {
     begin();

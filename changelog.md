@@ -4,6 +4,12 @@ Notable changes to this YouTube Music desktop client are documented here.
 
 The repository originated from `pear-devs/pear-desktop`. History from before the fork-specific cleanup remains available in Git history and in the upstream repository; the original MIT license and copyright notice are retained in [`license`](./license).
 
+## 1.0.7
+
+- Restore keyboard focus when opening the window from the taskbar and handle Space for play/pause without requiring a mouse click. Text fields retain normal space input.
+- Add Ghostery Adblocker with advertising filters, cosmetic rules, local caching and daily background updates. Google sign-in uses its separate unfiltered session.
+- Skip detected advertisements that escape filtering and keep ad completion from advancing the music queue.
+
 ## Unreleased
 
 - Replaced the legacy plugin runtime with the feature-based architecture under `src/features`.

@@ -349,6 +349,9 @@ export const installPlaybackContext = (
     ensureTail();
   });
   const onEnded = (event: Event) => {
+    // Ad media uses the same video element; let the native player finish the
+    // ad transition instead of advancing our music queue.
+    if (api()?.matches('.ad-showing, .ad-interrupting')) return;
     if (!context) return;
     const video =
       api()?.querySelector('video') ?? document.querySelector('video');

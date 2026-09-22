@@ -265,7 +265,7 @@ export const interceptNativeTransitions = (onEnd: () => void) => {
       stateHandler = candidate.onPlayerStateChange;
       progressHandler = candidate.onVideoProgress;
       candidate.onPlayerStateChange = function (state) {
-        if (state === 0) {
+        if (state === 0 && !document.querySelector('#movie_player.ad-showing, #movie_player.ad-interrupting')) {
           onEnd();
           return;
         }

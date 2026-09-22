@@ -107,9 +107,7 @@ if (isAuthWindow) {
   }
 
   if (isYouTubeMusicPage) {
-    // Keep YouTube Music's player responses intact. Rewriting ad metadata here
-    // can prevent free/fresh accounts from initializing media playback at all.
-    // Runtime ad handling lives in Shell Controls and only acts on a real player.
+    // Ghostery registers its own session preload for cosmetic rules/scriptlets.
 
     // YouTube's page ships the legacy custom-elements adapter even though the
     // embedded Chromium already supports custom elements. Keep the existing guard

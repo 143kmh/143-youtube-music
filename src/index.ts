@@ -41,6 +41,7 @@ import { setupSongInfo } from '@/providers/song-info';
 import { setUpTray } from '@/tray';
 import { LoggerPrefix } from '@/utils';
 import { isTesting } from '@/utils/testing';
+import { installGhostery } from '@/features/shell-controls/ghostery';
 
 const WINDOWS_APP_ID = 'com.143aimclub.music';
 
@@ -190,6 +191,11 @@ async function createMainWindow() {
 
   const win = new BrowserWindow(electronWindowSettings);
 
+  // Restoring the native window from the taskbar must also focus its page.
+  win.on('focus', () => {
+    if (!win.webContents.isDestroyed()) win.webContents.focus();
+  });
+
   initTheme(win);
   await loadMainFeatures(win);
 
@@ -276,6 +282,11 @@ async function createMainWindow() {
   });
 
   removeContentSecurityPolicy();
+  const ghostery = await installGhostery(
+    win.webContents.session,
+    path.join(app.getPath('userData'), 'ghostery', 'ads-v1.bin'),
+  );
+  app.once('will-quit', () => ghostery.stopUpdates());
 
   win.webContents.on('will-redirect', (event) => {
     const target = URL.parse(event.url);

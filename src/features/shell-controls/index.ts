@@ -268,6 +268,16 @@ const renderer = createRenderer<{
           '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button',
         )
         ?.click();
+      // A new ad format can escape response filtering. Finish only confirmed
+      // ad media; never seek the song or advance the application's queue.
+      const video = player.querySelector<HTMLVideoElement>('video');
+      if (video && Number.isFinite(video.duration) && video.duration > 0) {
+        try {
+          video.currentTime = video.duration;
+        } catch {
+          // Metadata may arrive before the decoder becomes seekable.
+        }
+      }
       return;
     }
 
@@ -341,7 +351,7 @@ const renderer = createRenderer<{
     const adBadge = document.createElement('div');
     adBadge.id = AD_BADGE_ID;
     adBadge.hidden = true;
-    adBadge.textContent = 'Advertisement · muted';
+    adBadge.textContent = 'Skipping advertisement…';
     document.body.append(adBadge);
     this.adBadge = adBadge;
 
